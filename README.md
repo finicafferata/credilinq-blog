@@ -19,9 +19,9 @@ This project has been fully refactored from a simple agent to a **multi-agent sy
 - **Orchestration**: LangGraph + LangChain
 - **RAG**: FAISS Vector Store with OpenAI or Google Embeddings
 - **API**: FastAPI for deployment on Vercel
-- **Vector Database**: Local FAISS
+- **Vector Database**: Local FAISS 
 
-## 🚀 Setup & Installation
+## 🚀 Setup & Installation 
 
 ### 1. Install Dependencies
 
