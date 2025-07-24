@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { blogApi } from '../lib/api';
 import type { BlogDetail } from '../lib/api';
@@ -77,13 +77,7 @@ export function BlogEditor() {
   const [revisedText, setRevisedText] = useState('');
   const [showRevisionResult, setShowRevisionResult] = useState(false);
 
-  useEffect(() => {
-    if (blogId) {
-      fetchBlog();
-    }
-  }, [blogId]);
-
-  const fetchBlog = async () => {
+  const fetchBlog = useCallback(async () => {
     try {
       setLoading(true);
       const data = await blogApi.get(blogId!);
@@ -95,7 +89,13 @@ export function BlogEditor() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [blogId, navigate]);
+
+  useEffect(() => {
+    if (blogId) {
+      fetchBlog();
+    }
+  }, [blogId, fetchBlog]);
 
   const handleSave = async () => {
     if (!blogId) return;

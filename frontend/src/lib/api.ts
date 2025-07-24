@@ -18,7 +18,7 @@ export interface BlogSummary {
 
 export interface BlogDetail extends BlogSummary {
   content_markdown: string;
-  initial_prompt: any;
+  initial_prompt: unknown;
 }
 
 export interface BlogCreateRequest {
