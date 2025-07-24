@@ -1,9 +1,17 @@
 import axios from 'axios';
 
 const isDev = import.meta.env.DEV;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 
+  (isDev ? 'http://localhost:8000' : 'https://credilinq-agent-production.up.railway.app');
+
+console.log('Frontend connecting to:', apiBaseUrl);
+console.log('Environment variables:', {
+  DEV: isDev,
+  VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL
+});
 
 const api = axios.create({
-  baseURL: isDev ? 'http://localhost:8000' : 'https://credilinq-agent-production.up.railway.app',
+  baseURL: apiBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },
