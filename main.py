@@ -14,6 +14,10 @@ import datetime
 
 load_dotenv()
 
+# Debug: verificar que las variables se carguen
+print(f"OpenAI API Key loaded: {'Yes' if os.getenv('OPENAI_API_KEY') else 'No'}")
+print(f"Supabase URL loaded: {'Yes' if os.getenv('SUPABASE_URL') else 'No'}")
+
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "documents")
