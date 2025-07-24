@@ -3,7 +3,7 @@ import axios from 'axios';
 const isDev = import.meta.env.DEV;
 
 const api = axios.create({
-  baseURL: isDev ? 'http://localhost:8000' : '/api',
+  baseURL: isDev ? 'http://localhost:8000' : 'https://credilinq-agent-production.up.railway.app',
   headers: {
     'Content-Type': 'application/json',
   },
