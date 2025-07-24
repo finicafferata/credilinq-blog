@@ -22,10 +22,5 @@
       "dest": "frontend/dist/$1"
     }
   ],
-  "functions": {
-    "main.py": {
-      "runtime": "python3.9"
-    }
-  },
   "outputDirectory": "frontend/dist"
 } 
