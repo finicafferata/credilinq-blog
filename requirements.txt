@@ -1,0 +1,14 @@
+langchain
+langgraph
+langchain_openai
+langchain-google-genai
+fastapi
+uvicorn
+python-dotenv
+langchain_community
+faiss-cpu
+unstructured 
+openai 
+supabase
+psycopg2-binary
+pgvector 

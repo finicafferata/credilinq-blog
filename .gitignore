@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pdb
+*.egg-info/
+.env
+.env.*
+venv/
+ENV/
+*.sqlite3
+
+# VSCode
+.vscode/
+
+# Node.js
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.next/
+frontend/.env
+frontend/.env.*
+
+# MacOS
+.DS_Store
+
+# FAISS index
+faiss_index/
+
+# Logs
+*.log
+
+# Otros
+*.swp
+*.swo 

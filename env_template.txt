@@ -1,0 +1,7 @@
+# Rename this file to .env and fill in your actual API keys
+
+# Google AI API Key (required for Gemini LLM and embeddings)
+GOOGLE_API_KEY="your-google-ai-api-key-here"
+
+# Optional: OpenAI API Key (for backwards compatibility)
+OPENAI_API_KEY="sk-YourSecretKeyGoesHere" 
