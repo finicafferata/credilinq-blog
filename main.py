@@ -36,8 +36,9 @@ api.add_middleware(
     allow_origins=[
         "http://localhost:5173", 
         "http://127.0.0.1:5173",
-        "https://credilinq-blog-git-main-fini-cafferatas-projects.vercel.app",
-        "https://credilinq-blog.vercel.app"
+        "https://credilinq-blog.vercel.app",
+        "https://credilinq-blog-git-main-finicafferatas-projects.vercel.app",
+        "https://*.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
