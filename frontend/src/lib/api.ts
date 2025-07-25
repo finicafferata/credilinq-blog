@@ -1,8 +1,9 @@
 import axios from 'axios';
 
 const isDev = import.meta.env.DEV;
-// Temporalmente hardcodeada hasta configurar VITE_API_BASE_URL en Vercel
-const apiBaseUrl = isDev ? 'http://localhost:8000' : 'https://credilinq-blog-production.up.railway.app:8080';
+// Usar la variable de entorno VITE_API_BASE_URL si está disponible
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 
+  (isDev ? 'http://localhost:8000' : 'https://credilinq-blog-production.up.railway.app');
 
 console.log('Frontend connecting to:', apiBaseUrl);
 console.log('Environment variables:', {
