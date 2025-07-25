@@ -2,6 +2,7 @@ import axios from 'axios';
 
 const isDev = import.meta.env.DEV;
 // Usar la variable de entorno VITE_API_BASE_URL si está disponible
+// Force rebuild - using Railway backend URL
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 
   (isDev ? 'http://localhost:8000' : 'https://credilinq-blog-production.up.railway.app');
 
