@@ -11,4 +11,5 @@ unstructured
 openai 
 supabase
 psycopg2-binary
-pgvector 
+pgvector
+python-multipart 
