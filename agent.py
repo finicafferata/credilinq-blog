@@ -9,11 +9,45 @@ from dotenv import load_dotenv
 import ast
 import psycopg2
 import numpy as np
+import time
+import logging
 
 load_dotenv()
 
 SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def connect_to_supabase_with_retry(max_retries=3, initial_wait=1):
+    """
+    Conecta a Supabase con reintentos automáticos para manejar problemas de red temporales
+    """
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Intento de conexión a Supabase: {attempt + 1}/{max_retries}")
+            conn = psycopg2.connect(
+                SUPABASE_DB_URL,
+                connect_timeout=30,  # Timeout más generoso
+                sslmode='require'    # Forzar SSL
+            )
+            conn.autocommit = True
+            logger.info("✅ Conexión a Supabase exitosa")
+            return conn
+        except psycopg2.OperationalError as e:
+            logger.warning(f"❌ Intento {attempt + 1} falló: {str(e)}")
+            if attempt < max_retries - 1:
+                wait_time = initial_wait * (2 ** attempt)  # Backoff exponencial
+                logger.info(f"⏳ Esperando {wait_time}s antes del siguiente intento...")
+                time.sleep(wait_time)
+            else:
+                logger.error(f"🚨 Todos los intentos de conexión fallaron después de {max_retries} intentos")
+                raise e
+        except Exception as e:
+            logger.error(f"❌ Error inesperado en conexión: {str(e)}")
+            raise e
 
 # --- 1. Expanded State for the Multi-Agent Workflow ---
 class BlogWriterState(TypedDict):
@@ -30,67 +64,79 @@ class BlogWriterState(TypedDict):
 llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7, openai_api_key=OPENAI_API_KEY)
 embeddings_model = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 
-# --- 3. The Agent Team: Node Definitions ---
-def planner_node(state: BlogWriterState):
-    """Creates a detailed outline for the blog post"""
-    print("🎯 --- AGENT: Planner ---")
+# --- 3. Node Functions ---
+
+def fallback_local_research(state: BlogWriterState):
+    """
+    Función fallback que usa archivos locales cuando Supabase no está disponible
+    """
+    logger.info("🔄 Usando investigación local como fallback")
+    research_results = {}
     
-    content_type = state.get('content_type', 'blog').lower()
-    
-    if content_type == 'linkedin':
-        prompt = f"""You are an expert LinkedIn content strategist. Create a detailed outline for a LinkedIn post.
-
-Title: {state['blog_title']}
-Company Context: {state['company_context']}
-Content Type: LinkedIn Post
-
-Create a logical, engaging outline optimized for LinkedIn that will result in a professional, engaging post.
-LinkedIn posts should be:
-- Concise and impactful (800-1200 words max)
-- Include a strong hook in the opening
-- Have clear value propositions
-- Include actionable insights
-- End with a call-to-action or question for engagement
-
-Your output must be a Python list of strings representing section titles.
-
-Example format for LinkedIn: ["Hook & Opening Statement", "Key Insight #1", "Key Insight #2", "Real-world Example", "Call to Action"]
-
-Return ONLY the Python list, nothing else."""
+    # Buscar archivos en knowledge_base
+    knowledge_base_path = "knowledge_base"
+    if os.path.exists(knowledge_base_path):
+        for section in state['outline']:
+            print(f"  🔎 Researching locally: {section}")
+            section_research = []
+            
+            # Leer archivos disponibles
+            for filename in os.listdir(knowledge_base_path):
+                if filename.endswith('.txt'):
+                    try:
+                        file_path = os.path.join(knowledge_base_path, filename)
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            # Buscar contenido relevante (simple keyword matching)
+                            keywords = section.lower().split()
+                            if any(keyword in content.lower() for keyword in keywords):
+                                # Tomar los primeros 500 caracteres como muestra
+                                sample = content[:500] + "..." if len(content) > 500 else content
+                                section_research.append(sample)
+                    except Exception as e:
+                        logger.warning(f"Error leyendo {filename}: {str(e)}")
+                        continue
+            
+            # Combinar investigación para esta sección
+            if section_research:
+                research_results[section] = "\n\n".join(section_research)
+            else:
+                research_results[section] = f"Información general sobre {section} basada en contexto de {state['company_context']}"
     else:
-        prompt = f"""You are an expert content strategist. Create a detailed outline for a comprehensive blog post.
+        logger.warning("❌ Directorio knowledge_base no encontrado")
+        # Fallback final: research mínimo
+        for section in state['outline']:
+            research_results[section] = f"Información general sobre {section} basada en contexto de {state['company_context']}"
+    
+    return {**state, "research": research_results}
 
-Title: {state['blog_title']}
-Company Context: {state['company_context']}
-Content Type: Blog Post
-
-Create a logical, engaging outline that will result in a comprehensive, in-depth blog post.
-Blog posts should be:
-- Detailed and educational (1500-2500 words)
-- Include comprehensive coverage of the topic
-- Have multiple sections with deep insights
-- Include practical implementation details
-- Provide thorough analysis and examples
-
-Your output must be a Python list of strings representing section titles.
-
-Example format for Blog: ["Introduction", "Why X is Important", "How to Implement X", "Best Practices", "Common Pitfalls", "Case Studies", "Conclusion"]
-
-Return ONLY the Python list, nothing else."""
-
-    response = llm.invoke(prompt)
+def outliner_node(state: BlogWriterState):
+    """Creates a detailed outline for the blog post"""
+    print("📝 --- AGENT: Outliner ---")
+    # Create a structured outline prompt based on content type
+    content_format = "LinkedIn post format" if state["content_type"] == "linkedin" else "blog post format"
+    prompt = f"""
+    Create a detailed outline for a {content_format} about: {state['blog_title']}
+    Company context: {state['company_context']}
+    
+    Return ONLY a Python list of section titles, like:
+    ["Introduction", "Main Topic", "Key Benefits", "Conclusion"]
+    
+    For LinkedIn posts, keep sections short and engaging.
+    For blog posts, create more comprehensive sections.
+    """
+    
+    response = llm.invoke([SystemMessage(content=prompt)])
     try:
+        # Parse the outline from the response
         outline = ast.literal_eval(response.content.strip())
-        print(f"📝 Created {content_type} outline with {len(outline)} sections")
-        return {"outline": outline}
+        print(f"📋 Created outline with {len(outline)} sections: {outline}")
+        return {**state, "outline": outline}
     except:
-        # Fallback if parsing fails
-        if content_type == 'linkedin':
-            outline = ["Hook & Opening", "Key Insight", "Value Proposition", "Call to Action"]
-        else:
-            outline = ["Introduction", "Main Content", "Key Benefits", "Implementation", "Conclusion"]
-        print(f"⚠️  Used fallback {content_type} outline due to parsing error")
-        return {"outline": outline}
+        # Fallback outline if parsing fails
+        fallback_outline = ["Introduction", "Main Content", "Conclusion"]
+        print(f"📋 Using fallback outline: {fallback_outline}")
+        return {**state, "outline": fallback_outline}
 
 def researcher_node(state: BlogWriterState):
     """
@@ -99,35 +145,65 @@ def researcher_node(state: BlogWriterState):
     """
     print("🔍 --- AGENT: Researcher (Supabase pgvector) ---")
     research_results = {}
-    conn = psycopg2.connect(SUPABASE_DB_URL)
-    cur = conn.cursor()
-    for section in state['outline']:
-        query = f"Find relevant information for a blog section titled '{section}' on the main topic of '{state['blog_title']}'."
-        print(f"  🔎 Researching: {section}")
-        # Generate embedding for the query
-        query_embedding = embeddings_model.embed_query(query)
-        # Prepare embedding for SQL (as array)
-        embedding_str = '[' + ','.join([str(x) for x in query_embedding]) + ']'
-        # SQL: Find top 3 most similar chunks using cosine distance
-        cur.execute(
-            """
-            SELECT content, (embedding <#> %s::vector) AS distance
-            FROM document_chunks
-            ORDER BY distance ASC
-            LIMIT 3;
-            """,
-            (embedding_str,)
-        )
-        rows = cur.fetchall()
-        if rows:
-            research_content = "\n\n".join([row[0] for row in rows])
-            research_results[section] = research_content
-        else:
-            research_results[section] = f"No specific research found for {section}"
-    cur.close()
-    conn.close()
+    
+    try:
+        # Usar conexión robusta con reintentos
+        conn = connect_to_supabase_with_retry()
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"🚨 No se pudo conectar a Supabase: {str(e)}")
+        print("⚠️ Fallback: Usando conocimiento base local")
+        return fallback_local_research(state)
+    try:
+        for section in state['outline']:
+            query = f"Find relevant information for a blog section titled '{section}' on the main topic of '{state['blog_title']}'."
+            print(f"  🔎 Researching: {section}")
+            
+            try:
+                # Generate embedding for the query
+                query_embedding = embeddings_model.embed_query(query)
+                # Prepare embedding for SQL (as array)
+                embedding_str = '[' + ','.join([str(x) for x in query_embedding]) + ']'
+                
+                # SQL: Find top 3 most similar chunks using cosine distance
+                cur.execute(
+                    """
+                    SELECT content, (embedding <#> %s::vector) AS distance
+                    FROM document_chunks
+                    ORDER BY distance ASC
+                    LIMIT 3;
+                    """,
+                    (embedding_str,)
+                )
+                rows = cur.fetchall()
+                if rows:
+                    research_content = "\n\n".join([row[0] for row in rows])
+                    research_results[section] = research_content
+                    print(f"    📄 Found {len(rows)} relevant chunks")
+                else:
+                    research_results[section] = f"No specific research found for {section}"
+                    print(f"    ⚠️ No research found for {section}")
+            except Exception as e:
+                logger.warning(f"Error investigando sección '{section}': {str(e)}")
+                # Fallback para esta sección específica
+                research_results[section] = f"Información general sobre {section} basada en {state['company_context']}"
+                
+    except Exception as e:
+        logger.error(f"Error durante la investigación: {str(e)}")
+        research_results = {section: f"Error de investigación para {section}" for section in state['outline']}
+    finally:
+        # Cerrar conexión de forma segura
+        try:
+            if 'cur' in locals():
+                cur.close()
+            if 'conn' in locals():
+                conn.close()
+                logger.info("🔒 Conexión cerrada de forma segura")
+        except Exception as e:
+            logger.warning(f"Error cerrando conexión: {str(e)}")
+    
     print(f"📚 Research completed for {len(research_results)} sections")
-    return {"research": research_results}
+    return {**state, "research": research_results}
 
 def writer_node(state: BlogWriterState):
     """Writes the blog post draft using the outline and research"""
