@@ -5,12 +5,6 @@ import { NewBlog } from './pages/NewBlog';
 import { BlogEditor } from './pages/BlogEditor';
 import { KnowledgeBase } from './pages/KnowledgeBase';
 
-// Debug: Verificar variables de entorno
-console.log('🚀 App.tsx loading - Environment check:');
-console.log('DEV:', import.meta.env.DEV);
-console.log('VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
-console.log('All env vars:', import.meta.env);
-
 function App() {
   return (
     <Router>
