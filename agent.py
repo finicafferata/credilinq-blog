@@ -330,12 +330,12 @@ def should_continue(state: BlogWriterState) -> str:
 
 # --- 5. Graph Construction ---
 workflow = StateGraph(BlogWriterState)
-workflow.add_node("planner", planner_node)
+workflow.add_node("outliner", outliner_node)
 workflow.add_node("researcher", researcher_node)
 workflow.add_node("writer", writer_node)
 workflow.add_node("editor", editor_node)
-workflow.set_entry_point("planner")
-workflow.add_edge("planner", "researcher")
+workflow.set_entry_point("outliner")
+workflow.add_edge("outliner", "researcher")
 workflow.add_edge("researcher", "writer")
 workflow.add_edge("writer", "editor")
 workflow.add_conditional_edges(
