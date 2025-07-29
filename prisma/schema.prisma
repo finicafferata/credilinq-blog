@@ -1,0 +1,119 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_DIRECT")
+}
+
+// --- ENUMS ---
+enum PostStatus {
+  draft
+  published
+  archived
+  deleted
+  edited
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  needs_review
+  approved
+  rejected
+  completed
+  error
+}
+
+// --- DATA MODELS ---
+
+model BlogPost {
+  id               String     @id @default(uuid()) @db.Uuid
+  title            String
+  contentMarkdown  String
+  initialPrompt    Json?
+  status           PostStatus @default(draft)
+  geoMetadata      Json?      // GEO optimization package
+  geoOptimized     Boolean    @default(false) // Flag for GEO optimization status
+  geoScore         Int?       // GEO optimization score (0-100)
+  createdAt        DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime   @updatedAt @db.Timestamptz(6)
+  campaign         Campaign?
+  campaignId       String?    @unique @db.Uuid
+}
+
+model Campaign {
+  id               String           @id @default(uuid()) @db.Uuid
+  createdAt        DateTime         @default(now())
+  blogPost         BlogPost?        @relation(fields: [blogPostId], references: [id])
+  blogPostId       String?          @unique @db.Uuid
+  tasks            CampaignTask[]
+  briefing         Briefing?
+  contentStrategy  ContentStrategy?
+}
+
+model Briefing {
+  id                  String   @id @default(uuid()) @db.Uuid
+  campaignName        String
+  marketingObjective  String
+  targetAudience      String
+  channels            Json
+  desiredTone         String
+  language            String
+  companyContext      String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  campaign            Campaign? @relation(fields: [campaignId], references: [id])
+  campaignId          String?  @unique @db.Uuid
+}
+
+model ContentStrategy {
+  id                  String   @id @default(uuid()) @db.Uuid
+  campaignName        String
+  narrativeApproach   String
+  hooks               Json
+  themes              Json
+  toneByChannel       Json
+  keyPhrases          Json
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  campaign            Campaign? @relation(fields: [campaignId], references: [id])
+  campaignId          String?  @unique @db.Uuid
+}
+
+model CampaignTask {
+  id           String     @id @default(uuid()) @db.Uuid
+  campaign     Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId   String     @db.Uuid
+  taskType     String
+  targetFormat String?
+  targetAsset  String?
+  status       String
+  result       String?
+  imageUrl     String?
+  error        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+// --- KNOWLEDGE BASE MODELS (RAG) ---
+
+model Document {
+  id              String          @id @default(uuid()) @db.Uuid
+  title           String
+  storagePath     String
+  uploadedAt      DateTime?       @default(now()) @db.Timestamptz(6)
+  documentChunks  DocumentChunk[]
+}
+
+model DocumentChunk {
+  id          BigInt   @id @default(autoincrement())
+  content     String
+  embedding   String?  // Cambiar temporalmente a String
+  documentId  String?    @db.Uuid
+  document    Document?  @relation(fields: [documentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
