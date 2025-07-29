@@ -1,0 +1,400 @@
+"""
+Planner Agent - Creates structured outlines for content generation.
+"""
+
+from typing import List, Dict, Any, Optional
+import ast
+import re  # Added for robust parsing
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage
+
+from ..core.base_agent import BaseAgent, AgentResult, AgentExecutionContext, AgentMetadata, AgentType
+from ...core.security import SecurityValidator
+
+
+class PlannerAgent(BaseAgent[Dict[str, Any]]):
+    """
+    Agent responsible for creating structured outlines for blog posts and content.
+    """
+    
+    def __init__(self, metadata: Optional[AgentMetadata] = None):
+        if metadata is None:
+            metadata = AgentMetadata(
+                agent_type=AgentType.PLANNER,
+                name="PlannerAgent",
+                description="Creates structured outlines for content generation",
+                capabilities=[
+                    "outline_creation",
+                    "content_structure_planning",
+                    "format_adaptation",
+                    "section_organization"
+                ],
+                version="2.1.0"  # Version bumped to reflect improvements
+            )
+        
+        super().__init__(metadata)
+        self.security_validator = SecurityValidator()
+        self.llm = None
+    
+    def _initialize(self):
+        """Initialize the LLM and other resources."""
+        try:
+            from ...config.settings import get_settings
+            settings = get_settings()
+            
+            self.llm = ChatOpenAI(
+                model="gpt-3.5-turbo",
+                temperature=0.7,
+                openai_api_key=settings.OPENAI_API_KEY
+            )
+            self.logger.info("PlannerAgent initialized successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize PlannerAgent: {str(e)}")
+            raise
+    
+    def _validate_input(self, input_data: Dict[str, Any]) -> None:
+        """Validate input data for planning."""
+        super()._validate_input(input_data)
+        
+        required_fields = ["blog_title", "company_context", "content_type"]
+        for field in required_fields:
+            if field not in input_data:
+                raise ValueError(f"Missing required field: {field}")
+        
+        # Security validation
+        for field in required_fields:
+            self.security_validator.validate_input(str(input_data[field]))
+    
+    def execute(
+        self, 
+        input_data: Dict[str, Any], 
+        context: Optional[AgentExecutionContext] = None,
+        **kwargs
+    ) -> AgentResult:
+        """
+        Create a structured outline for the given content.
+        
+        Args:
+            input_data: Dictionary containing:
+                - blog_title: Title of the content
+                - company_context: Company/brand context
+                - content_type: Type of content (blog, linkedin, etc.)
+            context: Execution context
+            
+        Returns:
+            AgentResult: Result containing the outline
+        """
+        try:
+            # Initialize if not already done
+            if self.llm is None:
+                self._initialize()
+            
+            blog_title = input_data["blog_title"]
+            company_context = input_data["company_context"]
+            content_type = input_data.get("content_type", "blog").lower()
+            
+            # Storing content_type for the estimator method
+            self._current_content_type = content_type
+            
+            self.logger.info(f"Creating outline for: {blog_title} (type: {content_type})")
+            
+            # Create content-type specific outline
+            outline = self._create_outline(blog_title, company_context, content_type)
+            
+            result_data = {
+                "outline": outline,
+                "content_type": content_type,
+                "outline_length": len(outline),
+                "outline_structure": self._analyze_outline_structure(outline)
+            }
+            
+            return AgentResult(
+                success=True,
+                data=result_data,
+                metadata={
+                    "agent_type": "planner",
+                    "outline_sections": len(outline),
+                    "content_format": content_type
+                }
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Failed to create outline: {str(e)}")
+            return AgentResult(
+                success=False,
+                error_message=str(e),
+                error_code="OUTLINE_CREATION_FAILED"
+            )
+    
+    def _create_outline(
+        self, 
+        blog_title: str, 
+        company_context: str, 
+        content_type: str
+    ) -> List[str]:
+        """Create an outline based on content type and requirements."""
+        
+        # Select appropriate prompt based on content type
+        if content_type == "linkedin":
+            prompt = self._create_linkedin_outline_prompt(blog_title, company_context)
+        elif content_type == "article":
+            prompt = self._create_article_outline_prompt(blog_title, company_context)
+        else:  # default to blog
+            prompt = self._create_blog_outline_prompt(blog_title, company_context)
+        
+        try:
+            response = self.llm.invoke([SystemMessage(content=prompt)])
+            outline = self._parse_outline_response(response.content.strip())
+            
+            self.logger.info(f"Created outline with {len(outline)} sections")
+            return outline
+            
+        except Exception as e:
+            self.logger.warning(f"LLM outline creation failed: {str(e)}, using fallback")
+            return self._create_fallback_outline(content_type)
+    
+    def _create_blog_outline_prompt(self, title: str, context: str) -> str:
+        """Create prompt for blog post outline."""
+        return f"""
+        Act as an expert Content Strategist and SEO specialist. Your task is to create a detailed and engaging outline for a blog post.
+
+        **Blog Title:** "{title}"
+        **Company Context:** "{context}"
+
+        **Instructions:**
+        - Create 5-8 main sections for in-depth coverage.
+        - The section titles should be descriptive, engaging, and optimized for search engines (SEO-friendly).
+        - Ensure the sections flow logically from a compelling introduction to a strong conclusion with a clear call-to-action that aligns with the company context.
+
+        **Negative Constraints:**
+        - **Do not** use generic, single-word titles like "Introduction", "Body", or "Conclusion". Make them specific, e.g., "Introduction: Why This Topic Matters Now".
+        - **Do not** include placeholders like "[Insert Detail Here]".
+
+        **Output Format:**
+        Return ONLY a Python list of strings inside <outline> tags. Example:
+        <outline>
+        ["Introduction: Unpacking the Challenge", "Section 1: The Core Principles", "Section 2: A Practical Guide", "Conclusion: Your Next Steps"]
+        </outline>
+        """
+    
+    def _create_linkedin_outline_prompt(self, title: str, context: str) -> str:
+        """Create prompt for LinkedIn post outline."""
+        return f"""
+        Act as a social media marketing expert specializing in LinkedIn B2B content. Create a short, punchy outline for a professional post.
+
+        **Topic:** "{title}"
+        **Company Context & Goal:** "{context}"
+
+        **Instructions:**
+        - Create 3-5 concise sections optimized for high engagement on the LinkedIn feed.
+        - Start with an attention-grabbing hook to stop the scroll.
+        - The core sections should provide a key insight or benefit that directly relates to the company context.
+        - End with an engaging question or a clear call-to-action.
+        - Keep section titles focused and punchy.
+
+        **Negative Constraints:**
+        - **Avoid** overly formal or academic language.
+        - **Do not** make it longer than 5 sections.
+
+        **Output Format:**
+        Return ONLY a Python list of strings inside <outline> tags. Example:
+        <outline>
+        ["The Surprising Truth About [Topic]", "Key Insight: Why X is Y", "How Our Solution Addresses This", "What are your thoughts?"]
+        </outline>
+        """
+    
+    def _create_article_outline_prompt(self, title: str, context: str) -> str:
+        """Create prompt for article outline."""
+        return f"""
+        Act as a subject-matter expert and technical writer. Create a comprehensive, well-structured outline for an informative article.
+
+        **Article Topic:** "{title}"
+        **Company's Perspective/Context:** "{context}"
+
+        **Instructions:**
+        - Create 6-10 detailed sections for comprehensive, analytical coverage.
+        - Structure should include background/context, deep analysis, practical implications, and a forward-looking conclusion.
+        - Section titles must be informative and reflect the content's depth. Ensure the outline directly incorporates the company's perspective.
+
+        **Negative Constraints:**
+        - **Do not** use generic section titles like "Introduction", "Analysis", or "Conclusion". Be specific, e.g., "Analyzing the Market Shift" instead of "Analysis".
+        - **Avoid** placeholders or vague concepts. Every section title should promise concrete information.
+
+        **Output Format:**
+        Return ONLY a Python list of strings inside <outline> tags. Example:
+        <outline>
+        ["Abstract and Key Takeaways", "1. Historical Context of [Topic]", "2. In-Depth Analysis of Current Trends", "3. Case Study: Applying [Company's Perspective]", "4. Future Outlook and Recommendations"]
+        </outline>
+        """
+    
+    def _parse_outline_response(self, response: str) -> List[str]:
+        """Parse the LLM response to extract the outline."""
+        try:
+            # V2 Parsing: First, try to find content within <outline> tags for robustness
+            match = re.search(r"<outline>(.*?)</outline>", response, re.DOTALL)
+            if match:
+                # If tags are found, use the content within them
+                content_to_parse = match.group(1).strip()
+            else:
+                # If no tags, use the whole response (for backward compatibility or model error)
+                content_to_parse = response
+
+            # Try to parse as Python list
+            outline = ast.literal_eval(content_to_parse)
+            if isinstance(outline, list) and all(isinstance(item, str) for item in outline):
+                return outline
+        except (ValueError, SyntaxError, AttributeError):
+            # If ast.literal_eval fails, proceed to fallback
+            self.logger.warning("Failed to parse response as a Python list, falling back to line-by-line parsing.")
+            pass
+        
+        # Fallback: parse line by line from the original response
+        lines = response.strip().split('\n')
+        outline = []
+        
+        for line in lines:
+            line = line.strip()
+            # Ignore common non-outline lines
+            if line and not line.lower().startswith(('<outline>', '</outline>', '`', 'python')):
+                # Remove list markers and quotes, then clean up
+                line = re.sub(r'^[\[\s\-*•"\']+|[\]\s,"\']+ what do you think?', '', line).strip()
+                if line:
+                    outline.append(line)
+        
+        return outline if outline else self._create_fallback_outline("blog")
+    
+    def _create_fallback_outline(self, content_type: str) -> List[str]:
+        """Create a fallback outline when LLM fails."""
+        self.logger.info(f"Using fallback outline for content type: {content_type}")
+        if content_type == "linkedin":
+            return [
+                "Attention-Grabbing Hook",
+                "Key Insight or Problem",
+                "Solution or Benefits",
+                "Call to Action"
+            ]
+        elif content_type == "article":
+            return [
+                "Introduction",
+                "Background and Context",
+                "Current Situation Analysis",
+                "Key Findings",
+                "Implications",
+                "Recommendations",
+                "Conclusion"
+            ]
+        else:  # blog
+            return [
+                "Introduction: Setting the Stage",
+                "Understanding the Core Problem",
+                "A New Solution on the Horizon",
+                "Key Benefits for Your Business",
+                "Step-by-Step Implementation Guide",
+                "Best Practices to Maximize Results",
+                "Conclusion: The Future is Now"
+            ]
+    
+    def _analyze_outline_structure(self, outline: List[str]) -> Dict[str, Any]:
+        """Analyze the structure of the created outline."""
+        structure = {
+            "total_sections": len(outline),
+            "has_introduction": any("intro" in section.lower() for section in outline),
+            "has_conclusion": any("conclu" in section.lower() or "action" in section.lower() or "takeaway" in section.lower() for section in outline),
+            "section_types": self._categorize_sections(outline),
+            "estimated_length": self._estimate_content_length(outline)
+        }
+        
+        return structure
+    
+    def _categorize_sections(self, outline: List[str]) -> Dict[str, int]:
+        """Categorize sections by type."""
+        categories = {
+            "introductory": 0,
+            "content": 0,
+            "conclusive": 0
+        }
+        
+        intro_keywords = ["intro", "hook", "opening", "overview", "unpac", "setting the stage"]
+        conclusion_keywords = ["conclu", "summary", "action", "takeaway", "final", "next step", "outlook"]
+        
+        # Assume first section is intro and last is conclusion if not otherwise specified
+        if len(outline) > 1:
+            if any(keyword in outline[0].lower() for keyword in intro_keywords):
+                categories["introductory"] += 1
+            else: # Fallback categorization
+                 categories["introductory"] += 1
+
+            if any(keyword in outline[-1].lower() for keyword in conclusion_keywords):
+                categories["conclusive"] += 1
+            else: # Fallback categorization
+                categories["conclusive"] += 1
+
+            # Categorize the middle sections
+            content_sections = outline[1:-1]
+            for section in content_sections:
+                section_lower = section.lower()
+                if any(keyword in section_lower for keyword in conclusion_keywords):
+                     categories["conclusive"] += 1
+                else:
+                    categories["content"] += 1
+            # Add the non-keyword first and last sections to content if they dont match
+            if not any(keyword in outline[0].lower() for keyword in intro_keywords):
+                categories["content"] += 1
+            if not any(keyword in outline[-1].lower() for keyword in conclusion_keywords):
+                categories["content"] +=1
+        elif outline: # If only one section
+             categories["content"] += 1
+
+
+        return categories
+    
+    def _estimate_content_length(self, outline: List[str]) -> Dict[str, Any]:
+        """Estimate content length based on outline."""
+        base_words_per_section = {
+            "blog": 250,
+            "linkedin": 50,
+            "article": 350
+        }
+        
+        content_type = getattr(self, '_current_content_type', 'blog')
+        words_per_section = base_words_per_section.get(content_type, 250)
+        
+        estimated_words = len(outline) * words_per_section
+        estimated_reading_time = max(1, estimated_words // 200)  # 200 words per minute
+        
+        return {
+            "estimated_words": estimated_words,
+            "estimated_reading_time_minutes": estimated_reading_time,
+            "sections": len(outline)
+        }
+    
+    def create_custom_outline(
+        self,
+        topic: str,
+        target_sections: int,
+        content_focus: str,
+        context: Optional[AgentExecutionContext] = None
+    ) -> AgentResult:
+        """
+        Create a custom outline with specific requirements.
+        
+        Args:
+            topic: Topic for the outline
+            target_sections: Desired number of sections
+            content_focus: Focus area (technical, marketing, educational, etc.)
+            context: Execution context
+            
+        Returns:
+            AgentResult: Custom outline result
+        """
+        # This custom function can be enhanced with its own specific prompt logic
+        # For now, it leverages the existing execute flow.
+        self.logger.info(f"Creating custom outline for '{topic}' with focus on {content_focus}.")
+        
+        input_data = {
+            "blog_title": topic,
+            "company_context": f"Create a piece of content with a strong focus on '{content_focus}'. The target number of sections is {target_sections}.",
+            "content_type": "article",  # Defaulting to 'article' for custom detailed outlines
+        }
+        
+        return self.execute(input_data, context)

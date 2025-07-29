@@ -1,234 +1,220 @@
-# 🎨 Credilinq Content Agent - Frontend
+# 🎨 CrediLinQ Content Agent - Frontend
 
-Una aplicación React moderna y profesional para gestionar blogs generados por IA con un sistema multi-agente.
+A modern and professional React application for managing AI-generated blogs with a multi-agent system.
 
-## 🏗️ Arquitectura del Frontend
+## 🏗️ Frontend Architecture
 
-### **Stack Tecnológico**
-- ⚛️ **React 18** con TypeScript
-- ⚡ **Vite** como build tool (ultra-rápido)
-- 🎨 **Tailwind CSS** para styling moderno
-- 🛣️ **React Router DOM** para navegación
-- 📡 **Axios** para comunicación con API
-- 🎯 **Responsive Design** para móvil/desktop
+### **Technology Stack**
+- ⚛️ **React 18** with TypeScript
+- ⚡ **Vite** as build tool (ultra-fast)
+- 🎨 **Tailwind CSS** for modern styling
+- 🛣️ **React Router DOM** for navigation
+- 📡 **Axios** for API communication
+- 🎯 **Responsive Design** for mobile/desktop
 
-### **Estructura del Proyecto**
+### **Project Structure**
 ```
 frontend/
 ├── src/
-│   ├── components/         # Componentes reutilizables
-│   │   └── Header.tsx     # Navegación principal
-│   ├── pages/             # Páginas principales
-│   │   ├── Dashboard.tsx  # Lista de blogs
-│   │   ├── NewBlog.tsx    # Creación de blogs
-│   │   ├── BlogEditor.tsx # Editor con IA
-│   │   └── KnowledgeBase.tsx # Gestión RAG
+│   ├── components/         # Reusable components
+│   │   └── Header.tsx      # Main navigation
+│   ├── pages/              # Main pages
+│   │   ├── Dashboard.tsx   # Blog list
+│   │   ├── NewBlog.tsx     # Blog creation
+│   │   ├── BlogEditor.tsx  # AI-powered editor
+│   │   └── KnowledgeBase.tsx # RAG management
 │   ├── lib/
-│   │   └── api.ts         # Cliente API
-│   ├── App.tsx            # Router principal
-│   └── index.css          # Estilos globales
+│   │   └── api.ts          # API client
+│   ├── App.tsx             # Main router
+│   └── index.css           # Global styles
 ├── package.json
 ├── vite.config.ts
-├── tailwind.config.cjs
-└── postcss.config.cjs
+└── tailwind.config.cjs
 ```
 
----
-
-## 🖥️ Páginas y Funcionalidades
+## 🖥️ Pages and Functionality
 
 ### **1. Dashboard (`/`)**
-- **📋 Lista de blogs** con cards visuales
-- **🏷️ Estados**: draft, edited, published
-- **📅 Fechas** de creación formateadas
-- **⚡ Acciones**: Edit, Delete por blog
-- **➕ Creación rápida** con botón prominente
+- 📋 **Blog List**: Complete overview of all generated blogs
+- 🔍 **Search & Filter**: Find blogs by title or status
+- 📊 **Status Indicators**: draft, published, edited
+- ⚡ **Quick Actions**: Edit, delete, publish
 
-### **2. Creación de Blogs (`/new`)**
-- **📝 Formulario intuitivo** con:
-  - Campo de título del blog
-  - Área de contexto empresarial (pre-llenado con Credilinq.ai)
-- **🤖 Explicación del proceso** con los 4 agentes
-- **⏱️ Estados de carga** durante generación
-- **🔄 Redirección automática** al editor tras creación
+### **2. Blog Creation (`/new`)**
+- 📝 **Simple Form**: Title, company context, content type
+- 🤖 **AI Generation**: Multi-agent workflow in real-time
+- ⏱️ **Progress Indicator**: Visual feedback during generation
+- 📖 **Instant Preview**: See result immediately
 
-### **3. Editor de Blogs (`/edit/:blogId`)**
-- **📝 Editor de markdown** completo (textarea avanzado)
-- **✨ Asistente de revisión con IA**:
-  - Selecciona texto → aparece botón "Revise Selected Text"
-  - Modal con campo de instrucción ("Make this more concise")
-  - Preview de cambios lado a lado (original vs. revisado)
-  - Botones "Accept" / "Reject" para aplicar cambios
-- **💾 Guardado** manual y automático
-- **🔙 Navegación** de regreso al dashboard
+### **3. Blog Editor (`/edit/:id`)**
+- ✏️ **Manual Editing**: Direct markdown editing
+- 🔄 **AI Revision**: Intelligent content improvement
+- 👁️ **Live Preview**: See changes in real-time
+- 💾 **Auto-save**: Prevent content loss
 
 ### **4. Knowledge Base (`/knowledge-base`)**
-- **📁 Drag & Drop** para subir documentos
-- **📊 Progreso visual** de procesamiento
-- **✅ Estados**: uploading, success, error
-- **📋 Guía de mejores prácticas**
-- **❓ Explicación del RAG** paso a paso
+- 📤 **Document Upload**: PDF, TXT, DOCX support
+- 🔍 **Vector Search**: RAG-powered content discovery
+- 📚 **Document Management**: Organize knowledge resources
+- 🧠 **AI Context**: Enhance blog generation with custom data
 
----
+### **5. Campaign View (`/campaign/:id`)**
+- 📋 **Task Overview**: Content repurposing tasks
+- 🎯 **Multi-format**: LinkedIn, Twitter, Instagram adaptations
+- 🖼️ **Image Generation**: AI-powered visual content
+- 📈 **Progress Tracking**: Task status and completion
 
-## 🎨 Sistema de Diseño
+## 🎨 Design System
 
-### **Colores (Credilinq.ai Theme)**
+### **Color Palette**
 ```css
-Primary: #2563eb (blue-600)
-Secondary: #f3f4f6 (gray-100)
-Success: #10b981 (green-500)
-Warning: #f59e0b (amber-500)
-Error: #ef4444 (red-500)
+/* Primary Colors */
+--primary-blue: #2563eb
+--primary-green: #059669
+--primary-gray: #374151
+
+/* Status Colors */
+--status-draft: #f59e0b
+--status-published: #10b981
+--status-error: #ef4444
 ```
 
-### **Componentes CSS Personalizados**
-- **`.btn-primary`**: Botones de acción principales
-- **`.btn-secondary`**: Botones secundarios
-- **`.card`**: Contenedores con sombra y border
-- **`.input`**: Campos de entrada estilizados
-- **`.textarea`**: Áreas de texto expandidas
+### **Typography**
+- **Headings**: Inter font, clean and modern
+- **Body**: System fonts for optimal readability
+- **Code**: Monospace for technical content
 
-### **Features UX/UI**
-- **🎯 Hover effects** en botones y cards
-- **⚡ Loading states** con spinners animados
-- **📱 Responsive design** para móviles
-- **🎨 Iconografía SVG** moderna
-- **⌨️ Focus states** para accesibilidad
+### **Components**
+- 🔘 **Buttons**: Primary, secondary, danger variants
+- 📄 **Cards**: Consistent shadows and spacing
+- 🚨 **Alerts**: Success, warning, error states
+- 📊 **Loading**: Elegant spinners and skeletons
 
----
+## 🔗 Backend Integration
 
-## 🔗 Integración con Backend
-
-### **Configuración de API**
+### **API Configuration**
 ```typescript
-// src/lib/api.ts
-const api = axios.create({
-  baseURL: isDev ? 'http://localhost:8000' : '/api',
-});
+// lib/api.ts
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+
+export const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 120000, // 2 minutes for AI operations
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
 ```
 
-### **Endpoints Consumidos**
-- **POST `/blogs`** → Crear nuevo blog
-- **GET `/blogs`** → Listar todos los blogs  
-- **GET `/blogs/:id`** → Obtener blog específico
-- **PUT `/blogs/:id`** → Actualizar contenido
-- **POST `/blogs/:id/revise`** → Revisión con IA
-- **POST `/documents/upload`** → Subir documentos RAG
+### **Main Endpoints**
+- **GET `/api/blogs`** → List all blogs  
+- **POST `/api/blogs`** → Generate new blog with AI
+- **GET `/api/blogs/:id`** → Get specific blog
+- **PUT `/api/blogs/:id`** → Update blog content
+- **DELETE `/api/blogs/:id`** → Soft delete blog
+- **POST `/api/blogs/:id/publish`** → Publish blog
 
-### **Proxy de Desarrollo**
+### **Real-time Features**
+- ⏱️ **Progress Updates**: WebSocket-like experience with polling
+- 🔄 **Auto-refresh**: Keep data synchronized
+- 📡 **Error Handling**: Robust retry mechanisms
+
+## 🚀 Development Commands
+
+### **Basic Commands**
+```bash
+npm run dev         # Development server → http://localhost:5173
+npm install         # Install dependencies
+```
+
+### **Build Commands**
+```bash
+npm run build       # Production build
+npm run preview     # Preview build
+npm run lint        # ESLint linting
+```
+
+### **Deployment**
+```bash
+npm run vercel-build  # Vercel-specific build script
+```
+
+## 🔧 Advanced Configuration
+
+### **Environment Variables**
+```bash
+# In Vercel, configure:
+VITE_API_BASE_URL=/api    # For production
+```
+
+### **Vite Configuration**
 ```typescript
 // vite.config.ts
-proxy: {
-  '/api': {
-    target: 'http://localhost:8000',
-    changeOrigin: true,
-    rewrite: (path) => path.replace(/^\/api/, ''),
-  },
-}
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': 'http://localhost:8000'  # Development proxy
+    }
+  }
+})
 ```
 
----
-
-## 🚀 Comandos de Desarrollo
-
-### **Desarrollo Local**
-```bash
-cd frontend
-npm run dev         # Servidor desarrollo → http://localhost:5173
-```
-
-### **Build y Deploy**
-```bash
-npm run build       # Build para producción
-npm run preview     # Preview del build
-npm run lint        # Linting con ESLint
-```
-
-### **Vercel Deploy**
-```bash
-npm run vercel-build  # Script específico para Vercel
-```
-
----
-
-## 🔧 Configuración Avanzada
-
-### **Variables de Entorno**
-```env
-# En Vercel, configurar:
-VITE_API_BASE_URL=/api    # Para producción
-```
-
-### **Tailwind Config**
+### **Tailwind Setup**
 ```javascript
 // tailwind.config.cjs
 module.exports = {
-  content: ["./src/**/*.{js,ts,jsx,tsx}"],
+  content: ['./src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
-      colors: { primary: {...}, gray: {...} },
-      fontFamily: { sans: ['Inter', 'system-ui'] },
-    },
-  },
+      colors: {
+        primary: '#2563eb'
+      }
+    }
+  }
 }
 ```
 
----
+### **💡 AI-Powered Revision Assistant**
+```typescript
+const handleRevision = async () => {
+  setIsRevising(true)
+  try {
+    const response = await api.post(`/api/blogs/${blogId}/revise`, {
+      content: currentContent,
+      instructions: revisionInstructions
+    })
+    setContent(response.data.revisedContent)
+  } catch (error) {
+    showError('Revision failed')
+  } finally {
+    setIsRevising(false)
+  }
+}
+```
 
-## 🎯 Funcionalidades Clave
+## 🌟 Upcoming Improvements
 
-### **💡 Asistente de Revisión con IA**
-1. Usuario selecciona texto en el editor
-2. Aparece botón flotante "✨ Revise Selected Text"
-3. Modal con campo: "How should I revise this?"
-4. AI procesa y muestra texto original vs. revisado
-5. Usuario acepta o rechaza la sugerencia
+- 🔄 **Real-time Collaboration**: Multiple editors
+- 📊 **Advanced Analytics**: Content performance metrics
+- 🎨 **Theme Customization**: Dark/light mode
+- 📱 **Mobile App**: React Native version
+- 🤖 **Smart Suggestions**: AI-powered writing assistance
+- 🔗 **Social Integration**: Direct publishing to platforms
 
-### **📁 Sistema RAG Visual**
-1. Drag & drop de archivos .txt/.md
-2. Barra de progreso durante procesamiento
-3. Estados visuales: uploading → processing → success
-4. Explicación educativa del proceso RAG
+## 💻 How to Use the Application
 
-### **🎨 Dashboard Intuitivo**
-1. Cards organizadas en grid responsive
-2. Estados con colores (draft=amarillo, edited=azul)
-3. Fechas formateadas legibles
-4. Acciones rápidas por blog
+1. **Start Backend**: `python -m src.main`
+2. **Start Frontend**: `npm run dev`
+3. **Create Blog**: Fill form on `/new`
+4. **Wait for AI**: Multi-agent generation (~30-60s)
+5. **Edit if Needed**: Use `/edit/:id` for adjustments
+6. **Publish**: Click publish when ready
 
----
+### **🔄 AI Revision Workflow**
+1. **Select Content**: Highlight text to revise
+2. **Add Instructions**: Tell AI what to improve
+3. **Review Changes**: Compare before/after
+4. **Accept/Reject**: Keep or discard revisions
 
-## 🌟 Próximas Mejoras
-
-- [ ] **🔍 Búsqueda y filtrado** de blogs
-- [ ] **📊 Analytics** de performance
-- [ ] **🎨 Editor WYSIWYG** avanzado (TipTap/Quill)
-- [ ] **🔄 Auto-save** cada 30 segundos
-- [ ] **👥 Colaboración** multi-usuario
-- [ ] **📱 PWA** para uso offline
-- [ ] **🎯 Plantillas** de blogs predefinidas
-
----
-
-## 💻 Cómo Usar la Aplicación
-
-### **🎬 Flujo Completo**
-1. **Dashboard** → Ver blogs existentes
-2. **"+ Create New Blog"** → Formulario de creación
-3. **AI Generation** → Los 4 agentes trabajan automáticamente
-4. **Editor** → Seleccionar texto + revisar con IA
-5. **Save** → Blog listo para publicación
-
-### **🔄 Flujo de Revisión IA**
-1. Seleccionar texto problemático
-2. Click en "✨ Revise Selected Text"
-3. Escribir instrucción: _"Make this more technical"_
-4. Revisar sugerencia lado a lado
-5. Accept → texto actualizado automáticamente
-
----
-
-**🎉 ¡Tu aplicación Credilinq Content Agent está lista!**
-
-Navega a **http://localhost:5173** para empezar a crear blogs con IA. 
+This frontend provides an intuitive, professional interface for managing AI-generated content with real-time feedback and powerful editing capabilities.

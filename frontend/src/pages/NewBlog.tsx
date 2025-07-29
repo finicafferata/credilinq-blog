@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { blogApi } from '../lib/api';
+import { showErrorNotification, AppError } from '../lib/errors';
+import { Breadcrumbs } from '../components/Breadcrumbs';
+import { KeyboardShortcutsHelp } from '../components/KeyboardShortcutsHelp';
 
 export function NewBlog() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
-    company_context: 'Credilinq.ai is a fintech leader in embedded lending and B2B credit solutions across Southeast Asia. We help businesses access funding through embedded financial products and innovative credit infrastructure.',
+    company_context: 'Credilinq.ai is a global fintech leader in embedded lending and B2B credit solutions, operating across Southeast Asia, Europe, and the United States. We empower businesses to access funding through embedded financial products and cutting-edge credit infrastructure tailored to digital platforms and marketplaces.',
     content_type: 'blog' as 'blog' | 'linkedin',
   });
 
@@ -20,21 +23,23 @@ export function NewBlog() {
       const newBlog = await blogApi.create(formData);
       navigate(`/edit/${newBlog.id}`);
     } catch (error) {
-      console.error('Failed to create blog:', error);
-      alert('Failed to create blog. Please try again.');
+      showErrorNotification(error instanceof AppError ? error : new AppError('Failed to create blog. Please try again.'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Create New Content</h1>
-        <p className="text-gray-600 mt-2">
-          Let our AI agents create professional content for LinkedIn or comprehensive blog posts
-        </p>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        <Breadcrumbs />
+        <div className="max-w-2xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">Create New Content</h1>
+            <p className="text-gray-600 mt-2">
+              Let our AI agents create professional content for LinkedIn or comprehensive blog posts
+            </p>
+          </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="card">
@@ -113,7 +118,7 @@ export function NewBlog() {
         <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/dashboard')}
             className="btn-secondary"
           >
             Cancel
@@ -143,6 +148,9 @@ export function NewBlog() {
           <li>• The Writer Agent crafts content tailored for {formData.content_type === 'linkedin' ? 'professional social media' : 'in-depth blog reading'}</li>
           <li>• The Editor Agent reviews and refines the content for quality and platform optimization</li>
         </ul>
+      </div>
+        </div>
+        <KeyboardShortcutsHelp />
       </div>
     </div>
   );

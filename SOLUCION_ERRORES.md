@@ -15,14 +15,14 @@ Crea un archivo llamado `.env` en la raíz del proyecto con este contenido:
 # Environment Variables - Configura con tus claves reales
 
 # OpenAI API Key (requerida para embeddings y LLM)
-OPENAI_API_KEY="sk-tu-clave-openai-aqui"
+OPENAI_API_KEY="your-openai-api-key-here"
 
 # Google AI API Key (opcional, para Gemini LLM)
-GOOGLE_API_KEY="tu-clave-google-aqui"
+GOOGLE_API_KEY="your-google-api-key-here"
 
 # Supabase Configuration (requerida para funcionalidad RAG)
-SUPABASE_URL="https://tu-project-id.supabase.co"
-SUPABASE_KEY="tu-supabase-anon-key"
+SUPABASE_URL="https://your-project-id.supabase.co"
+SUPABASE_KEY="your-supabase-anon-key-here"
 SUPABASE_DB_URL="postgresql://postgres:tu-password@db.tu-project-id.supabase.co:5432/postgres"
 SUPABASE_STORAGE_BUCKET="documents"
 ```

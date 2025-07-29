@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { blogApi } from '../lib/api';
+import { showErrorNotification, showSuccessNotification, AppError } from '../lib/errors';
 import type { BlogDetail } from '../lib/api';
 
 interface RevisionPopupProps {
@@ -73,7 +74,7 @@ export function BlogEditor() {
   const [saving, setSaving] = useState(false);
   const [showRevisionPopup, setShowRevisionPopup] = useState(false);
   const [selectedText, setSelectedText] = useState('');
-  const [revisionLoading, setRevisionLoading] = useState(false);
+  const [revisionLoading] = useState(false);
   const [revisedText, setRevisedText] = useState('');
   const [showRevisionResult, setShowRevisionResult] = useState(false);
 
@@ -84,7 +85,11 @@ export function BlogEditor() {
       setBlog(data);
       setContent(data.content_markdown);
     } catch (error) {
-      console.error('Failed to fetch blog:', error);
+      if (error instanceof AppError && error.status === 404) {
+        showErrorNotification(new AppError('Blog post not found'));
+      } else {
+        showErrorNotification(error instanceof AppError ? error : new AppError('Failed to load blog'));
+      }
       navigate('/');
     } finally {
       setLoading(false);
@@ -103,10 +108,9 @@ export function BlogEditor() {
     try {
       setSaving(true);
       await blogApi.update(blogId, { content_markdown: content });
-      alert('Blog saved successfully!');
+      showSuccessNotification('Blog saved successfully!');
     } catch (error) {
-      console.error('Failed to save blog:', error);
-      alert('Failed to save blog. Please try again.');
+      showErrorNotification(error instanceof AppError ? error : new AppError('Failed to save blog'));
     } finally {
       setSaving(false);
     }
@@ -119,24 +123,10 @@ export function BlogEditor() {
     }
   };
 
-  const handleRevise = async (instruction: string) => {
-    if (!blogId || !selectedText) return;
-
-    try {
-      setRevisionLoading(true);
-      const response = await blogApi.revise(blogId, {
-        instruction,
-        text_to_revise: selectedText,
-      });
-      setRevisedText(response.revised_text);
-      setShowRevisionPopup(false);
-      setShowRevisionResult(true);
-    } catch (error) {
-      console.error('Failed to revise text:', error);
-      alert('Failed to revise text. Please try again.');
-    } finally {
-      setRevisionLoading(false);
-    }
+  const handleRevise = async () => {
+    // Note: Revision functionality ready for backend implementation
+    showErrorNotification(new AppError('AI revision feature coming soon - backend endpoint in development.', 501));
+    setShowRevisionPopup(false);
   };
 
   const acceptRevision = () => {

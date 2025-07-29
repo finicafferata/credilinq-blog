@@ -1,3 +1,11 @@
+# Environment variables - CRITICAL: Never commit API keys!
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
 # Python
 __pycache__/
 *.py[cod]
@@ -6,11 +14,17 @@ __pycache__/
 *.pyc
 *.pdb
 *.egg-info/
-.env
-.env.*
 venv/
 ENV/
 *.sqlite3
+
+# API Keys and Secrets - SECURITY CRITICAL
+secrets.json
+credentials.json
+service-account.json
+*.key
+*.pem
+*.p12
 
 # VSCode
 .vscode/
