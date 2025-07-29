@@ -10,7 +10,7 @@ import logging
 import asyncio
 
 from .config import settings, db_config
-from .api.routes import blogs, campaigns, analytics, health, documents, api_analytics, content_repurposing, content_preview, competitor_intelligence
+from .api.routes import blogs, campaigns, analytics, health, documents, api_analytics, content_repurposing, content_preview, competitor_intelligence, workflow
 from .core.api_docs import configure_api_docs, custom_openapi_schema
 from .core.versioning import create_versioned_app, VersionCompatibilityMiddleware
 from .core.webhooks import router as webhooks_router, webhook_manager
@@ -169,6 +169,7 @@ app.include_router(api_analytics.router, prefix="/api/v2", tags=["api-analytics-
 app.include_router(content_repurposing.router, prefix="/api/v2/content", tags=["content-repurposing-v2"])
 app.include_router(content_preview.router, prefix="/api/v2/content-preview", tags=["content-preview-v2"])
 app.include_router(competitor_intelligence.router, prefix="/api/v2", tags=["competitor-intelligence-v2"])
+app.include_router(workflow.router, prefix="/api/v2", tags=["workflow-v2"])
 
 # V1 routes (deprecated, for backward compatibility)
 app.include_router(blogs.router, prefix="/api/v1", tags=["blogs-v1"], deprecated=True)
@@ -185,6 +186,7 @@ app.include_router(api_analytics.router, prefix="/api", tags=["api-analytics"])
 app.include_router(content_repurposing.router, prefix="/api/content", tags=["content-repurposing"])
 app.include_router(content_preview.router, prefix="/api/content-preview", tags=["content-preview"])
 app.include_router(competitor_intelligence.router, prefix="/api", tags=["competitor-intelligence"])
+app.include_router(workflow.router, prefix="/api", tags=["workflow"])
 
 # Health and system routes
 app.include_router(health.router, tags=["health"])
