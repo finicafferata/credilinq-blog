@@ -7,6 +7,7 @@ import { EnhancedBlogEditor } from './pages/EnhancedBlogEditor';
 import { KnowledgeBase } from './pages/KnowledgeBase';
 import { CampaignView } from './pages/CampaignView';
 import { Analytics } from './pages/Analytics';
+import WorkflowPage from './pages/WorkflowPage';
 
 function App() {
   return (
@@ -52,6 +53,14 @@ function App() {
             <Header />
             <main className="container mx-auto px-4 py-8">
               <KnowledgeBase />
+            </main>
+          </div>
+        } />
+        <Route path="/workflow" element={
+          <div className="min-h-screen bg-gray-50">
+            <Header />
+            <main className="container mx-auto px-4 py-8">
+              <WorkflowPage />
             </main>
           </div>
         } />

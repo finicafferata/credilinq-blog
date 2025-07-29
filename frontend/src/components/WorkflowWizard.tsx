@@ -57,7 +57,7 @@ const WorkflowWizard: React.FC = () => {
     setError(null);
     
     try {
-      const response = await fetch('/api/workflow/start', {
+      const response = await fetch('http://localhost:8000/api/workflow/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, company_context: context })
@@ -81,7 +81,7 @@ const WorkflowWizard: React.FC = () => {
     setError(null);
     
     try {
-      const response = await fetch(`/api/workflow/${stepId}`, {
+      const response = await fetch(`http://localhost:8000/api/workflow/${stepId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ workflow_id: workflowState.workflow_id })

@@ -50,6 +50,16 @@ export function Header() {
               >
                 Knowledge Base
               </Link>
+              <Link
+                to="/workflow"
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  isActive('/workflow') 
+                    ? 'bg-primary-100 text-primary-700' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                Workflow
+              </Link>
             </nav>
           </div>
         </div>
