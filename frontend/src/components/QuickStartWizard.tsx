@@ -41,7 +41,7 @@ export function QuickStartWizard({ onComplete, onSkip }: QuickStartWizardProps) 
         </svg>
       ),
       actionText: "Create First Blog",
-      actionLink: "/new"
+      actionLink: "/workflow"
     },
     {
       id: 3,
@@ -151,71 +151,6 @@ export function QuickStartWizard({ onComplete, onSkip }: QuickStartWizardProps) 
               {currentStepData.description}
             </p>
           </div>
-
-          {/* Step-specific content */}
-          {currentStep === 0 && (
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">What you'll learn:</h3>
-              <ul className="space-y-2 text-gray-700">
-                <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  How to create AI-powered blog posts
-                </li>
-                <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Managing your content dashboard
-                </li>
-                <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Creating marketing campaigns
-                </li>
-                <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Tracking your success
-                </li>
-              </ul>
-            </div>
-          )}
-
-          {currentStep === 2 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="bg-gray-50 rounded-lg p-4 text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <h4 className="font-semibold text-gray-900">Search & Filter</h4>
-                <p className="text-sm text-gray-600">Find content quickly</p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-4 text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <h4 className="font-semibold text-gray-900">Content Cards</h4>
-                <p className="text-sm text-gray-600">Visual content overview</p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-4 text-center">
-                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <h4 className="font-semibold text-gray-900">Quick Actions</h4>
-                <p className="text-sm text-gray-600">Edit, publish, campaign</p>
-              </div>
-            </div>
-          )}
 
           {/* Action buttons */}
           <div className="flex items-center justify-between">

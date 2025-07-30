@@ -1,240 +1,588 @@
-"""Campaign management endpoints."""
+#!/usr/bin/env python3
+"""
+Campaign API Routes
+Handles campaign creation, management, scheduling, and distribution.
+"""
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from typing import List
-import uuid
-import datetime
+import logging
+import json
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
-from ...config.database import db_config
-from ...core.exceptions import (
-    AgentExecutionError, DatabaseQueryError, RecordNotFoundError,
-    convert_to_http_exception
-)
-from ..models.campaign import (
-    CampaignCreateRequest, CampaignTaskExecuteRequest, 
-    CampaignTaskUpdateRequest, CampaignTaskResponse, CampaignResponse
-)
+from src.agents.specialized.campaign_manager import CampaignManagerAgent
+from src.agents.specialized.task_scheduler import TaskSchedulerAgent
+from src.agents.specialized.distribution_agent import DistributionAgent
+from src.config.database import db_config
 
-router = APIRouter()
+logger = logging.getLogger(__name__)
 
+router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 
-@router.post("/campaigns", response_model=CampaignResponse)
-def create_campaign(request: CampaignCreateRequest):
-    """Create a campaign for a given blog post."""
-    # Check if campaign already exists for this blog_id
-    existing = db_config.supabase.table("campaign").select("*").eq("blog_id", request.blog_id).single().execute()
-    if getattr(existing, 'data', None):
-        # Fetch tasks
-        campaign = existing.data
-        tasks_resp = db_config.supabase.table("campaign_task").select("*").eq("campaign_id", campaign["id"]).execute()
-        tasks = getattr(tasks_resp, 'data', [])
-        return CampaignResponse(
-            id=campaign["id"],
-            blog_id=campaign["blog_id"],
-            created_at=campaign["created_at"],
-            tasks=[CampaignTaskResponse(
-                id=task["id"],
-                task_type=task["task_type"],
-                target_format=task.get("target_format"),
-                target_asset=task.get("target_asset"),
-                status=task["status"],
-                result=task.get("result"),
-                image_url=task.get("image_url"),
-                error=task.get("error"),
-                created_at=task["created_at"],
-                updated_at=task["updated_at"]
-            ) for task in tasks]
-        )
-    
-    # Call CampaignManagerAgent to generate plan
+# Pydantic models
+class CampaignCreateRequest(BaseModel):
+    blog_id: str
+    campaign_name: str
+    company_context: str
+    content_type: str = "blog"
+    template_id: Optional[str] = None
+    template_config: Optional[Dict[str, Any]] = None
+
+class CampaignSummary(BaseModel):
+    id: str
+    name: str
+    status: str
+    progress: float
+    total_tasks: int
+    completed_tasks: int
+    created_at: str
+
+class CampaignDetail(BaseModel):
+    id: str
+    name: str
+    status: str
+    strategy: Dict[str, Any]
+    timeline: List[Dict[str, Any]]
+    tasks: List[Dict[str, Any]]
+    scheduled_posts: List[Dict[str, Any]]
+    performance: Dict[str, Any]
+
+class ScheduledPostRequest(BaseModel):
+    campaign_id: str
+
+class DistributionRequest(BaseModel):
+    campaign_id: str
+
+# Initialize agents
+campaign_manager = CampaignManagerAgent()
+task_scheduler = TaskSchedulerAgent()
+distribution_agent = DistributionAgent()
+
+@router.post("/", response_model=Dict[str, Any])
+async def create_campaign(request: CampaignCreateRequest):
+    """
+    Create a new campaign for a blog post with optional template configuration
+    """
     try:
-        from ...agents.specialized.campaign_manager import CampaignManagerAgent
-        agent = CampaignManagerAgent()
-        plan = agent.execute(request.blog_id)
-    except Exception as e:
-        raise convert_to_http_exception(AgentExecutionError("CampaignManager", "campaign_generation", f"Campaign generation failed: {str(e)}"))
-    
-    # Create campaign
-    campaign_id = str(uuid.uuid4())
-    created_at = datetime.datetime.utcnow().isoformat()
-    campaign_data = {
-        "id": campaign_id,
-        "blog_id": request.blog_id,
-        "created_at": created_at
-    }
-    resp = db_config.supabase.table("campaign").insert(campaign_data).execute()
-    if not resp or getattr(resp, "status_code", 200) >= 400:
-        raise convert_to_http_exception(DatabaseQueryError(f"Failed to create campaign: {resp}"))
-    
-    # Create tasks
-    tasks = []
-    for task in plan:
-        task_id = str(uuid.uuid4())
-        now = datetime.datetime.utcnow().isoformat()
-        task_data = {
-            "id": task_id,
-            "campaign_id": campaign_id,
-            "task_type": task["task_type"],
-            "target_format": task.get("target_format"),
-            "target_asset": task.get("target_asset"),
-            "status": task["status"],
-            "result": task.get("result"),
-            "image_url": task.get("image_url"),
-            "error": None,
-            "created_at": now,
-            "updated_at": now
+        logger.info(f"Creating campaign for blog {request.blog_id} with template {request.template_id}")
+        
+        # Create campaign plan with template support
+        campaign_plan = await campaign_manager.create_campaign_plan(
+            blog_id=request.blog_id,
+            campaign_name=request.campaign_name,
+            company_context=request.company_context,
+            content_type=request.content_type,
+            template_id=request.template_id,
+            template_config=request.template_config
+        )
+        
+        return {
+            "success": True,
+            "campaign_id": campaign_plan["campaign_id"],
+            "message": "Campaign created successfully",
+            "strategy": campaign_plan["strategy"],
+            "timeline": campaign_plan["timeline"],
+            "tasks": len(campaign_plan["tasks"]),
+            "template_id": request.template_id,
+            "auto_execute": request.template_id in ["social-blast", "professional-share", "email-campaign"] if request.template_id else False
         }
-        db_config.supabase.table("campaign_task").insert(task_data).execute()
-        tasks.append(CampaignTaskResponse(
-            id=task_id,
-            task_type=task["task_type"],
-            target_format=task.get("target_format"),
-            target_asset=task.get("target_asset"),
-            status=task["status"],
-            result=task.get("result"),
-            image_url=task.get("image_url"),
-            error=None,
-            created_at=now,
-            updated_at=now
-        ))
-    
-    return CampaignResponse(
-        id=campaign_id,
-        blog_id=request.blog_id,
-        created_at=created_at,
-        tasks=tasks
-    )
+        
+    except Exception as e:
+        logger.error(f"Error creating campaign: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create campaign: {str(e)}")
 
+class QuickCampaignRequest(BaseModel):
+    blog_id: str
+    campaign_name: str
 
-@router.get("/campaigns/{blog_id}", response_model=CampaignResponse)
-def get_campaign(blog_id: str):
-    """Fetch the current state of the campaign plan for a given blog."""
-    # Fetch campaign by blog_id
-    campaign_resp = db_config.supabase.table("campaign").select("*").eq("blog_id", blog_id).single().execute()
-    campaign = getattr(campaign_resp, 'data', None)
-    if not campaign:
-        raise convert_to_http_exception(RecordNotFoundError(f"Campaign not found for blog_id {blog_id}"))
-    
-    # Fetch tasks for this campaign
-    tasks_resp = db_config.supabase.table("campaign_task").select("*").eq("campaign_id", campaign["id"]).execute()
-    tasks = getattr(tasks_resp, 'data', [])
-    
-    # Build response
-    return CampaignResponse(
-        id=campaign["id"],
-        blog_id=campaign["blog_id"],
-        created_at=campaign["created_at"],
-        tasks=[CampaignTaskResponse(
-            id=task["id"],
-            task_type=task["task_type"],
-            target_format=task.get("target_format"),
-            target_asset=task.get("target_asset"),
-            status=task["status"],
-            result=task.get("result"),
-            image_url=task.get("image_url"),
-            error=task.get("error"),
-            created_at=task["created_at"],
-            updated_at=task["updated_at"]
-        ) for task in tasks]
-    )
-
-
-@router.post("/campaigns/tasks/execute", status_code=202)
-def execute_campaign_task(request: CampaignTaskExecuteRequest, background_tasks: BackgroundTasks):
-    """Execute a specific campaign task asynchronously."""
-    # Mark task as In Progress
-    task_resp = db_config.supabase.table("campaign_task").select("*").eq("id", request.task_id).single().execute()
-    task = getattr(task_resp, 'data', None)
-    if not task:
-        raise convert_to_http_exception(RecordNotFoundError(f"Campaign task {request.task_id} not found"))
-    
-    db_config.supabase.table("campaign_task").update({"status": "in_progress"}).eq("id", request.task_id).execute()
-
-    def run_agent_and_update():
+@router.post("/quick/{template_id}", response_model=Dict[str, Any])
+async def create_quick_campaign(template_id: str, request: QuickCampaignRequest):
+    """
+    Create a quick campaign using a predefined template
+    """
+    try:
+        logger.info(f"Creating quick campaign with template {template_id} for blog {request.blog_id}")
+        print(f"DEBUG: Quick campaign endpoint called with template {template_id}")  # Debug print
+        
+        # Define template configurations
+        template_configs = {
+            "social-blast": {
+                "channels": ["linkedin", "twitter", "facebook"],
+                "auto_adapt": True,
+                "schedule_immediately": True
+            },
+            "professional-share": {
+                "channels": ["linkedin"],
+                "format": "professional_article",
+                "auto_adapt": True,
+                "schedule_immediately": True
+            },
+            "email-campaign": {
+                "channels": ["email"],
+                "format": "newsletter",
+                "auto_adapt": True,
+                "schedule_immediately": False
+            }
+        }
+        
+        if template_id not in template_configs:
+            raise HTTPException(status_code=400, detail=f"Unknown template: {template_id}")
+        
+        # Fetch blog info to get company context
+        from src.config.database import db_config
         try:
-            # Fetch campaign and blog context
-            campaign_resp = db_config.supabase.table("campaign").select("*").eq("id", task["campaign_id"]).single().execute()
-            campaign = getattr(campaign_resp, 'data', None)
-            blog_id = campaign["blog_id"] if campaign else None
-            
-            # Import agents
-            from ...agents.specialized.repurpose_agent import ContentRepurposingAgent
-            from ...agents.specialized.image_agent import ImagePromptAgent
-            from ...agents.specialized.content_agent import ContentGenerationAgent
-            
-            # Select agent based on taskType
-            result = None
-            if task["task_type"] == "repurpose":
-                # Fetch original blog content
-                blog_resp = db_config.supabase.table("blog_posts").select("content_markdown").eq("id", blog_id).single().execute()
-                blog = getattr(blog_resp, 'data', None)
-                original_content = blog["content_markdown"] if blog else ""
-                agent = ContentRepurposingAgent()
-                result = agent.execute(original_content, task.get("target_format", ""))
-            elif task["task_type"] == "create_image_prompt":
-                # Fetch blog content for context
-                blog_resp = db_config.supabase.table("blog_posts").select("title, content_markdown").eq("id", blog_id).single().execute()
-                blog = getattr(blog_resp, 'data', None)
-                content_topic = blog["title"] if blog else ""
-                content_body = blog["content_markdown"] if blog else ""
-                agent = ImagePromptAgent()
-                result = agent.execute(content_topic, content_body)
-            elif task["task_type"] == "generate_content":
-                agent = ContentGenerationAgent()
-                result = agent.execute("", "")
-            else:
-                raise Exception(f"Unknown task_type: {task['task_type']}")
+            with db_config.get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT title, "initialPrompt"
+                    FROM "BlogPost" 
+                    WHERE id = %s
+                """, (request.blog_id,))
                 
-            # Update task with result
-            db_config.supabase.table("campaign_task").update({
-                "result": result,
-                "status": "completed",
-                "updated_at": datetime.datetime.utcnow().isoformat(),
-                "error": None
-            }).eq("id", request.task_id).execute()
-            
+                row = cur.fetchone()
+                if not row:
+                    raise HTTPException(status_code=404, detail="Blog post not found")
+                
+                blog_title, initial_prompt = row
+                # Extract company context from initial prompt if available
+                company_context = ""
+                if initial_prompt and isinstance(initial_prompt, dict):
+                    company_context = initial_prompt.get('company_context', '')
         except Exception as e:
-            # Update task with error
-            db_config.supabase.table("campaign_task").update({
-                "status": "failed",
-                "error": str(e),
-                "updated_at": datetime.datetime.utcnow().isoformat()
-            }).eq("id", request.task_id).execute()
+            logger.warning(f"Could not fetch blog context: {str(e)}")
+            company_context = ""
 
-    background_tasks.add_task(run_agent_and_update)
-    return {"message": "Task execution started", "task_id": request.task_id}
-
-
-@router.put("/campaigns/tasks/{task_id}", response_model=CampaignTaskResponse)
-def update_campaign_task(task_id: str, request: CampaignTaskUpdateRequest):
-    """Update the content and status of a campaign task."""
-    # Update task result and status
-    update_data = {
-        "status": request.status,
-        "updated_at": datetime.datetime.utcnow().isoformat()
-    }
-    if request.content is not None:
-        update_data["result"] = request.content
+        # Create campaign plan using the campaign manager
+        campaign_plan = await campaign_manager.create_campaign_plan(
+            blog_id=request.blog_id,
+            campaign_name=request.campaign_name,
+            company_context=company_context,
+            content_type="blog",
+            template_id=template_id,
+            template_config=template_configs[template_id]
+        )
         
-    resp = db_config.supabase.table("campaign_task").update(update_data).eq("id", task_id).execute()
-    if not resp or getattr(resp, "status_code", 200) >= 400:
-        raise convert_to_http_exception(DatabaseQueryError(f"Failed to update campaign task: {resp}"))
-    
-    # Fetch updated task
-    task_resp = db_config.supabase.table("campaign_task").select("*").eq("id", task_id).single().execute()
-    task = getattr(task_resp, 'data', None)
-    if not task:
-        raise convert_to_http_exception(RecordNotFoundError(f"Campaign task {task_id} not found after update"))
+        # Auto-execute for simple templates
+        auto_executed = False
+        if template_configs[template_id].get("schedule_immediately"):
+            try:
+                await task_scheduler.schedule_campaign_tasks(
+                    campaign_plan["campaign_id"], 
+                    campaign_plan["strategy"]
+                )
+                auto_executed = True
+                logger.info(f"Auto-scheduled campaign {campaign_plan['campaign_id']}")
+            except Exception as e:
+                logger.warning(f"Failed to auto-schedule campaign: {str(e)}")
         
-    return CampaignTaskResponse(
-        id=task["id"],
-        task_type=task["task_type"],
-        target_format=task.get("target_format"),
-        target_asset=task.get("target_asset"),
-        status=task["status"],
-        result=task.get("result"),
-        image_url=task.get("image_url"),
-        error=task.get("error"),
-        created_at=task["created_at"],
-        updated_at=task["updated_at"]
-    )
+        return JSONResponse(content={
+            "success": True,
+            "campaign_id": campaign_plan["campaign_id"],
+            "message": f"Quick campaign '{template_id}' created successfully",
+            "template_id": template_id,
+            "auto_executed": auto_executed,
+            "strategy": campaign_plan["strategy"],
+            "tasks": len(campaign_plan["tasks"])
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating quick campaign: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create quick campaign: {str(e)}")
+
+@router.get("/simple-test")
+async def simple_test():
+    """
+    Simple test endpoint
+    """
+    return {"message": "Hello World"}
+
+@router.get("/test/{template_id}", response_model=Dict[str, Any])
+async def test_quick_campaign(template_id: str, blog_id: str = Query(...), campaign_name: str = Query(...)):
+    """
+    Test endpoint for debugging quick campaign creation
+    """
+    try:
+        return {
+            "template_id": template_id,
+            "blog_id": blog_id,
+            "campaign_name": campaign_name,
+            "message": "Test successful"
+        }
+    except Exception as e:
+        logger.error(f"Test error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Test failed: {str(e)}")
+
+@router.get("/", response_model=List[CampaignSummary])
+async def list_campaigns():
+    """
+    List all campaigns
+    """
+    try:
+        with db_config.get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT c.id, c.name, c.status, c.created_at,
+                       COUNT(ct.id) as total_tasks,
+                       COUNT(CASE WHEN ct.status = 'completed' THEN 1 END) as completed_tasks
+                FROM campaign c
+                LEFT JOIN campaign_task ct ON c.id = ct.campaign_id
+                GROUP BY c.id, c.name, c.status, c.created_at
+                ORDER BY c.created_at DESC
+            """)
+            
+            rows = cur.fetchall()
+            campaigns = []
+            
+            for row in rows:
+                campaign_id, name, status, created_at, total_tasks, completed_tasks = row
+                
+                progress = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
+                
+                campaigns.append(CampaignSummary(
+                    id=str(campaign_id),
+                    name=name or "Untitled Campaign",
+                    status=status or "draft",
+                    progress=progress,
+                    total_tasks=total_tasks or 0,
+                    completed_tasks=completed_tasks or 0,
+                    created_at=created_at.isoformat() if created_at else datetime.now().isoformat()
+                ))
+            
+            return campaigns
+            
+    except Exception as e:
+        logger.error(f"Error listing campaigns: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list campaigns: {str(e)}")
+
+@router.get("/{campaign_id}", response_model=CampaignDetail)
+async def get_campaign(campaign_id: str):
+    """
+    Get detailed information about a campaign
+    """
+    try:
+        # Get campaign status
+        campaign_status = await campaign_manager.get_campaign_status(campaign_id)
+        
+        # Get scheduled posts
+        scheduled_posts = await task_scheduler.get_scheduled_posts(campaign_id)
+        
+        # Get performance metrics
+        performance = await distribution_agent.get_campaign_performance(campaign_id)
+        
+        # Get campaign details from database
+        with db_config.get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT name, strategy, created_at
+                FROM campaign
+                WHERE id = %s
+            """, (campaign_id,))
+            
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            
+            name, strategy_json, created_at = row
+            
+            # Handle strategy JSON parsing with error handling
+            if strategy_json:
+                if isinstance(strategy_json, str):
+                    strategy = json.loads(strategy_json)
+                elif isinstance(strategy_json, dict):
+                    strategy = strategy_json  # Already parsed
+                else:
+                    logger.warning(f"Unexpected strategy_json type: {type(strategy_json)}")
+                    strategy = {}
+            else:
+                strategy = {}
+            
+            # Get tasks
+            cur.execute("""
+                SELECT id, task_type, status, content, metadata
+                FROM campaign_task
+                WHERE campaign_id = %s
+                ORDER BY task_type, content
+            """, (campaign_id,))
+            
+            task_rows = cur.fetchall()
+            tasks = []
+            
+            for task_row in task_rows:
+                task_id, task_type, status, content, metadata_json = task_row
+                
+                # Handle metadata JSON parsing with error handling
+                if metadata_json:
+                    if isinstance(metadata_json, str):
+                        metadata = json.loads(metadata_json)
+                    elif isinstance(metadata_json, dict):
+                        metadata = metadata_json  # Already parsed
+                    else:
+                        logger.warning(f"Unexpected metadata_json type: {type(metadata_json)}")
+                        metadata = {}
+                else:
+                    metadata = {}
+                
+                tasks.append({
+                    "id": task_id,
+                    "task_type": task_type,
+                    "status": status,
+                    "content": content,
+                    "metadata": metadata
+                })
+            
+            return CampaignDetail(
+                id=campaign_id,
+                name=name or "Untitled Campaign",
+                status=campaign_status["status"],
+                strategy=strategy,
+                timeline=[],  # TODO: Add timeline from strategy
+                tasks=tasks,
+                scheduled_posts=scheduled_posts,
+                performance=performance
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting campaign: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get campaign: {str(e)}")
+
+@router.post("/{campaign_id}/schedule", response_model=Dict[str, Any])
+async def schedule_campaign(campaign_id: str, request: ScheduledPostRequest):
+    """
+    Schedule all tasks for a campaign
+    """
+    try:
+        logger.info(f"Scheduling campaign {campaign_id}")
+        
+        # Get campaign strategy
+        with db_config.get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT strategy FROM campaign WHERE id = %s
+            """, (campaign_id,))
+            
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            
+            strategy_json = row[0]
+            strategy = json.loads(strategy_json) if strategy_json else {}
+        
+        # Schedule tasks
+        schedule_result = await task_scheduler.schedule_campaign_tasks(campaign_id, strategy)
+        
+        return {
+            "success": True,
+            "message": "Campaign scheduled successfully",
+            "scheduled_posts": schedule_result["scheduled_posts"],
+            "schedule": schedule_result["schedule"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error scheduling campaign: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to schedule campaign: {str(e)}")
+
+@router.post("/{campaign_id}/distribute", response_model=Dict[str, Any])
+async def distribute_campaign(campaign_id: str, request: DistributionRequest):
+    """
+    Publish scheduled posts for a campaign
+    """
+    try:
+        logger.info(f"Distributing campaign {campaign_id}")
+        
+        # Publish scheduled posts
+        distribution_result = await distribution_agent.publish_scheduled_posts()
+        
+        return {
+            "success": True,
+            "message": "Campaign distribution completed",
+            "published": distribution_result["published"],
+            "failed": distribution_result["failed"],
+            "posts": distribution_result["posts"]
+        }
+        
+    except Exception as e:
+        logger.error(f"Error distributing campaign: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to distribute campaign: {str(e)}")
+
+@router.get("/{campaign_id}/scheduled-posts", response_model=List[Dict[str, Any]])
+async def get_scheduled_posts(campaign_id: str):
+    """
+    Get all scheduled posts for a campaign
+    """
+    try:
+        scheduled_posts = await task_scheduler.get_scheduled_posts(campaign_id)
+        return scheduled_posts
+        
+    except Exception as e:
+        logger.error(f"Error getting scheduled posts: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get scheduled posts: {str(e)}")
+
+@router.get("/{campaign_id}/performance", response_model=Dict[str, Any])
+async def get_campaign_performance(campaign_id: str):
+    """
+    Get performance metrics for a campaign
+    """
+    try:
+        performance = await distribution_agent.get_campaign_performance(campaign_id)
+        return performance
+        
+    except Exception as e:
+        logger.error(f"Error getting campaign performance: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get campaign performance: {str(e)}")
+
+@router.post("/{campaign_id}/status", response_model=Dict[str, Any])
+async def update_campaign_status(campaign_id: str, status: str):
+    """
+    Update campaign status
+    """
+    try:
+        success = await campaign_manager.update_campaign_status(campaign_id, status)
+        
+        if success:
+            return {
+                "success": True,
+                "message": f"Campaign status updated to {status}",
+                "campaign_id": campaign_id,
+                "status": status
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating campaign status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update campaign status: {str(e)}")
+
+@router.post("/publish-due-posts", response_model=Dict[str, Any])
+async def publish_due_posts(background_tasks: BackgroundTasks):
+    """
+    Publish all posts that are due (background task)
+    """
+    try:
+        # Add to background tasks
+        background_tasks.add_task(distribution_agent.publish_scheduled_posts)
+        
+        return {
+            "success": True,
+            "message": "Background task started to publish due posts"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error starting background publish task: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start publish task: {str(e)}")
+
+@router.get("/upcoming-posts", response_model=List[Dict[str, Any]])
+async def get_upcoming_posts(hours_ahead: int = 24):
+    """
+    Get posts scheduled for the next N hours
+    """
+    try:
+        upcoming_posts = await task_scheduler.get_upcoming_posts(hours_ahead)
+        return upcoming_posts
+        
+    except Exception as e:
+        logger.error(f"Error getting upcoming posts: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get upcoming posts: {str(e)}")
+
+@router.post("/{post_id}/track-engagement", response_model=Dict[str, Any])
+async def track_post_engagement(post_id: str):
+    """
+    Track engagement for a specific post
+    """
+    try:
+        engagement_data = await distribution_agent.track_engagement(post_id)
+        return engagement_data
+        
+    except Exception as e:
+        logger.error(f"Error tracking engagement: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to track engagement: {str(e)}")
+
+class TaskStatusUpdate(BaseModel):
+    task_id: str
+    status: str
+
+@router.put("/{campaign_id}/tasks/{task_id}/status", response_model=Dict[str, Any])
+async def update_task_status(campaign_id: str, task_id: str, status_update: TaskStatusUpdate):
+    """
+    Update the status of a specific task in a campaign
+    """
+    try:
+        logger.info(f"Updating task {task_id} in campaign {campaign_id} to status {status_update.status}")
+        
+        # Validate status
+        valid_statuses = ["pending", "in_progress", "completed"]
+        if status_update.status not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+        
+        # Update task status in database
+        with db_config.get_db_connection() as conn:
+            cur = conn.cursor()
+            
+            # First check if task exists and belongs to campaign
+            cur.execute("""
+                SELECT id FROM campaign_task 
+                WHERE id = %s AND campaign_id = %s
+            """, (task_id, campaign_id))
+            
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Task not found or doesn't belong to this campaign")
+            
+            # Update task status
+            cur.execute("""
+                UPDATE campaign_task 
+                SET status = %s 
+                WHERE id = %s AND campaign_id = %s
+            """, (status_update.status, task_id, campaign_id))
+            
+            conn.commit()
+            
+            # Get updated task
+            cur.execute("""
+                SELECT id, task_type, status, content, metadata
+                FROM campaign_task
+                WHERE id = %s
+            """, (task_id,))
+            
+            row = cur.fetchone()
+            if row:
+                task_id_db, task_type, status, content, metadata_json = row
+                
+                # Handle metadata JSON parsing
+                if metadata_json:
+                    if isinstance(metadata_json, str):
+                        metadata = json.loads(metadata_json)
+                    elif isinstance(metadata_json, dict):
+                        metadata = metadata_json
+                    else:
+                        metadata = {}
+                else:
+                    metadata = {}
+                
+                return {
+                    "success": True,
+                    "message": f"Task status updated to {status_update.status}",
+                    "task": {
+                        "id": task_id_db,
+                        "task_type": task_type,
+                        "status": status,
+                        "content": content,
+                        "metadata": metadata
+                    }
+                }
+        
+        raise HTTPException(status_code=500, detail="Failed to retrieve updated task")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating task status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update task status: {str(e)}")

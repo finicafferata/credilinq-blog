@@ -16,9 +16,12 @@ from ..core.base_agent import (
 )
 from ..core.agent_factory import BlogWorkflowAgentFactory, create_agent, register_agent
 from ..specialized.planner_agent import PlannerAgent
-from ..specialized.researcher_agent import ResearcherAgent  
+from ..specialized.researcher_agent import ResearcherAgent
 from ..specialized.writer_agent import WriterAgent
 from ..specialized.editor_agent import EditorAgent
+from ..specialized.image_agent import ImageAgent
+from ..specialized.seo_agent import SEOAgent
+from ..specialized.social_media_agent import SocialMediaAgent
 from ...core.exceptions import AgentExecutionError, WorkflowExecutionError
 from ...core.security import SecurityValidator
 
@@ -70,6 +73,15 @@ class BlogWorkflow(WorkflowAgent):
             
             if not _global_registry.is_registered(AgentType.EDITOR):
                 register_agent(AgentType.EDITOR, EditorAgent)
+            
+            if not _global_registry.is_registered(AgentType.IMAGE):
+                register_agent(AgentType.IMAGE, ImageAgent)
+            
+            if not _global_registry.is_registered(AgentType.SEO):
+                register_agent(AgentType.SEO, SEOAgent)
+            
+            if not _global_registry.is_registered(AgentType.SOCIAL_MEDIA):
+                register_agent(AgentType.SOCIAL_MEDIA, SocialMediaAgent)
                 
             self.logger.info("Workflow agents registered successfully")
             

@@ -6,6 +6,7 @@ import psycopg2
 import logging
 from typing import Optional
 from .settings import settings
+import psycopg2.extras
 
 logger = logging.getLogger(__name__)
 

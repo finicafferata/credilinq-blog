@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     # SECURITY SETTINGS
     # ========================================
     cors_origins_str: str = Field(
-        "http://localhost:5173,http://127.0.0.1:5173",
+        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,*",
         env="CORS_ORIGINS"
     )
     secret_key: str = Field("change-this-secret-key", env="SECRET_KEY")

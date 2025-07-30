@@ -60,6 +60,26 @@ export function Header() {
               >
                 Workflow
               </Link>
+              <Link
+                to="/campaigns"
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  isActive('/campaigns') 
+                    ? 'bg-primary-100 text-primary-700' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                Campaigns
+              </Link>
+              <Link
+                to="/image-agent"
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  isActive('/image-agent') 
+                    ? 'bg-primary-100 text-primary-700' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                Imágenes
+              </Link>
             </nav>
           </div>
         </div>

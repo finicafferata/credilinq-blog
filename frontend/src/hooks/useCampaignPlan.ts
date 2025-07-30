@@ -1,81 +1,75 @@
 import { useState, useCallback } from 'react';
-import type { CampaignPlan, TaskStatus } from '../types/campaign';
 import { campaignApi } from '../lib/api';
+import type { CampaignDetail } from '../lib/api';
 
 // Custom hook to manage the campaign plan state and API interactions
-// Usage: const { plan, isLoading, error, executeTask, approveAsset, updateStatus, fetchPlan } = useCampaignPlan(blogId);
-export function useCampaignPlan(blogId: string) {
-  // State for the campaign plan
-  const [plan, setPlan] = useState<CampaignPlan>([]);
+// Usage: const { campaign, isLoading, error, schedule, distribute, fetchCampaign } = useCampaignPlan(campaignId);
+export function useCampaignPlan(campaignId: string) {
+  // State for the campaign
+  const [campaign, setCampaign] = useState<CampaignDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch the campaign plan from the backend
-  const fetchPlan = useCallback(async () => {
+  // Fetch the campaign from the backend
+  const fetchCampaign = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const campaign = await campaignApi.getCampaign(blogId);
-      setPlan(campaign.tasks);
+      const data = await campaignApi.get(campaignId);
+      setCampaign(data);
     } catch (err: any) {
-      setError(err?.message || 'Failed to fetch campaign plan');
+      setError(err?.message || 'Failed to fetch campaign');
     } finally {
       setIsLoading(false);
     }
-  }, [blogId]);
+  }, [campaignId]);
 
-  // Execute a specific task
-  const executeTask = useCallback(async (taskId: string) => {
+  // Schedule campaign tasks
+  const schedule = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      await campaignApi.executeCampaignTask(taskId);
-      await fetchPlan(); // Refresh plan after execution starts
+      await campaignApi.schedule(campaignId);
+      await fetchCampaign(); // Refresh campaign after scheduling
     } catch (err: any) {
-      setError(err?.message || 'Failed to execute task');
+      setError(err?.message || 'Failed to schedule campaign');
     } finally {
       setIsLoading(false);
     }
-  }, [fetchPlan]);
+  }, [campaignId, fetchCampaign]);
 
-  // Approve an asset (update content and set status to Approved)
-  const approveAsset = useCallback(async (taskId: string, newContent?: string) => {
+  // Distribute campaign posts
+  const distribute = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      await campaignApi.updateCampaignTask(taskId, newContent, 'Approved');
-      await fetchPlan();
+      await campaignApi.distribute(campaignId);
+      await fetchCampaign(); // Refresh campaign after distribution
     } catch (err: any) {
-      setError(err?.message || 'Failed to approve asset');
+      setError(err?.message || 'Failed to distribute campaign');
     } finally {
       setIsLoading(false);
     }
-  }, [fetchPlan]);
+  }, [campaignId, fetchCampaign]);
 
-  // Update the status of a task (e.g., to Posted)
-  const updateStatus = useCallback(async (taskId: string, status: TaskStatus) => {
-    setIsLoading(true);
+  // Update task status
+  const updateTaskStatus = useCallback(async (taskId: string, status: string) => {
     setError(null);
     try {
-      await campaignApi.updateCampaignTask(taskId, undefined, status);
-      await fetchPlan();
+      await campaignApi.updateTaskStatus(campaignId, taskId, status);
+      await fetchCampaign(); // Refresh campaign after task update
     } catch (err: any) {
-      setError(err?.message || 'Failed to update status');
-    } finally {
-      setIsLoading(false);
+      setError(err?.message || 'Failed to update task status');
     }
-  }, [fetchPlan]);
-
-  // Optionally, fetch the plan on mount (not required for SSR)
-  // useEffect(() => { fetchPlan(); }, [fetchPlan]);
+  }, [campaignId, fetchCampaign]);
 
   return {
-    plan,
+    campaign,
     isLoading,
     error,
-    fetchPlan,
-    executeTask,
-    approveAsset,
-    updateStatus,
+    fetchCampaign,
+    schedule,
+    distribute,
+    updateTaskStatus,
   };
 } 

@@ -40,7 +40,6 @@ export function ImprovedDashboard() {
   const [allBlogs, setAllBlogs] = useState<BlogSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showWizard, setShowWizard] = useState(false);
   
   // States for search and filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,31 +57,12 @@ export function ImprovedDashboard() {
 
   useEffect(() => {
     fetchBlogs();
-    checkFirstVisit();
   }, []);
 
   useEffect(() => {
     const currentStats = calculateStats(allBlogs);
     setStats(currentStats);
   }, [allBlogs]);
-
-  const checkFirstVisit = () => {
-    const hasVisited = localStorage.getItem('credilinq_visited');
-    if (!hasVisited) {
-      setShowWizard(true);
-    }
-  };
-
-  const handleWizardComplete = () => {
-    localStorage.setItem('credilinq_visited', 'true');
-    setShowWizard(false);
-  };
-
-  const handleWizardSkip = () => {
-    localStorage.setItem('credilinq_visited', 'true');
-    setShowWizard(false);
-  };
-
   const fetchBlogs = async () => {
     try {
       setLoading(true);
@@ -230,27 +210,14 @@ export function ImprovedDashboard() {
             </h1>
             <p className="text-gray-600 mt-1 flex items-center">
               Manage your AI-generated content and campaigns
-              <kbd className="ml-3 px-2 py-1 bg-gray-200 rounded text-xs font-mono">
-                Press ? for shortcuts
-              </kbd>
             </p>
           </div>
           <div className="flex items-center space-x-3">
-            <button
-              onClick={() => setShowWizard(true)}
-              className="btn-secondary text-sm"
-              title="Show getting started wizard"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Help
-            </button>
-            <Link to="/new" className="btn-primary">
+            <Link to="/workflow" className="btn-primary">
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Create New Blog
+              Create Content
             </Link>
           </div>
         </div>
@@ -315,6 +282,23 @@ export function ImprovedDashboard() {
                 </svg>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Create Content */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Create Content</h3>
+            <p className="text-gray-600 mb-6">Choose your content creation approach</p>
+            <Link
+              to="/workflow"
+              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Start Creating
+            </Link>
           </div>
         </div>
 
@@ -468,14 +452,6 @@ export function ImprovedDashboard() {
           )
         ) : (
           <BlogList blogs={blogs} onDelete={handleDelete} onRefresh={handleRefresh} />
-        )}
-
-        {/* Modals */}
-        {showWizard && (
-          <QuickStartWizard
-            onComplete={handleWizardComplete}
-            onSkip={handleWizardSkip}
-          />
         )}
 
         <KeyboardShortcutsHelp />

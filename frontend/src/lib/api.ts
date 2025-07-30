@@ -103,29 +103,90 @@ export const blogApi = {
 };
 
 
+// Campaign types
+export interface CampaignSummary {
+  id: string;
+  name: string;
+  status: string;
+  progress: number;
+  total_tasks: number;
+  completed_tasks: number;
+  created_at: string;
+}
+
+export interface CampaignCreateRequest {
+  blog_id: string;
+  campaign_name: string;
+  company_context: string;
+  content_type?: string;
+}
+
+export interface CampaignDetail {
+  id: string;
+  name: string;
+  status: string;
+  strategy: any;
+  timeline: any[];
+  tasks: any[];
+  scheduled_posts: any[];
+  performance: any;
+}
+
 // Campaign API endpoints
 export const campaignApi = {
-  // Create a new campaign for a blog post
-  createCampaign: async (blogId: string): Promise<CampaignResponse> => {
-    const response = await api.post('/api/campaigns', { blog_id: blogId });
+  // Get all campaigns
+  list: async (): Promise<CampaignSummary[]> => {
+    const response = await api.get('/api/campaigns');
     return response.data;
   },
 
-  // Get the campaign and its tasks for a blog post
-  getCampaign: async (blogId: string): Promise<CampaignResponse> => {
-    const response = await api.get(`/api/campaigns/${blogId}`);
+  // Create a new campaign
+  create: async (data: CampaignCreateRequest): Promise<any> => {
+    const response = await api.post('/api/campaigns', data);
     return response.data;
   },
 
-  // Execute a specific campaign task
-  executeCampaignTask: async (taskId: string): Promise<any> => {
-    const response = await api.post('/api/campaigns/tasks/execute', { task_id: taskId });
+  // Create campaign from blog
+  createFromBlog: async (blogId: string, campaignName?: string): Promise<any> => {
+    const response = await api.post(`/api/blogs/${blogId}/create-campaign`, {
+      campaign_name: campaignName || `Campaign for ${blogId}`
+    });
     return response.data;
   },
 
-  // Update a campaign task (approve, edit, change status)
-  updateCampaignTask: async (taskId: string, content: string | undefined, status: TaskStatus): Promise<CampaignTask> => {
-    const response = await api.put(`/api/campaigns/tasks/${taskId}`, { content, status });
+  // Create quick campaign with template
+  createQuickCampaign: async (templateId: string, blogId: string, campaignName: string): Promise<any> => {
+    const response = await api.post(`/api/v2/campaigns/quick/${templateId}`, {
+      blog_id: blogId,
+      campaign_name: campaignName
+    });
+    return response.data;
+  },
+
+  // Get campaign details
+  get: async (id: string): Promise<CampaignDetail> => {
+    const response = await api.get(`/api/campaigns/${id}`);
+    return response.data;
+  },
+
+  // Schedule campaign tasks
+  schedule: async (id: string): Promise<any> => {
+    const response = await api.post(`/api/campaigns/${id}/schedule`);
+    return response.data;
+  },
+
+  // Distribute campaign posts
+  distribute: async (id: string): Promise<any> => {
+    const response = await api.post(`/api/campaigns/${id}/distribute`);
+    return response.data;
+  },
+
+  // Update task status
+  updateTaskStatus: async (campaignId: string, taskId: string, status: string): Promise<any> => {
+    const response = await api.put(`/api/campaigns/${campaignId}/tasks/${taskId}/status`, {
+      task_id: taskId,
+      status: status
+    });
     return response.data;
   },
 };

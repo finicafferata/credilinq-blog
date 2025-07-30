@@ -305,7 +305,7 @@ class ErrorTracker:
             logger = logging.getLogger(__name__)
             logger.error(
                 f"High severity error: {error.error_code} - {error.message}",
-                extra=error_detail
+                extra={k: v for k, v in error_detail.items() if k != 'message'}
             )
     
     def get_error_statistics(self) -> Dict[str, Any]:

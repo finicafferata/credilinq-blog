@@ -237,3 +237,4 @@ describe('BlogList', () => {
     expect(publishButton).toHaveClass('btn-secondary')
     expect(deleteButton).toHaveClass('text-gray-500', 'hover:text-red-600')
   })
+})

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Image Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .test-image { width: 300px; height: 200px; border: 2px solid blue; margin: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Test Simple de Data URL</h1>
+    
+    <div>
+        <h3>Imagen de prueba (SVG simple):</h3>
+        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzRGNDZFNSIvPgogIDx0ZXh0IHg9IjE1MCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5UZXN0IEltYWdlPC90ZXh0Pgo8L3N2Zz4K" 
+             alt="Test SVG" 
+             class="test-image"
+             onload="console.log('Test image loaded successfully')"
+             onerror="console.error('Test image failed to load')">
+    </div>
+    
+    <div>
+        <h3>Imagen desde backend:</h3>
+        <div id="backend-image"></div>
+    </div>
+    
+    <button onclick="loadBackendImage()">Cargar imagen del backend</button>
+    
+    <script>
+        async function loadBackendImage() {
+            try {
+                const response = await fetch('http://localhost:8000/api/images/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        blog_id: 'b35cea44-b48a-40df-b868-0860d31e7996',
+                        style: 'professional',
+                        count: 1
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('Backend response:', data);
+                
+                if (data.images && data.images.length > 0) {
+                    const imageUrl = data.images[0].url;
+                    console.log('Image URL from backend:', imageUrl);
+                    
+                    const img = document.createElement('img');
+                    img.src = imageUrl;
+                    img.alt = 'Backend Image';
+                    img.className = 'test-image';
+                    img.onload = () => console.log('Backend image loaded successfully');
+                    img.onerror = (e) => console.error('Backend image failed to load:', e);
+                    
+                    document.getElementById('backend-image').innerHTML = '';
+                    document.getElementById('backend-image').appendChild(img);
+                }
+            } catch (error) {
+                console.error('Error loading backend image:', error);
+            }
+        }
+    </script>
+</body>
+</html> 

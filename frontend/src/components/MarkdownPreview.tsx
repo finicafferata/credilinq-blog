@@ -77,7 +77,7 @@ export function MarkdownPreview({ content, className = '' }: MarkdownPreviewProp
   const isEmpty = !content.trim();
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative flex flex-col h-full ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
         <h3 className="text-lg font-medium text-gray-900">Preview</h3>
@@ -91,7 +91,7 @@ export function MarkdownPreview({ content, className = '' }: MarkdownPreviewProp
       </div>
 
       {/* Content */}
-      <div className="min-h-[400px] max-h-[600px] overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         {isEmpty ? (
           <div className="flex items-center justify-center h-64 text-center">
             <div>
@@ -215,7 +215,7 @@ export function SplitViewEditor({
       </div>
 
       {/* Content Area */}
-      <div className="flex" style={{ height: '500px' }}>
+      <div className="flex" style={{ height: '700px' }}>
         {/* Editor */}
         {(viewMode === 'editor' || viewMode === 'split') && (
           <div className={`${viewMode === 'split' ? 'w-1/2 border-r border-gray-200' : 'w-full'}`}>
@@ -231,10 +231,10 @@ export function SplitViewEditor({
 
         {/* Preview */}
         {(viewMode === 'preview' || viewMode === 'split') && (
-          <div className={`${viewMode === 'split' ? 'w-1/2' : 'w-full'} bg-white`}>
+          <div className={`${viewMode === 'split' ? 'w-1/2' : 'w-full'} bg-white flex flex-col`}>
             <MarkdownPreview 
               content={content} 
-              className="h-full p-4"
+              className="flex-1 p-4"
             />
           </div>
         )}

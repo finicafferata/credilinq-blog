@@ -257,3 +257,4 @@ describe('NewBlog', () => {
     // Should not call API
     expect(blogApi.create).not.toHaveBeenCalled()
   })
+})

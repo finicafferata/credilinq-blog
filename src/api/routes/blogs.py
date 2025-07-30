@@ -23,6 +23,12 @@ from ..models.blog import (
 router = APIRouter()
 
 
+@router.get("/test")
+def test_endpoint():
+    """Basic test endpoint."""
+    return {"message": "Test endpoint working"}
+
+
 @router.post("/blogs", response_model=BlogSummary)
 def create_blog(request: BlogCreateRequest):
     """Generate a new blog post using the multi-agent workflow with comprehensive input validation."""
@@ -204,11 +210,59 @@ def create_blog(request: BlogCreateRequest):
         raise HTTPException(status_code=500, detail=f"Blog creation failed: {str(e)}")
 
 
+@router.get("/blogs/test")
+def test_blogs():
+    """Test endpoint to debug blog listing."""
+    try:
+        with db_config.get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT id, title, status, \"createdAt\" FROM \"BlogPost\" LIMIT 3")
+            rows = cur.fetchall()
+            
+            result = []
+            for i, row in enumerate(rows):
+                result.append({
+                    "row_index": i,
+                    "raw_row": str(row),
+                    "id": str(row[0]) if row[0] else None,
+                    "title": str(row[1]) if row[1] else None,
+                    "status": str(row[2]) if row[2] else None,
+                    "created_at": str(row[3]) if row[3] else None
+                })
+            
+            return {"rows": result, "total": len(rows)}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.get("/blogs/simple")
+def simple_blogs():
+    """Very simple test endpoint."""
+    try:
+        return {
+            "message": "Simple endpoint working",
+            "test_data": [
+                {"id": "test-1", "title": "Test Blog 1", "status": "draft", "created_at": "2025-07-30T15:30:00Z"},
+                {"id": "test-2", "title": "Test Blog 2", "status": "published", "created_at": "2025-07-30T15:31:00Z"}
+            ]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @router.get("/blogs", response_model=List[BlogSummary])
 def list_blogs():
     """List all blog posts stored in database (excluding deleted posts)."""
     try:
-        with db_config.get_db_connection() as conn:
+        # Use direct connection without db_config
+        import psycopg2
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        database_url = os.getenv("DATABASE_URL", "postgresql://postgres@localhost:5432/credilinq_dev_postgres")
+        
+        with psycopg2.connect(database_url) as conn:
             cur = conn.cursor()
             cur.execute("""
                 SELECT id, title, status, "createdAt"
@@ -217,16 +271,41 @@ def list_blogs():
                 ORDER BY "createdAt" DESC
             """)
             rows = cur.fetchall()
-            columns = [desc[0] for desc in cur.description]
+            
+            logger.info(f"Found {len(rows)} rows from database")
             
             blogs = []
-            for row in rows:
-                row_dict = dict(zip(columns, row))
-                # Convert datetime to string
-                row_dict['created_at'] = str(row_dict['createdAt'])
-                del row_dict['createdAt']  # Remove the original key
-                blogs.append(BlogSummary(**row_dict))
+            for i, row in enumerate(rows):
+                logger.info(f"Processing row {i}: {row}")
+                
+                # Access by index: id, title, status, createdAt
+                blog_id = str(row[0]) if row[0] else ''
+                title = str(row[1]) if row[1] else 'Untitled'
+                status = str(row[2]) if row[2] else 'draft'
+                
+                # Handle date - convert to ISO string or use current time if null
+                created_at = row[3]
+                if created_at:
+                    if hasattr(created_at, 'isoformat'):
+                        created_at_str = created_at.isoformat()
+                    else:
+                        created_at_str = str(created_at)
+                else:
+                    # If no date, use current time
+                    import datetime
+                    created_at_str = datetime.datetime.utcnow().isoformat()
+                
+                blog_summary = BlogSummary(
+                    id=blog_id,
+                    title=title,
+                    status=status,
+                    created_at=created_at_str
+                )
+                
+                logger.info(f"Created blog summary: {blog_summary}")
+                blogs.append(blog_summary)
             
+            logger.info(f"Returning {len(blogs)} blogs")
             return blogs
     except Exception as e:
         logger.error(f"Error listing blogs: {str(e)}")
@@ -255,25 +334,37 @@ def get_blog(post_id: str):
             if not row:
                 raise HTTPException(status_code=404, detail="Blog post not found")
             
-            columns = [desc[0] for desc in cur.description]
-            row_dict = dict(zip(columns, row))
+            # Access by index: id, title, status, createdAt, contentMarkdown, initialPrompt
+            blog_id = str(row[0]) if row[0] else ''
+            title = str(row[1]) if row[1] else 'Untitled'
+            status = str(row[2]) if row[2] else 'draft'
+            created_at = row[3]
+            content_markdown = str(row[4]) if row[4] else ''
+            initial_prompt_raw = row[5]
             
             # Handle initial_prompt - it might already be a dict or a JSON string
-            initial_prompt = row_dict["initialPrompt"]
+            initial_prompt = initial_prompt_raw
             if initial_prompt:
                 if isinstance(initial_prompt, str):
-                    initial_prompt = json.loads(initial_prompt)
+                    initial_prompt = initial_prompt.strip()
+                    if initial_prompt:
+                        try:
+                            initial_prompt = json.loads(initial_prompt)
+                        except Exception:
+                            initial_prompt = {}
+                    else:
+                        initial_prompt = {}
                 elif not isinstance(initial_prompt, dict):
                     initial_prompt = {}
             else:
                 initial_prompt = {}
             
             return BlogDetail(
-                id=row_dict["id"],
-                title=row_dict["title"],
-                status=row_dict["status"],
-                created_at=str(row_dict["createdAt"]),
-                content_markdown=row_dict["contentMarkdown"] or "",
+                id=blog_id,
+                title=title,
+                status=status,
+                created_at=str(created_at) if created_at else datetime.datetime.utcnow().isoformat(),
+                content_markdown=content_markdown,
                 initial_prompt=initial_prompt
             )
     except HTTPException:
@@ -387,4 +478,74 @@ def publish_blog(post_id: str):
         raise
     except Exception as e:
         logger.error(f"Error publishing blog {post_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@router.post("/blogs/{post_id}/create-campaign")
+def create_campaign_from_blog(post_id: str, request: dict):
+    """Create a campaign from a blog post."""
+    try:
+        # Validate UUID format
+        validated_id = InputValidator.validate_uuid(post_id, "post_id")
+        campaign_name = request.get("campaign_name", f"Campaign for {post_id}")
+    except SecurityException as e:
+        raise convert_to_http_exception(e)
+    
+    try:
+        with db_config.get_db_connection() as conn:
+            cur = conn.cursor()
+            
+            # Check if blog exists
+            cur.execute("SELECT id, title, status FROM \"BlogPost\" WHERE id = %s", (validated_id,))
+            existing_blog = cur.fetchone()
+            if not existing_blog:
+                raise HTTPException(status_code=404, detail="Blog post not found")
+            
+            # Check if blog status allows campaign creation
+            current_status = existing_blog["status"].lower()
+            allowed_statuses = ["edited", "completed", "published"]
+            if current_status not in allowed_statuses:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot create campaign for blog with status '{current_status}'. Only 'edited', 'completed', or 'published' posts can have campaigns."
+                )
+            
+            # Check if campaign already exists for this blog
+            cur.execute("SELECT id FROM campaign WHERE blog_id = %s", (validated_id,))
+            existing_campaign = cur.fetchone()
+            if existing_campaign:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Campaign already exists for this blog post"
+                )
+            
+            # Create campaign
+            campaign_id = str(uuid.uuid4())
+            cur.execute("""
+                INSERT INTO campaign (id, name, blog_id, status, created_at, updated_at)
+                VALUES (%s, %s, %s, 'draft', NOW(), NOW())
+            """, (campaign_id, campaign_name, validated_id))
+            
+            # Create initial campaign task
+            task_id = str(uuid.uuid4())
+            cur.execute("""
+                INSERT INTO campaign_task (id, campaign_id, task_type, content, status, created_at, updated_at)
+                VALUES (%s, %s, 'content_repurposing', 'Repurpose blog content for social media', 'pending', NOW(), NOW())
+            """, (task_id, campaign_id))
+            
+            conn.commit()
+            
+            logger.info(f"Created campaign {campaign_id} for blog {validated_id}")
+            
+            return {
+                "message": "Campaign created successfully",
+                "campaign_id": campaign_id,
+                "blog_id": validated_id,
+                "campaign_name": campaign_name
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating campaign for blog {post_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")

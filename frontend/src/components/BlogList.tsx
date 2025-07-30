@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { BlogSummary } from '../lib/api';
 import { blogApi } from '../lib/api';
 import { showErrorNotification, showSuccessNotification, AppError } from '../lib/errors';
+import { QuickCampaignActions } from './QuickCampaignActions';
 
 interface BlogListProps {
   blogs: BlogSummary[];
@@ -10,12 +11,23 @@ interface BlogListProps {
 }
 
 export function BlogList({ blogs, onDelete, onRefresh }: BlogListProps) {
+  
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    if (!dateString) return "No date";
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return "Invalid date";
+      }
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch (error) {
+      return "Invalid date";
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -33,8 +45,8 @@ export function BlogList({ blogs, onDelete, onRefresh }: BlogListProps) {
     }
   };
 
-  const canCreateCampaign = (status: string) => {
-    // Allow creating campaigns for edited, completed or published blogs
+  const canLaunchCampaign = (status: string) => {
+    // Allow launching campaigns for edited, completed or published blogs
     const allowedStatuses = ['edited', 'completed', 'published'];
     return allowedStatuses.includes(status.toLowerCase());
   };
@@ -60,6 +72,9 @@ export function BlogList({ blogs, onDelete, onRefresh }: BlogListProps) {
     }
   };
 
+  // Legacy function - now handled by QuickCampaignActions component
+  // Removed to fix linting - functionality moved to QuickCampaignActions
+
   if (blogs.length === 0) {
     return (
       <div className="text-center py-12">
@@ -70,7 +85,7 @@ export function BlogList({ blogs, onDelete, onRefresh }: BlogListProps) {
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">No blogs yet</h3>
         <p className="text-gray-600 mb-6">Get started by creating your first AI-generated blog post.</p>
-        <Link to="/new" className="btn-primary">
+        <Link to="/workflow" className="btn-primary">
           Create First Blog
         </Link>
       </div>
@@ -79,16 +94,21 @@ export function BlogList({ blogs, onDelete, onRefresh }: BlogListProps) {
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {blogs.map((blog) => (
-        <div key={blog.id} className="card hover:shadow-md transition-shadow">
+      {blogs
+        .filter((blog, index, self) => 
+          // Remove duplicates based on ID
+          blog.id && self.findIndex(b => b.id === blog.id) === index
+        )
+        .map((blog, index) => (
+        <div key={`${blog.id}-${index}`} className="card hover:shadow-md transition-shadow">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                {blog.title}
+                {blog.title || 'Untitled'}
               </h3>
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(blog.status)}`}>
-                  {blog.status}
+                  {blog.status || 'draft'}
                 </span>
                 <span>•</span>
                 <span>{formatDate(blog.created_at)}</span>
@@ -114,13 +134,11 @@ export function BlogList({ blogs, onDelete, onRefresh }: BlogListProps) {
                 </button>
               )}
               
-              {canCreateCampaign(blog.status) && (
-                <Link
-                  to={`/campaign/${blog.id}`}
-                  className="btn-secondary text-sm mb-1"
-                >
-                  Create Campaign
-                </Link>
+              {canLaunchCampaign(blog.status) && (
+                <QuickCampaignActions 
+                  blog={blog} 
+                  onRefresh={onRefresh}
+                />
               )}
             </div>
             

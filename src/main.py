@@ -11,6 +11,7 @@ import asyncio
 
 from .config import settings, db_config
 from .api.routes import blogs, campaigns, analytics, health, documents, api_analytics, content_repurposing, content_preview, competitor_intelligence, workflow
+from .api.routes import workflow_simple, workflow_new, workflow_fixed, images_debug
 from .core.api_docs import configure_api_docs, custom_openapi_schema
 from .core.versioning import create_versioned_app, VersionCompatibilityMiddleware
 from .core.webhooks import router as webhooks_router, webhook_manager
@@ -127,10 +128,10 @@ configure_api_docs(app)
 app.openapi = lambda: custom_openapi_schema(app)
 
 # Add middleware in correct order (last added = first executed)
-app.add_middleware(ErrorHandlingMiddleware)
-app.add_middleware(APIAnalyticsMiddleware)
-app.add_middleware(AuthenticationMiddleware)
-app.add_middleware(VersionCompatibilityMiddleware)
+# app.add_middleware(ErrorHandlingMiddleware)  # Temporarily disabled for debugging
+# app.add_middleware(APIAnalyticsMiddleware)  # Temporarily disabled for debugging
+# app.add_middleware(AuthenticationMiddleware)  # Temporarily disabled for debugging
+# app.add_middleware(VersionCompatibilityMiddleware)  # Temporarily disabled for debugging
 
 # Add CORS middleware with enhanced security
 app.add_middleware(
@@ -169,7 +170,11 @@ app.include_router(api_analytics.router, prefix="/api/v2", tags=["api-analytics-
 app.include_router(content_repurposing.router, prefix="/api/v2/content", tags=["content-repurposing-v2"])
 app.include_router(content_preview.router, prefix="/api/v2/content-preview", tags=["content-preview-v2"])
 app.include_router(competitor_intelligence.router, prefix="/api/v2", tags=["competitor-intelligence-v2"])
-app.include_router(workflow.router, prefix="/api/v2", tags=["workflow-v2"])
+app.include_router(images_debug.router, prefix="/api/v2", tags=["images-v2"])
+# app.include_router(workflow.router, prefix="/api/v2", tags=["workflow-v2"])
+# app.include_router(workflow_simple.router, prefix="/api/v2", tags=["workflow-simple-v2"])
+# app.include_router(workflow_new.router, prefix="/api/v2", tags=["workflow-new-v2"])
+app.include_router(workflow_fixed.router, prefix="/api/v2", tags=["workflow-fixed-v2"])
 
 # V1 routes (deprecated, for backward compatibility)
 app.include_router(blogs.router, prefix="/api/v1", tags=["blogs-v1"], deprecated=True)
@@ -186,7 +191,19 @@ app.include_router(api_analytics.router, prefix="/api", tags=["api-analytics"])
 app.include_router(content_repurposing.router, prefix="/api/content", tags=["content-repurposing"])
 app.include_router(content_preview.router, prefix="/api/content-preview", tags=["content-preview"])
 app.include_router(competitor_intelligence.router, prefix="/api", tags=["competitor-intelligence"])
-app.include_router(workflow.router, prefix="/api", tags=["workflow"])
+
+# Add a simple test route directly
+@app.get("/api/images/test-direct")
+async def test_images_direct():
+    """Test endpoint to verify images routing works."""
+    return {"message": "Images router is working directly!"}
+
+# Include the debug images router
+app.include_router(images_debug.router, prefix="/api/images", tags=["images-debug"])
+# app.include_router(workflow.router, prefix="/api", tags=["workflow"])
+# app.include_router(workflow_simple.router, prefix="/api", tags=["workflow-simple"])
+# app.include_router(workflow_new.router, prefix="/api", tags=["workflow-new"])
+app.include_router(workflow_fixed.router, prefix="/api", tags=["workflow-fixed"])
 
 # Health and system routes
 app.include_router(health.router, tags=["health"])
@@ -237,19 +254,35 @@ async def ping():
     """Simple ping endpoint for health checks."""
     return {"message": "pong", "timestamp": "2025-01-15T10:30:00Z"}
 
+@app.post("/test-workflow")
+async def test_workflow(request: dict):
+    """Test workflow endpoint."""
+    try:
+        return {
+            "workflow_id": "test-123",
+            "status": "ok",
+            "message": "Test workflow endpoint working"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Error handlers for better error responses
 @app.exception_handler(404)
 async def not_found_handler(request, exc):
     """Custom 404 handler."""
-    return {
-        "error": "NOT_FOUND",
-        "message": "The requested resource was not found",
-        "available_endpoints": {
-            "api_documentation": "/docs",
-            "health_check": "/health",
-            "version_info": "/versions"
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=404,
+        content={
+            "error": "NOT_FOUND",
+            "message": "The requested resource was not found",
+            "available_endpoints": {
+                "api_documentation": "/docs",
+                "health_check": "/health",
+                "version_info": "/versions"
+            }
         }
-    }
+    )
 
 # For Vercel deployment
 handler = app
