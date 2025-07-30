@@ -10,8 +10,8 @@ import os
 # Add the src directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-# Import the FastAPI app
-from main import app
+# Import the FastAPI app from src.main
+from src.main import app
 
 # This allows Railway to find the app
 if __name__ == "__main__":
