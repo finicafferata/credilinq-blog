@@ -9,6 +9,11 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/outline';
 
+// API configuration - same logic as api.ts
+const isDev = import.meta.env.DEV;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 
+  (isDev ? 'http://localhost:8000' : 'https://credilinq-blog-production.up.railway.app');
+
 interface ImageData {
   id: string;
   prompt: string;
@@ -73,7 +78,7 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
   useEffect(() => {
     const fetchAvailableBlogs = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/images/blogs');
+        const response = await fetch(`${apiBaseUrl}/api/images/blogs`);
         if (response.ok) {
           const data = await response.json();
           const blogs = data.blogs || [];
@@ -130,14 +135,14 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
       
       if (workflowId) {
         // Usar el workflow existente
-        response = await fetch(`http://localhost:8000/api/workflow/image`, {
+        response = await fetch(`${apiBaseUrl}/api/workflow/image`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ workflow_id: workflowId })
         });
       } else {
         // Llamada directa al agente de imágenes
-        response = await fetch('http://localhost:8000/api/images/generate', {
+        response = await fetch(`${apiBaseUrl}/api/images/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(request)
@@ -198,7 +203,7 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
     setError(null);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/images/regenerate/${imageId}`, {
+      const response = await fetch(`${apiBaseUrl}/api/images/regenerate/${imageId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

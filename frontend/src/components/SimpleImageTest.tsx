@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
 
+// API configuration - same logic as api.ts
+const isDev = import.meta.env.DEV;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 
+  (isDev ? 'http://localhost:8000' : 'https://credilinq-blog-production.up.railway.app');
+
 const SimpleImageTest: React.FC = () => {
   const [imageUrl, setImageUrl] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -10,7 +15,7 @@ const SimpleImageTest: React.FC = () => {
     setError('');
     
     try {
-      const response = await fetch('http://localhost:8000/api/images/generate', {
+      const response = await fetch(`${apiBaseUrl}/api/images/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

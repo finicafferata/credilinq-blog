@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronRightIcon, CheckIcon } from '@heroicons/react/24/outline';
 
+// API configuration - same logic as api.ts
+const isDev = import.meta.env.DEV;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 
+  (isDev ? 'http://localhost:8000' : 'https://credilinq-blog-production.up.railway.app');
+
 interface WorkflowStep {
   id: 'planner' | 'researcher' | 'writer' | 'editor' | 'image' | 'seo' | 'social_media';
   title: string;
@@ -128,7 +133,7 @@ const WorkflowWizard: React.FC = () => {
     setError(null);
     
     try {
-      const response = await fetch('http://localhost:8000/api/workflow-fixed/start', {
+      const response = await fetch(`${apiBaseUrl}/api/workflow-fixed/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, company_context: context, mode })
@@ -153,7 +158,7 @@ const WorkflowWizard: React.FC = () => {
   const startProgressPolling = (workflowId: string) => {
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`http://localhost:8000/api/workflow-fixed/status/${workflowId}`);
+        const response = await fetch(`${apiBaseUrl}/api/workflow-fixed/status/${workflowId}`);
         if (!response.ok) {
           console.error('Failed to fetch workflow status');
           return;
