@@ -11,9 +11,19 @@ import type {
 import { parseApiError, AppError } from './errors';
 
 const isDev = import.meta.env.DEV;
-// Use VITE_API_BASE_URL environment variable if available
+const isProduction = import.meta.env.PROD;
+
+// Use VITE_API_BASE_URL environment variable if available, otherwise determine based on environment
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 
   (isDev ? 'http://localhost:8000' : 'https://credilinq-blog-production.up.railway.app');
+
+// Debug log for API URL
+console.log('🔧 API Configuration:', {
+  isDev,
+  isProduction,
+  VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+  apiBaseUrl
+});
 
 const api = axios.create({
   baseURL: apiBaseUrl,
