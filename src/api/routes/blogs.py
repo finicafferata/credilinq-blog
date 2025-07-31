@@ -511,7 +511,7 @@ def create_campaign_from_blog(post_id: str, request: dict):
                 )
             
             # Check if campaign already exists for this blog
-            cur.execute("SELECT id FROM campaign WHERE blog_id = %s", (validated_id,))
+            cur.execute('SELECT id FROM "Campaign" WHERE "blogPostId" = %s', (validated_id,))
             existing_campaign = cur.fetchone()
             if existing_campaign:
                 raise HTTPException(
@@ -522,16 +522,25 @@ def create_campaign_from_blog(post_id: str, request: dict):
             # Create campaign
             campaign_id = str(uuid.uuid4())
             cur.execute("""
-                INSERT INTO campaign (id, name, blog_id, status, created_at, updated_at)
-                VALUES (%s, %s, %s, 'draft', NOW(), NOW())
-            """, (campaign_id, campaign_name, validated_id))
+                INSERT INTO "Campaign" (id, "blogPostId", "createdAt")
+                VALUES (%s, %s, NOW())
+            """, (campaign_id, validated_id))
+            
+            # Create briefing record
+            briefing_id = str(uuid.uuid4())
+            cur.execute("""
+                INSERT INTO "Briefing" (id, "campaignName", "marketingObjective", "targetAudience", 
+                                      channels, "desiredTone", language, "createdAt", "updatedAt", "campaignId")
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), %s)
+            """, (briefing_id, campaign_name, "Brand awareness", 
+                  '["B2B professionals"]', '["LinkedIn", "Email"]', "Professional", "English", campaign_id))
             
             # Create initial campaign task
             task_id = str(uuid.uuid4())
             cur.execute("""
-                INSERT INTO campaign_task (id, campaign_id, task_type, content, status, created_at, updated_at)
-                VALUES (%s, %s, 'content_repurposing', 'Repurpose blog content for social media', 'pending', NOW(), NOW())
-            """, (task_id, campaign_id))
+                INSERT INTO "CampaignTask" (id, "campaignId", "taskType", status, "createdAt", "updatedAt")
+                VALUES (%s, %s, %s, %s, NOW(), NOW())
+            """, (task_id, campaign_id, "content_repurposing", "pending"))
             
             conn.commit()
             

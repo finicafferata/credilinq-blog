@@ -126,13 +126,13 @@ CrediLinQ.ai is a global fintech leader in embedded lending and B2B credit solut
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                               │
                               ▼
-                    ┌─────────────────┐
-                    │   AI Services   │
-                    │                 │
-                    │ OpenAI GPT      │
-                    │ LangChain       │
-                    │ LangGraph       │
-                    └─────────────────┘
+                       ┌─────────────────┐
+                       │   AI Services   │
+                       │                 │
+                       │ OpenAI GPT      │
+                       │ LangChain       │
+                       │ LangGraph       │
+                       └─────────────────┘
 ```
 
 ### 🤖 AI Agent Architecture
@@ -312,20 +312,20 @@ npm run lint
 
 ```bash
 # Backend
-python -m src.main                    # Start backend
-pytest tests/                         # Run tests
-black src/ --line-length 88          # Format code
-flake8 src/                          # Lint code
-mypy src/                            # Type checking
+python -m src.main                  # Start backend
+pytest tests/                       # Run tests
+black src/ --line-length 88         # Format code
+flake8 src/                         # Lint code
+mypy src/                           # Type checking
 
 # Frontend
-npm run dev                          # Start dev server
-npm run build                        # Build for production
-npm run test                         # Run tests
-npm run lint                         # Lint code
+npm run dev                         # Start dev server
+npm run build                       # Build for production
+npm run test                        # Run tests
+npm run lint                        # Lint code
 
 # Database
-npx prisma studio                    # Database GUI
+npx prisma studio                   # Database GUI
 npx prisma migrate dev              # Create migration
 npx prisma db push                  # Push schema changes
 ```

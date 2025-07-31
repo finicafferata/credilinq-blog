@@ -225,13 +225,21 @@ async def list_campaigns():
         with db_config.get_db_connection() as conn:
             cur = conn.cursor()
             cur.execute("""
-                SELECT c.id, c.name, c.status, c.created_at,
+                SELECT c.id, 
+                       COALESCE(b."campaignName", 'Unnamed Campaign') as name,
+                       CASE 
+                           WHEN COUNT(ct.id) = 0 THEN 'draft'
+                           WHEN COUNT(CASE WHEN ct.status = 'completed' THEN 1 END) = COUNT(ct.id) THEN 'completed'
+                           ELSE 'active'
+                       END as status,
+                       c."createdAt",
                        COUNT(ct.id) as total_tasks,
                        COUNT(CASE WHEN ct.status = 'completed' THEN 1 END) as completed_tasks
-                FROM campaign c
-                LEFT JOIN campaign_task ct ON c.id = ct.campaign_id
-                GROUP BY c.id, c.name, c.status, c.created_at
-                ORDER BY c.created_at DESC
+                FROM "Campaign" c
+                LEFT JOIN "Briefing" b ON c.id = b."campaignId"
+                LEFT JOIN "CampaignTask" ct ON c.id = ct."campaignId"
+                GROUP BY c.id, c."createdAt", b."campaignName"
+                ORDER BY c."createdAt" DESC
             """)
             
             rows = cur.fetchall()
@@ -277,61 +285,59 @@ async def get_campaign(campaign_id: str):
         with db_config.get_db_connection() as conn:
             cur = conn.cursor()
             cur.execute("""
-                SELECT name, strategy, created_at
-                FROM campaign
-                WHERE id = %s
+                SELECT COALESCE(b."campaignName", 'Unnamed Campaign') as name,
+                       c."createdAt"
+                FROM "Campaign" c
+                LEFT JOIN "Briefing" b ON c.id = b."campaignId"
+                WHERE c.id = %s
             """, (campaign_id,))
             
             row = cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="Campaign not found")
             
-            name, strategy_json, created_at = row
+            name, created_at = row
             
-            # Handle strategy JSON parsing with error handling
-            if strategy_json:
-                if isinstance(strategy_json, str):
-                    strategy = json.loads(strategy_json)
-                elif isinstance(strategy_json, dict):
-                    strategy = strategy_json  # Already parsed
-                else:
-                    logger.warning(f"Unexpected strategy_json type: {type(strategy_json)}")
-                    strategy = {}
+            # Get strategy from ContentStrategy table
+            cur.execute("""
+                SELECT "narrativeApproach", hooks, themes, "toneByChannel", "keyPhrases", notes
+                FROM "ContentStrategy"
+                WHERE "campaignId" = %s
+            """, (campaign_id,))
+            
+            strategy_row = cur.fetchone()
+            if strategy_row:
+                strategy = {
+                    "narrative_approach": strategy_row[0],
+                    "hooks": strategy_row[1],
+                    "themes": strategy_row[2],
+                    "tone_by_channel": strategy_row[3],
+                    "key_phrases": strategy_row[4],
+                    "notes": strategy_row[5]
+                }
             else:
                 strategy = {}
             
             # Get tasks
             cur.execute("""
-                SELECT id, task_type, status, content, metadata
-                FROM campaign_task
-                WHERE campaign_id = %s
-                ORDER BY task_type, content
+                SELECT id, "taskType", status, result, error
+                FROM "CampaignTask"
+                WHERE "campaignId" = %s
+                ORDER BY "taskType", "createdAt"
             """, (campaign_id,))
             
             task_rows = cur.fetchall()
             tasks = []
             
             for task_row in task_rows:
-                task_id, task_type, status, content, metadata_json = task_row
-                
-                # Handle metadata JSON parsing with error handling
-                if metadata_json:
-                    if isinstance(metadata_json, str):
-                        metadata = json.loads(metadata_json)
-                    elif isinstance(metadata_json, dict):
-                        metadata = metadata_json  # Already parsed
-                    else:
-                        logger.warning(f"Unexpected metadata_json type: {type(metadata_json)}")
-                        metadata = {}
-                else:
-                    metadata = {}
+                task_id, task_type, status, result, error = task_row
                 
                 tasks.append({
                     "id": task_id,
                     "task_type": task_type,
                     "status": status,
-                    "content": content,
-                    "metadata": metadata
+                    "result": result,
+                    "error": error
                 })
             
             return CampaignDetail(
@@ -363,15 +369,26 @@ async def schedule_campaign(campaign_id: str, request: ScheduledPostRequest):
         with db_config.get_db_connection() as conn:
             cur = conn.cursor()
             cur.execute("""
-                SELECT strategy FROM campaign WHERE id = %s
+                SELECT "narrativeApproach", hooks, themes, "toneByChannel", "keyPhrases", notes
+                FROM "ContentStrategy"
+                WHERE "campaignId" = %s
             """, (campaign_id,))
             
             row = cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="Campaign not found")
             
-            strategy_json = row[0]
-            strategy = json.loads(strategy_json) if strategy_json else {}
+            if row:
+                strategy = {
+                    "narrative_approach": row[0],
+                    "hooks": row[1],
+                    "themes": row[2],
+                    "tone_by_channel": row[3],
+                    "key_phrases": row[4],
+                    "notes": row[5]
+                }
+            else:
+                strategy = {}
         
         # Schedule tasks
         schedule_result = await task_scheduler.schedule_campaign_tasks(campaign_id, strategy)
@@ -529,8 +546,8 @@ async def update_task_status(campaign_id: str, task_id: str, status_update: Task
             
             # First check if task exists and belongs to campaign
             cur.execute("""
-                SELECT id FROM campaign_task 
-                WHERE id = %s AND campaign_id = %s
+                SELECT id FROM "CampaignTask" 
+                WHERE id = %s AND "campaignId" = %s
             """, (task_id, campaign_id))
             
             if not cur.fetchone():
@@ -538,17 +555,17 @@ async def update_task_status(campaign_id: str, task_id: str, status_update: Task
             
             # Update task status
             cur.execute("""
-                UPDATE campaign_task 
+                UPDATE "CampaignTask" 
                 SET status = %s 
-                WHERE id = %s AND campaign_id = %s
+                WHERE id = %s AND "campaignId" = %s
             """, (status_update.status, task_id, campaign_id))
             
             conn.commit()
             
             # Get updated task
             cur.execute("""
-                SELECT id, task_type, status, content, metadata
-                FROM campaign_task
+                SELECT id, "taskType", status, result, error
+                FROM "CampaignTask"
                 WHERE id = %s
             """, (task_id,))
             

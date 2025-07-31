@@ -441,22 +441,47 @@ class CampaignManagerAgent(BaseAgent):
             
             with db_config.get_db_connection() as conn:
                 cur = conn.cursor()
+                # Insert into Campaign table (basic record)
                 cur.execute("""
-                    INSERT INTO campaign (id, blog_id, name, status, strategy)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO "Campaign" (id, "blogPostId", "createdAt")
+                    VALUES (%s, %s, NOW())
+                """, (campaign_id, blog_id))
+                
+                # Insert into Briefing table (campaign details)
+                briefing_id = str(uuid.uuid4())
+                cur.execute("""
+                    INSERT INTO "Briefing" (id, "campaignName", "marketingObjective", "targetAudience", 
+                                          channels, "desiredTone", language, "companyContext", 
+                                          "createdAt", "updatedAt", "campaignId")
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), %s)
                 """, (
-                    campaign_id,
-                    blog_id,
+                    briefing_id,
                     campaign_name,
-                    "draft",
-                    json.dumps({
-                        "target_audience": strategy.target_audience,
-                        "key_messages": strategy.key_messages,
-                        "distribution_channels": strategy.distribution_channels,
-                        "timeline_weeks": strategy.timeline_weeks,
-                        "budget_allocation": strategy.budget_allocation,
-                        "success_metrics": strategy.success_metrics
-                    })
+                    "Brand awareness and lead generation",  # Default objective
+                    json.dumps(strategy.target_audience) if hasattr(strategy, 'target_audience') else json.dumps(["B2B decision makers"]),
+                    json.dumps(strategy.distribution_channels) if hasattr(strategy, 'distribution_channels') else json.dumps(["LinkedIn", "Email"]),
+                    "Professional and engaging",  # Default tone
+                    "English",  # Default language
+                    "Campaign generated from blog content",  # Default context
+                    campaign_id
+                ))
+                
+                # Insert into ContentStrategy table (strategy details)
+                content_strategy_id = str(uuid.uuid4())
+                cur.execute("""
+                    INSERT INTO "ContentStrategy" (id, "campaignName", "narrativeApproach", hooks, themes, 
+                                                 "toneByChannel", "keyPhrases", notes, "createdAt", "updatedAt", "campaignId")
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), %s)
+                """, (
+                    content_strategy_id,
+                    campaign_name,
+                    "Data-driven storytelling approach",  # Default narrative
+                    json.dumps(strategy.key_messages) if hasattr(strategy, 'key_messages') else json.dumps(["Expert insights", "Practical solutions"]),
+                    json.dumps(["Industry expertise", "Thought leadership"]),  # Default themes
+                    json.dumps({"LinkedIn": "Professional", "Email": "Direct"}),  # Default tone by channel
+                    json.dumps(["B2B", "marketplace", "growth"]),  # Default key phrases
+                    "Strategy generated from blog content analysis",  # Default notes
+                    campaign_id
                 ))
                 conn.commit()
                 
@@ -478,22 +503,14 @@ class CampaignManagerAgent(BaseAgent):
                 for task in tasks:
                     task_id = str(uuid.uuid4())
                     cur.execute("""
-                        INSERT INTO campaign_task (id, campaign_id, task_type, status, content, metadata)
-                        VALUES (%s, %s, %s, %s, %s, %s)
+                        INSERT INTO "CampaignTask" (id, "campaignId", "taskType", status, result, "createdAt", "updatedAt")
+                        VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
                     """, (
                         task_id,
                         campaign_id,
                         task.task_type,
                         "pending",
-                        f"{task.platform}_{task.content_type}",
-                        json.dumps({
-                            "platform": task.platform,
-                            "content_type": task.content_type,
-                            "priority": task.priority,
-                            "estimated_duration_hours": task.estimated_duration_hours,
-                            "dependencies": task.dependencies,
-                            "assigned_agent": task.assigned_agent
-                        })
+                        f"{task.platform}_{task.content_type}" if hasattr(task, 'platform') else "content_repurposing"
                     ))
                 
                 conn.commit()
@@ -513,13 +530,21 @@ class CampaignManagerAgent(BaseAgent):
                 
                 # Get campaign info
                 cur.execute("""
-                    SELECT c.name, c.status, c.strategy, 
+                    SELECT COALESCE(b."campaignName", 'Unnamed Campaign') as name,
+                           CASE 
+                               WHEN COUNT(ct.id) = 0 THEN 'draft'
+                               WHEN COUNT(CASE WHEN ct.status = 'completed' THEN 1 END) = COUNT(ct.id) THEN 'completed'
+                               ELSE 'active'
+                           END as status,
+                           cs."narrativeApproach" as strategy, 
                            COUNT(ct.id) as total_tasks,
                            COUNT(CASE WHEN ct.status = 'completed' THEN 1 END) as completed_tasks
-                    FROM campaign c
-                    LEFT JOIN campaign_task ct ON c.id = ct.campaign_id
+                    FROM "Campaign" c
+                    LEFT JOIN "Briefing" b ON c.id = b."campaignId"
+                    LEFT JOIN "ContentStrategy" cs ON c.id = cs."campaignId"
+                    LEFT JOIN "CampaignTask" ct ON c.id = ct."campaignId"
                     WHERE c.id = %s
-                    GROUP BY c.id, c.name, c.status, c.strategy
+                    GROUP BY c.id, b."campaignName", cs."narrativeApproach"
                 """, (campaign_id,))
                 
                 row = cur.fetchone()
@@ -529,16 +554,23 @@ class CampaignManagerAgent(BaseAgent):
                 name, status, strategy_json, total_tasks, completed_tasks = row
                 
                 # Handle strategy JSON parsing with error handling
+                strategy = {}
                 if strategy_json:
-                    if isinstance(strategy_json, str):
-                        strategy = json.loads(strategy_json)
-                    elif isinstance(strategy_json, dict):
-                        strategy = strategy_json  # Already parsed
-                    else:
-                        logger.warning(f"Unexpected strategy_json type: {type(strategy_json)}")
-                        strategy = {}
-                else:
-                    strategy = {}
+                    try:
+                        if isinstance(strategy_json, str):
+                            # Only try to parse if it's not empty and looks like JSON
+                            strategy_json = strategy_json.strip()
+                            if strategy_json and (strategy_json.startswith('{') or strategy_json.startswith('[')):
+                                strategy = json.loads(strategy_json)
+                            else:
+                                strategy = {"narrative_approach": strategy_json}
+                        elif isinstance(strategy_json, dict):
+                            strategy = strategy_json  # Already parsed
+                        else:
+                            strategy = {"value": str(strategy_json)}
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"Failed to parse strategy JSON: {e}")
+                        strategy = {"narrative_approach": str(strategy_json) if strategy_json else "Default strategy"}
                 
                 progress = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
                 
@@ -563,9 +595,10 @@ class CampaignManagerAgent(BaseAgent):
         try:
             with db_config.get_db_connection() as conn:
                 cur = conn.cursor()
+                # Update status in the Briefing table since Campaign table doesn't have a status column
                 cur.execute("""
-                    UPDATE campaign SET status = %s WHERE id = %s
-                """, (new_status, campaign_id))
+                    UPDATE "Briefing" SET "updatedAt" = NOW() WHERE "campaignId" = %s
+                """, (campaign_id,))
                 conn.commit()
                 
                 return cur.rowcount > 0

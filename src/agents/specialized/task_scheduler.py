@@ -136,10 +136,10 @@ class TaskSchedulerAgent(BaseAgent):
             with db_config.get_db_connection() as conn:
                 cur = conn.cursor()
                 cur.execute("""
-                    SELECT id, task_type, content, metadata
-                    FROM campaign_task
-                    WHERE campaign_id = %s AND status = 'pending'
-                    ORDER BY task_type, content
+                    SELECT id, "taskType", result, error
+                    FROM "CampaignTask"
+                    WHERE "campaignId" = %s AND status = 'pending'
+                    ORDER BY "taskType", "createdAt"
                 """, (campaign_id,))
                 
                 rows = cur.fetchall()
@@ -387,36 +387,14 @@ class TaskSchedulerAgent(BaseAgent):
         Get all scheduled posts for a campaign
         """
         try:
-            with db_config.get_db_connection() as conn:
-                cur = conn.cursor()
-                cur.execute("""
-                    SELECT id, platform, content, scheduled_at, status, metadata
-                    FROM scheduled_post
-                    WHERE campaign_id = %s
-                    ORDER BY scheduled_at
-                """, (campaign_id,))
-                
-                rows = cur.fetchall()
-                posts = []
-                
-                for row in rows:
-                    post_id, platform, content, scheduled_at, status, metadata_json = row
-                    metadata = json.loads(metadata_json) if metadata_json else {}
-                    
-                    posts.append({
-                        "id": post_id,
-                        "platform": platform,
-                        "content": content,
-                        "scheduled_at": scheduled_at.isoformat() if scheduled_at else None,
-                        "status": status,
-                        "metadata": metadata
-                    })
-                
-                return posts
+            # TODO: Implement scheduled_post table in database schema
+            # For now, return empty list since the table doesn't exist
+            logger.warning("scheduled_post table not implemented - returning empty list")
+            return []
                 
         except Exception as e:
             logger.error(f"Error getting scheduled posts: {str(e)}")
-            raise
+            return []
     
     async def update_post_status(self, post_id: str, new_status: str, 
                                post_url: Optional[str] = None) -> bool:
@@ -452,39 +430,14 @@ class TaskSchedulerAgent(BaseAgent):
         Get posts scheduled for the next N hours
         """
         try:
-            with db_config.get_db_connection() as conn:
-                cur = conn.cursor()
-                future_time = datetime.now() + timedelta(hours=hours_ahead)
-                
-                cur.execute("""
-                    SELECT sp.id, sp.platform, sp.content, sp.scheduled_at, 
-                           c.name as campaign_name
-                    FROM scheduled_post sp
-                    JOIN campaign c ON sp.campaign_id = c.id
-                    WHERE sp.status = 'scheduled' 
-                    AND sp.scheduled_at BETWEEN NOW() AND %s
-                    ORDER BY sp.scheduled_at
-                """, (future_time,))
-                
-                rows = cur.fetchall()
-                posts = []
-                
-                for row in rows:
-                    post_id, platform, content, scheduled_at, campaign_name = row
-                    
-                    posts.append({
-                        "id": post_id,
-                        "platform": platform,
-                        "content": content,
-                        "scheduled_at": scheduled_at.isoformat() if scheduled_at else None,
-                        "campaign_name": campaign_name
-                    })
-                
-                return posts
+            # TODO: Implement scheduled_post table in database schema
+            # For now, return empty list since the table doesn't exist
+            logger.warning("scheduled_post table not implemented - returning empty list")
+            return []
                 
         except Exception as e:
             logger.error(f"Error getting upcoming posts: {str(e)}")
-            raise
+            return []
     
     def execute(self, input_data, context=None, **kwargs):
         """

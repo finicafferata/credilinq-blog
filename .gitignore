@@ -1,6 +1,5 @@
 # Environment variables - CRITICAL: Never commit API keys!
 .env
-.env.*
 .env.local
 .env.development.local
 .env.test.local

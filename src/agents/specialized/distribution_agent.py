@@ -494,56 +494,38 @@ class DistributionAgent(BaseAgent):
         Get overall performance metrics for a campaign
         """
         try:
-            with db_config.get_db_connection() as conn:
-                cur = conn.cursor()
-                
-                # Get all posts for the campaign
-                cur.execute("""
-                    SELECT platform, status, metadata
-                    FROM scheduled_post
-                    WHERE campaign_id = %s
-                """, (campaign_id,))
-                
-                rows = cur.fetchall()
-                
-                total_posts = len(rows)
-                published_posts = len([r for r in rows if r[1] == "published"])
-                failed_posts = len([r for r in rows if r[1] == "failed"])
-                
-                # Calculate total engagement
-                total_engagement = {
-                    "views": 0,
-                    "likes": 0,
-                    "shares": 0,
-                    "comments": 0,
-                    "clicks": 0
-                }
-                
-                for row in rows:
-                    platform, status, metadata_json = row
-                    if status == "published" and metadata_json:
-                        metadata = json.loads(metadata_json)
-                        engagement = metadata.get("engagement_metrics", {})
-                        
-                        for metric, value in engagement.items():
-                            if metric in total_engagement:
-                                total_engagement[metric] += value
-                
-                # Calculate averages
-                avg_engagement = {}
-                if published_posts > 0:
-                    for metric, total in total_engagement.items():
-                        avg_engagement[metric] = total / published_posts
-                
-                return {
-                    "campaign_id": campaign_id,
-                    "total_posts": total_posts,
-                    "published_posts": published_posts,
-                    "failed_posts": failed_posts,
-                    "success_rate": (published_posts / total_posts * 100) if total_posts > 0 else 0,
-                    "total_engagement": total_engagement,
-                    "average_engagement": avg_engagement
-                }
+            # TODO: Implement scheduled_post table in database schema
+            # For now, return mock performance data
+            logger.warning("scheduled_post table not implemented - returning mock performance data")
+            
+            total_posts = 0
+            published_posts = 0
+            failed_posts = 0
+            
+            # Calculate total engagement
+            total_engagement = {
+                "views": 0,
+                "likes": 0,
+                "shares": 0,
+                "comments": 0,
+                "clicks": 0
+            }
+            
+            # Calculate averages
+            avg_engagement = {}
+            if published_posts > 0:
+                for metric, total in total_engagement.items():
+                    avg_engagement[metric] = total / published_posts
+            
+            return {
+                "campaign_id": campaign_id,
+                "total_posts": total_posts,
+                "published_posts": published_posts,
+                "failed_posts": failed_posts,
+                "success_rate": (published_posts / total_posts * 100) if total_posts > 0 else 0,
+                "total_engagement": total_engagement,
+                "average_engagement": avg_engagement
+            }
                 
         except Exception as e:
             logger.error(f"Error getting campaign performance: {str(e)}")
