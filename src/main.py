@@ -20,6 +20,9 @@ from .core.auth import AuthenticationMiddleware
 from .core.enhanced_exceptions import ErrorHandlingMiddleware
 from .core.monitoring import start_monitoring, stop_monitoring
 
+# Import agents to trigger registration
+from .agents import specialized
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
