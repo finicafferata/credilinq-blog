@@ -11,9 +11,6 @@ import { CampaignWizard } from './pages/CampaignWizard';
 import { Analytics } from './pages/Analytics';
 import WorkflowPage from './pages/WorkflowPage';
 import ImageAgent from './pages/ImageAgent';
-import SimpleImageTest from './components/SimpleImageTest';
-import DebugImageTest from './components/DebugImageTest';
-import StaticImageTest from './components/StaticImageTest';
 
 function App() {
   return (
@@ -99,30 +96,6 @@ function App() {
             <Header />
             <main className="container mx-auto px-4 py-8">
               <ImageAgent />
-            </main>
-          </div>
-        } />
-        <Route path="/image-test" element={
-          <div className="min-h-screen bg-gray-50">
-            <Header />
-            <main className="container mx-auto px-4 py-8">
-              <SimpleImageTest />
-            </main>
-          </div>
-        } />
-        <Route path="/debug-image" element={
-          <div className="min-h-screen bg-gray-50">
-            <Header />
-            <main className="container mx-auto px-4 py-8">
-              <DebugImageTest />
-            </main>
-          </div>
-        } />
-        <Route path="/static-image" element={
-          <div className="min-h-screen bg-gray-50">
-            <Header />
-            <main className="container mx-auto px-4 py-8">
-              <StaticImageTest />
             </main>
           </div>
         } />
