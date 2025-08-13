@@ -12,6 +12,18 @@ import uuid
 from datetime import datetime
 import traceback
 
+# Import performance tracking
+try:
+    from ...core.agent_performance import (
+        AgentPerformanceTracker, 
+        cached_agent_execution, 
+        global_performance_tracker,
+        AgentCacheConfig
+    )
+    PERFORMANCE_TRACKING_AVAILABLE = True
+except ImportError:
+    PERFORMANCE_TRACKING_AVAILABLE = False
+
 # Type definitions
 T = TypeVar('T')
 AgentInput = Union[str, Dict[str, Any], List[Any]]
@@ -175,6 +187,14 @@ class BaseAgent(ABC, Generic[T]):
         self._execution_count = 0
         self._total_execution_time = 0.0
         self._last_execution_time = 0.0
+        
+        # Enhanced performance tracking
+        if PERFORMANCE_TRACKING_AVAILABLE:
+            self.performance_tracker = global_performance_tracker
+            self.agent_name = self.metadata.name or self.__class__.__name__.lower()
+        else:
+            self.performance_tracker = None
+            self.agent_name = self.__class__.__name__.lower()
         
         # Initialize agent-specific setup
         self._initialize()
@@ -426,6 +446,42 @@ class BaseAgent(ABC, Generic[T]):
             f"metadata={self.metadata}, "
             f"state={self.state})"
         )
+    
+    # Performance tracking helper methods
+    async def get_performance_analytics(self) -> Dict[str, Any]:
+        """Get performance analytics for this agent."""
+        if self.performance_tracker:
+            return await self.performance_tracker.get_agent_analytics(self.agent_name)
+        else:
+            return {
+                "agent_name": self.agent_name,
+                "execution_count": self._execution_count,
+                "total_execution_time_ms": self._total_execution_time,
+                "avg_execution_time_ms": self._total_execution_time / max(self._execution_count, 1),
+                "last_execution_time_ms": self._last_execution_time
+            }
+    
+    async def invalidate_cache(self, pattern: Optional[str] = None):
+        """Invalidate cache entries for this agent."""
+        if self.performance_tracker:
+            return await self.performance_tracker.invalidate_agent_cache(self.agent_name, pattern)
+        return 0
+    
+    def configure_caching(
+        self, 
+        ttl: int = 3600, 
+        enable_content_based_caching: bool = True,
+        cache_key_fields: Optional[List[str]] = None
+    ):
+        """Configure caching for this agent."""
+        if self.performance_tracker:
+            cache_config = AgentCacheConfig(
+                ttl=ttl,
+                enable_content_based_caching=enable_content_based_caching,
+                cache_key_fields=cache_key_fields
+            )
+            self.performance_tracker.update_cache_config(self.agent_name, cache_config)
+            self.logger.info(f"Updated cache configuration for {self.agent_name}: TTL={ttl}s")
 
 class WorkflowAgent(BaseAgent[Dict[str, Any]]):
     """

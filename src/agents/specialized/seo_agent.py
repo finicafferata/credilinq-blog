@@ -23,7 +23,7 @@ except ImportError:
 
 from ..core.base_agent import BaseAgent, AgentType, AgentResult, AgentMetadata
 from ...core.exceptions import AgentExecutionError
-from ...config import get_settings
+from ...config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -458,7 +458,14 @@ class SEOAgent(BaseAgent):
         # Return the 10 most common keywords
         return [word for word, freq in word_counts.most_common(10)]
     
-    def _sanitize_input(self, text: str, max_length: int = 4000) -> str:\n        \"\"\"Basic sanitization to prevent prompt injection.\"\"\"\n        text = text.strip()\n        # Basic removal of characters that might interfere with prompts\n        text = re.sub(r'[{}`<>]', '', text)\n        return text[:max_length]\n    \n    def validate_input(self, context: Dict[str, Any]) -> bool:
+    def _sanitize_input(self, text: str, max_length: int = 4000) -> str:
+        """Basic sanitization to prevent prompt injection."""
+        text = text.strip()
+        # Basic removal of characters that might interfere with prompts
+        text = re.sub(r'[{}`<>]', '', text)
+        return text[:max_length]
+    
+    def validate_input(self, context: Dict[str, Any]) -> bool:
         """
         Validate input context for SEO analysis.
         """
@@ -641,11 +648,11 @@ class SEOAgent(BaseAgent):
             "dateModified": datetime.utcnow().isoformat(),
             "author": {
                 "@type": "Organization",
-                "name": "CrediLinQ"
+                "name": "CrediLinq"
             },
             "publisher": {
                 "@type": "Organization", 
-                "name": "CrediLinQ"
+                "name": "CrediLinq"
             },
             "mainEntityOfPage": {
                 "@type": "WebPage",

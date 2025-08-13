@@ -93,7 +93,7 @@ export function LandingPage() {
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Why Choose CrediLinQ Over Competitors?</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Why Choose CrediLinq Over Competitors?</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               See how our multi-agent AI system outperforms traditional content tools
             </p>
@@ -104,7 +104,7 @@ export function LandingPage() {
               <thead className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
                 <tr>
                   <th className="px-6 py-4 text-left font-semibold">Feature</th>
-                  <th className="px-6 py-4 text-center font-semibold">CrediLinQ</th>
+                  <th className="px-6 py-4 text-center font-semibold">CrediLinq</th>
                   <th className="px-6 py-4 text-center font-semibold">Traditional Tools</th>
                   <th className="px-6 py-4 text-center font-semibold">Addlly</th>
                 </tr>
@@ -192,7 +192,7 @@ export function LandingPage() {
       <section className="py-20 bg-gradient-to-r from-gray-900 to-blue-900 text-white">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-4xl font-bold mb-6">See CrediLinQ in Action</h2>
+            <h2 className="text-4xl font-bold mb-6">See CrediLinq in Action</h2>
             <p className="text-xl text-blue-100 mb-12">
               Watch how our multi-agent system creates, optimizes, and manages your content campaigns
             </p>
@@ -238,7 +238,7 @@ export function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">What Our Users Say</h2>
-            <p className="text-xl text-gray-600">Join thousands of content creators who trust CrediLinQ</p>
+            <p className="text-xl text-gray-600">Join thousands of content creators who trust CrediLinq</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
@@ -251,7 +251,7 @@ export function LandingPage() {
                 ))}
               </div>
               <p className="text-gray-700 mb-6 italic">
-                "CrediLinQ transformed our content strategy. The multi-agent system produces consistently high-quality blogs that engage our audience perfectly."
+                "CrediLinq transformed our content strategy. The multi-agent system produces consistently high-quality blogs that engage our audience perfectly."
               </p>
               <div className="flex items-center">
                 <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold mr-4">
@@ -273,7 +273,7 @@ export function LandingPage() {
                 ))}
               </div>
               <p className="text-gray-700 mb-6 italic">
-                "The campaign management features are incredible. Our content ROI increased by 300% within the first quarter of using CrediLinQ."
+                "The campaign management features are incredible. Our content ROI increased by 300% within the first quarter of using CrediLinq."
               </p>
               <div className="flex items-center">
                 <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-teal-600 rounded-full flex items-center justify-center text-white font-semibold mr-4">
@@ -295,7 +295,7 @@ export function LandingPage() {
                 ))}
               </div>
               <p className="text-gray-700 mb-6 italic">
-                "As a small business owner, CrediLinQ gives me enterprise-level content capabilities. The AI agents handle everything while I focus on my business."
+                "As a small business owner, CrediLinq gives me enterprise-level content capabilities. The AI agents handle everything while I focus on my business."
               </p>
               <div className="flex items-center">
                 <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-semibold mr-4">
@@ -516,7 +516,7 @@ export function LandingPage() {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to Transform Your Content Strategy?</h2>
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of businesses already using CrediLinQ to create better content faster
+            Join thousands of businesses already using CrediLinq to create better content faster
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 

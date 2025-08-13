@@ -385,7 +385,7 @@ class KnowledgeBaseManager:
                 },
                 "metadata": {
                     "export_version": "1.0",
-                    "system": "CrediLinQ Knowledge Base",
+                    "system": "CrediLinq Knowledge Base",
                     "generated_by": "KnowledgeBaseManager"
                 }
             }

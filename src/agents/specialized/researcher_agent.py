@@ -56,10 +56,10 @@ class ResearcherAgent(BaseAgent[Dict[str, Any]]):
         if not isinstance(input_data["outline"], list):
             raise ValueError("Outline must be a list of sections")
         
-        # Security validation
-        self.security_validator.validate_input(str(input_data["blog_title"]))
+        # Security validation (relaxed for NL fields)
+        self.security_validator.validate_content(str(input_data["blog_title"]), "blog_title")
         for section in input_data["outline"]:
-            self.security_validator.validate_input(str(section))
+            self.security_validator.validate_content(str(section), "outline_section")
     
     def execute(
         self, 

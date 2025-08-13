@@ -67,14 +67,14 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
   const [useExistingBlog, setUseExistingBlog] = useState(false);
 
   const styles = [
-    { id: 'professional', name: 'Profesional', description: 'Diseño limpio y corporativo' },
-    { id: 'creative', name: 'Creativo', description: 'Estilo artístico y llamativo' },
-    { id: 'minimalist', name: 'Minimalista', description: 'Diseño simple y elegante' },
-    { id: 'modern', name: 'Moderno', description: 'Tendencias actuales de diseño' },
-    { id: 'vintage', name: 'Vintage', description: 'Estilo retro y clásico' }
+    { id: 'professional', name: 'Professional', description: 'Clean and corporate design' },
+    { id: 'creative', name: 'Creative', description: 'Artistic and eye-catching style' },
+    { id: 'minimalist', name: 'Minimalist', description: 'Simple and elegant design' },
+    { id: 'modern', name: 'Modern', description: 'Current design trends' },
+    { id: 'vintage', name: 'Vintage', description: 'Retro and classic style' }
   ];
 
-  // Cargar blogs disponibles al montar el componente
+  // Load available blogs when component mounts
   useEffect(() => {
     const fetchAvailableBlogs = async () => {
       try {
@@ -86,11 +86,11 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
           console.log(`Loaded ${blogs.length} blogs for image generation`);
         } else {
           console.error('Error fetching blogs:', response.status, response.statusText);
-          setError(`Error cargando blogs: ${response.status}`);
+          setError(`Error loading blogs: ${response.status}`);
         }
       } catch (err) {
         console.error('Error fetching blogs:', err);
-        setError('Error de conexión al cargar blogs');
+        setError('Connection error loading blogs');
       }
     };
 
@@ -100,10 +100,10 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
 
 
   const generateImages = async () => {
-    // Validar que tengamos contenido o un blog seleccionado
+    // Validate that we have content or a selected blog
     if (useExistingBlog) {
       if (!selectedBlogId) {
-        setError('Selecciona un blog existente');
+        setError('Select an existing blog');
         return;
       }
     } else {
@@ -123,7 +123,7 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
         outline
       };
 
-      // Agregar contenido según el modo seleccionado
+      // Add content based on selected mode
       if (useExistingBlog) {
         request.blog_id = selectedBlogId;
       } else {
@@ -141,7 +141,7 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
           body: JSON.stringify({ workflow_id: workflowId })
         });
       } else {
-        // Llamada directa al agente de imágenes
+        // Direct call to image agent
         response = await fetch(`${apiBaseUrl}/api/images/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -150,7 +150,7 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
       }
 
       if (!response.ok) {
-        throw new Error('Error al generar imágenes');
+        throw new Error('Error generating images');
       }
 
       const data = await response.json();
@@ -192,7 +192,7 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
       }, 500);
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsGenerating(false);
     }
@@ -214,7 +214,7 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
       });
 
       if (!response.ok) {
-        throw new Error('Error al regenerar imagen');
+        throw new Error('Error regenerating image');
       }
 
       const data = await response.json();
@@ -225,7 +225,7 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
       ));
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsGenerating(false);
     }
@@ -244,7 +244,7 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setError('Error al descargar la imagen');
+      setError('Error downloading image');
     }
   };
 
@@ -254,14 +254,14 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
         <div className="flex items-center space-x-3">
           <PhotoIcon className="h-8 w-8 text-blue-600" />
           <div>
-            <h3 className="text-xl font-semibold text-gray-900">Generador de Imágenes</h3>
+            <h3 className="text-xl font-semibold text-gray-900">Image Generator</h3>
             <p className="text-sm text-gray-600">Create professional images for your content</p>
           </div>
         </div>
         <SparklesIcon className="h-6 w-6 text-purple-500" />
       </div>
 
-      {/* Modo de Contenido */}
+      {/* Content Mode */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Content Source
@@ -283,16 +283,16 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
               onChange={() => setUseExistingBlog(true)}
               className="mr-2"
             />
-            <span className="text-sm">Blog existente</span>
+            <span className="text-sm">Existing blog</span>
           </label>
         </div>
       </div>
 
-      {/* Selección de Blog Existente */}
+      {/* Existing Blog Selection */}
       {useExistingBlog && (
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Seleccionar Blog
+            Select Blog
           </label>
           {availableBlogs.length > 0 ? (
             <select
@@ -300,7 +300,7 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
               onChange={(e) => setSelectedBlogId(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Selecciona un blog...</option>
+              <option value="">Select a blog...</option>
               {availableBlogs.map(blog => (
                 <option key={blog.id} value={blog.id}>
                   {blog.title} ({blog.status})
@@ -322,11 +322,11 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
         </div>
       )}
 
-      {/* Configuración */}
+      {/* Configuration */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Estilo de Imagen
+Image Style
           </label>
           <select
             value={selectedStyle}
@@ -343,17 +343,17 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Cantidad de Imágenes
+Number of Images
           </label>
           <select
             value={imageCount}
             onChange={(e) => setImageCount(Number(e.target.value))}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value={1}>1 imagen</option>
-            <option value={2}>2 imágenes</option>
-            <option value={3}>3 imágenes</option>
-            <option value={5}>5 imágenes</option>
+            <option value={1}>1 image</option>
+            <option value={2}>2 images</option>
+            <option value={3}>3 images</option>
+            <option value={5}>5 images</option>
           </select>
         </div>
 
@@ -366,15 +366,15 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
             {isGenerating ? (
               <>
                 <ArrowPathIcon className="h-5 w-5 animate-spin" />
-                <span>Generando...</span>
+                <span>Generating...</span>
               </>
             ) : (
               <>
                 <PhotoIcon className="h-5 w-5" />
                 <span>
                   {useExistingBlog 
-                    ? `Generar Imágenes para Blog Seleccionado`
-                    : 'Generar Imágenes'
+                    ? `Generate Images for Selected Blog`
+                    : 'Generate Images'
                   }
                 </span>
               </>
@@ -393,12 +393,12 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
         </div>
       )}
 
-      {/* Imágenes Generadas */}
+      {/* Generated Images */}
       {images.length > 0 && (
         <div className="space-y-4">
           <h4 className="text-lg font-medium text-gray-900">
-            Imágenes Generadas ({images.length})
-            {imagesLoading && <span className="text-blue-600 ml-2">(Cargando...)</span>}
+            Generated Images ({images.length})
+            {imagesLoading && <span className="text-blue-600 ml-2">(Loading...)</span>}
           </h4>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -426,14 +426,14 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
                       <button
                         onClick={() => setSelectedImage(image)}
                         className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
-                        title="Ver imagen"
+                        title="View image"
                       >
                         <EyeIcon className="h-4 w-4 text-gray-700" />
                       </button>
                                              <button
                          onClick={() => downloadImage(image)}
                          className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
-                         title="Descargar"
+                         title="Download"
                        >
                          <ArrowDownTrayIcon className="h-4 w-4 text-gray-700" />
                        </button>
@@ -441,7 +441,7 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
                         onClick={() => regenerateImage(image.id)}
                         disabled={isGenerating}
                         className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 disabled:opacity-50"
-                        title="Regenerar"
+                        title="Regenerate"
                       >
                         <ArrowPathIcon className="h-4 w-4 text-gray-700" />
                       </button>
@@ -468,12 +468,12 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
         </div>
       )}
 
-      {/* Modal para vista previa */}
+      {/* Preview Modal */}
       {showModal && selectedImage && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-lg font-semibold">Vista Previa de Imagen</h3>
+              <h3 className="text-lg font-semibold">Image Preview</h3>
               <button
                 onClick={() => setShowModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-full"
@@ -494,10 +494,10 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
                   <strong>Prompt:</strong> {selectedImage.prompt}
                 </p>
                 <p className="text-sm text-gray-600">
-                  <strong>Estilo:</strong> {selectedImage.style}
+                  <strong>Style:</strong> {selectedImage.style}
                 </p>
                 <p className="text-sm text-gray-600">
-                  <strong>Tamaño:</strong> {selectedImage.size}
+                  <strong>Size:</strong> {selectedImage.size}
                 </p>
               </div>
               
@@ -507,7 +507,7 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                  >
                    <ArrowDownTrayIcon className="h-4 w-4" />
-                   <span>Descargar</span>
+                   <span>Download</span>
                  </button>
                 <button
                   onClick={() => {
@@ -518,7 +518,7 @@ const ImageAgentPanel: React.FC<ImageAgentPanelProps> = ({
                   className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50"
                 >
                   <ArrowPathIcon className="h-4 w-4" />
-                  <span>Regenerar</span>
+                  <span>Regenerate</span>
                 </button>
               </div>
             </div>

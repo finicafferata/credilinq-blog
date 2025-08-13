@@ -30,8 +30,28 @@ class BlogSummary(BaseModel):
     title: str
     status: str
     created_at: str
+    word_count: Optional[int] = None
+    reading_time: Optional[int] = None
+    seo_score: Optional[float] = None
+    published_at: Optional[str] = None
 
 
 class BlogDetail(BlogSummary):
     content_markdown: str
     initial_prompt: dict
+    updated_at: Optional[str] = None
+    geo_optimized: Optional[bool] = False
+    geo_score: Optional[int] = None
+    geo_metadata: Optional[dict] = None
+
+
+class BlogMetadata(BaseModel):
+    """Enhanced blog metadata for analytics"""
+    id: str
+    word_count: int
+    reading_time: int
+    seo_score: Optional[float] = None
+    geo_optimized: bool = False
+    geo_score: Optional[int] = None
+    content_quality_score: Optional[float] = None
+    readability_score: Optional[float] = None

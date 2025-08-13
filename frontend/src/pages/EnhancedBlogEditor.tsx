@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { blogApi } from '../lib/api';
+import { blogApi, commentsApi, suggestionsApi } from '../lib/api';
 import { showErrorNotification, showSuccessNotification, AppError } from '../lib/errors';
 import type { BlogDetail } from '../lib/api';
 import { Breadcrumbs } from '../components/Breadcrumbs';
@@ -25,43 +25,10 @@ export function EnhancedBlogEditor() {
   const [selectionPosition, setSelectionPosition] = useState<{ start: number; end: number } | undefined>();
   const [showCollaboration, setShowCollaboration] = useState(false);
   
-  // Collaboration state
-  const [comments, setComments] = useState<Comment[]>([
-    // Mock data for demonstration
-    {
-      id: '1',
-      author: 'AI Assistant',
-      content: 'This section could benefit from more specific examples to support the main points.',
-      timestamp: new Date(Date.now() - 3600000), // 1 hour ago
-      resolved: false,
-      position: {
-        start: 150,
-        end: 200,
-        selectedText: 'the importance of digital transformation'
-      }
-    },
-    {
-      id: '2',
-      author: 'Content Reviewer',
-      content: 'Great introduction! The hook is engaging and sets up the article well.',
-      timestamp: new Date(Date.now() - 1800000), // 30 minutes ago
-      resolved: false
-    }
-  ]);
+  // Collaboration state - start empty and load from API
+  const [comments, setComments] = useState<Comment[]>([]);
   
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([
-    // Mock data for demonstration
-    {
-      id: '1',
-      author: 'AI Editor',
-      originalText: 'In today\'s rapidly changing business landscape',
-      suggestedText: 'In today\'s dynamic business environment',
-      reason: 'More concise and impactful phrasing',
-      timestamp: new Date(Date.now() - 900000), // 15 minutes ago
-      status: 'pending',
-      position: { start: 0, end: 45 }
-    }
-  ]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
   // Auto-save setup
   const autoSave = useAutoSave(blogId, content, {
@@ -88,6 +55,40 @@ export function EnhancedBlogEditor() {
       const data = await blogApi.get(blogId);
       setBlog(data);
       setContent(data.content_markdown);
+      // Load comments from API
+      const apiComments = await commentsApi.list(blogId);
+      // Load suggestions from API
+      const apiSuggestions = await suggestionsApi.list(blogId);
+      const mappedSuggestions: Suggestion[] = apiSuggestions.map(s => ({
+        id: s.id,
+        author: s.author,
+        originalText: s.originalText,
+        suggestedText: s.suggestedText,
+        reason: s.reason,
+        timestamp: new Date(s.timestamp),
+        status: s.status,
+        position: { start: s.position.start, end: s.position.end },
+      }));
+      setSuggestions(mappedSuggestions);
+      // Map API to UI model
+      const mapped: Comment[] = apiComments.map(c => ({
+        id: c.id,
+        author: c.author,
+        content: c.content,
+        timestamp: new Date(c.timestamp),
+        resolved: c.resolved,
+        position: c.position
+          ? { start: c.position.start, end: c.position.end, selectedText: c.position.selectedText }
+          : undefined,
+        replies: c.replies?.map(r => ({
+          id: r.id,
+          author: r.author,
+          content: r.content,
+          timestamp: new Date(r.timestamp),
+          resolved: r.resolved,
+        })) || []
+      }));
+      setComments(mapped);
     } catch (error) {
       if (error instanceof AppError && error.status === 404) {
         showErrorNotification(new AppError('Blog post not found'));
@@ -144,58 +145,61 @@ export function EnhancedBlogEditor() {
   };
 
   // Collaboration handlers
-  const handleAddComment = (commentContent: string, position?: Comment['position']) => {
-    const newComment: Comment = {
-      id: Date.now().toString(),
-      author: 'You',
+  const handleAddComment = async (commentContent: string, position?: Comment['position']) => {
+    if (!blogId) return;
+    const created = await commentsApi.add(blogId, {
       content: commentContent,
-      timestamp: new Date(),
-      resolved: false,
-      position
-    };
-    setComments([...comments, newComment]);
+      position: position ? { start: position.start, end: position.end, selectedText: position.selectedText } : undefined,
+    });
+    setComments(prev => ([
+      ...prev,
+      {
+        id: created.id,
+        author: created.author,
+        content: created.content,
+        timestamp: new Date(created.timestamp),
+        resolved: created.resolved,
+        position: created.position,
+        replies: created.replies?.map(r => ({ id: r.id, author: r.author, content: r.content, timestamp: new Date(r.timestamp), resolved: r.resolved })) || []
+      }
+    ]));
   };
 
-  const handleResolveComment = (commentId: string) => {
-    setComments(comments.map(comment => 
-      comment.id === commentId ? { ...comment, resolved: true } : comment
-    ));
+  const handleResolveComment = async (commentId: string) => {
+    if (!blogId) return;
+    await commentsApi.resolve(blogId, commentId);
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, resolved: true } : c));
   };
 
-  const handleReplyToComment = (commentId: string, replyContent: string) => {
-    const reply: Comment = {
-      id: Date.now().toString(),
-      author: 'You',
-      content: replyContent,
-      timestamp: new Date(),
-      resolved: false
-    };
-    
-    setComments(comments.map(comment => 
-      comment.id === commentId 
-        ? { ...comment, replies: [...(comment.replies || []), reply] }
+  const handleReplyToComment = async (commentId: string, replyContent: string) => {
+    if (!blogId) return;
+    const updated = await commentsApi.reply(blogId, commentId, { content: replyContent });
+    setComments(prev => prev.map(comment =>
+      comment.id === commentId
+        ? {
+            ...comment,
+            replies: updated.replies?.map(r => ({ id: r.id, author: r.author, content: r.content, timestamp: new Date(r.timestamp), resolved: r.resolved })) || []
+          }
         : comment
     ));
   };
 
-  const handleAcceptSuggestion = (suggestionId: string) => {
+  const handleAcceptSuggestion = async (suggestionId: string) => {
+    if (!blogId) return;
+    await suggestionsApi.accept(blogId, suggestionId);
+    // Apply suggestion text replacement
     const suggestion = suggestions.find(s => s.id === suggestionId);
     if (suggestion) {
-      // Apply the suggestion to the content
       const newContent = content.replace(suggestion.originalText, suggestion.suggestedText);
       setContent(newContent);
-      
-      // Mark suggestion as accepted
-      setSuggestions(suggestions.map(s => 
-        s.id === suggestionId ? { ...s, status: 'accepted' as const } : s
-      ));
     }
+    setSuggestions(prev => prev.map(s => s.id === suggestionId ? { ...s, status: 'accepted' } : s));
   };
 
-  const handleRejectSuggestion = (suggestionId: string) => {
-    setSuggestions(suggestions.map(s => 
-      s.id === suggestionId ? { ...s, status: 'rejected' as const } : s
-    ));
+  const handleRejectSuggestion = async (suggestionId: string) => {
+    if (!blogId) return;
+    await suggestionsApi.reject(blogId, suggestionId);
+    setSuggestions(prev => prev.map(s => s.id === suggestionId ? { ...s, status: 'rejected' } : s));
   };
 
   const handlePublish = async () => {
@@ -211,6 +215,19 @@ export function EnhancedBlogEditor() {
       showErrorNotification(error instanceof AppError ? error : new AppError('Failed to publish blog'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRunAIReview = async () => {
+    if (!blogId) return;
+    try {
+      const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const res = await fetch(`${base}/api/blogs/${blogId}/review/ai`, { method: 'POST' });
+      if (!res.ok) throw new Error(await res.text());
+      await fetchBlog();
+      showSuccessNotification('AI review completed. New comments and suggestions added.');
+    } catch (error) {
+      showErrorNotification(error instanceof AppError ? error : new AppError('Failed to run AI review'));
     }
   };
 
@@ -284,6 +301,14 @@ export function EnhancedBlogEditor() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-2M9 4h8a2 2 0 012 2v6a2 2 0 01-2 2H9l-4 4V4z" />
               </svg>
               Comments ({comments.filter(c => !c.resolved).length})
+            </button>
+            
+            <button
+              onClick={handleRunAIReview}
+              className="btn-secondary"
+              title="Generate AI comments and suggestions"
+            >
+              Run AI Review
             </button>
             
             <button
@@ -369,9 +394,7 @@ export function EnhancedBlogEditor() {
           <h3 className="text-sm font-medium text-blue-900 mb-2">💡 Pro Tips:</h3>
           <ul className="text-sm text-blue-800 space-y-1">
             <li>• Use **bold** and *italic* formatting with markdown syntax</li>
-            <li>• Select text to add contextual comments or see AI suggestions</li>
             <li>• Your work is automatically saved every few seconds</li>
-            <li>• Press ? for keyboard shortcuts</li>
           </ul>
         </div>
       </div>
@@ -379,4 +402,6 @@ export function EnhancedBlogEditor() {
       <KeyboardShortcutsHelp />
     </div>
   );
-}
+};
+
+export default EnhancedBlogEditor;

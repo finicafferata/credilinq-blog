@@ -51,7 +51,7 @@ async def get_available_blogs():
             cur = conn.cursor()
             cur.execute("""
                 SELECT id, title, status, "createdAt"
-                FROM "BlogPost" 
+                FROM blog_posts 
                 WHERE status != 'deleted' 
                 ORDER BY "createdAt" DESC
             """)
@@ -111,8 +111,8 @@ async def generate_images(request: ImageGenerationRequest):
                 with db_config.get_db_connection() as conn:
                     cur = conn.cursor()
                     cur.execute("""
-                        SELECT id, title, "contentMarkdown"
-                        FROM "BlogPost" 
+                        SELECT id, title, content_markdown
+                        FROM blog_posts 
                         WHERE id = %s AND status != 'deleted'
                     """, (request.blog_id,))
                     row = cur.fetchone()
@@ -123,7 +123,7 @@ async def generate_images(request: ImageGenerationRequest):
                     columns = [desc[0] for desc in cur.description]
                     row_dict = dict(zip(columns, row))
                     
-                    content = row_dict["contentMarkdown"] or ""
+                    content = row_dict["content_markdown"] or ""
                     blog_title = row_dict["title"]
                     logger.info(f"Retrieved blog: {blog_title}")
             except HTTPException:

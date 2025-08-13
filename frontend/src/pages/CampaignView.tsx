@@ -335,4 +335,6 @@ export function CampaignView() {
       )}
     </div>
   );
-} 
+}
+
+export default CampaignView; 

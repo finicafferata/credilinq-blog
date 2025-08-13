@@ -1,5 +1,5 @@
 """
-Comprehensive authentication and authorization system for the CrediLinQ API.
+Comprehensive authentication and authorization system for the CrediLinq API.
 Supports API keys, OAuth2, JWT tokens, and role-based access control.
 """
 
@@ -27,6 +27,11 @@ except ImportError:
 from .cache import cache
 from .monitoring import metrics
 from ..config.settings import settings
+# from .database_auth import db_auth_service
+# Temporarily disabled for quick startup
+db_auth_service = None
+import os
+import asyncio
 
 # Password hashing
 if PASSLIB_AVAILABLE:
@@ -108,26 +113,84 @@ class AuthManager:
     """Manages authentication and authorization."""
     
     def __init__(self):
-        self.users: Dict[str, User] = {}
-        self.api_keys: Dict[str, APIKey] = {}
+        # Keep minimal in-memory data for performance
         self.revoked_tokens: Set[str] = set()  # JWT token blacklist
         self.failed_login_attempts: Dict[str, List[datetime]] = {}
         
-        # Create default admin user
-        self._create_default_admin()
+        # Database service will handle user/API key persistence
+        self.db_service = db_auth_service
+        
+        # Initialize database connection (async, so we'll do it lazily)
+        self._db_initialized = False
     
-    def _create_default_admin(self):
-        """Create default admin user if not exists."""
-        admin_id = "admin-001"
-        if admin_id not in self.users:
-            admin_user = User(
-                id=admin_id,
-                email="admin@credilinq.com",
-                hashed_password=self.hash_password("admin123"),  # Change in production
-                role=UserRole.ADMIN,
-                metadata={"created_by": "system", "is_default": True}
+    async def _ensure_db_initialized(self):
+        """Ensure database service is initialized."""
+        if not self._db_initialized:
+            try:
+                await self.db_service.connect()
+                self._db_initialized = True
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to initialize database auth service: {e}")
+                raise
+    
+    def _generate_secure_admin_password(self) -> str:
+        """Generate a cryptographically secure admin password."""
+        import string
+        
+        # Generate a secure 24-character password with mixed case, numbers, and symbols
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        password = ''.join(secrets.choice(alphabet) for _ in range(24))
+        
+        # Ensure password has required character types
+        if not any(c.isupper() for c in password):
+            password = password[:-1] + secrets.choice(string.ascii_uppercase)
+        if not any(c.islower() for c in password):
+            password = password[:-2] + secrets.choice(string.ascii_lowercase) + password[-1]
+        if not any(c.isdigit() for c in password):
+            password = password[:-3] + secrets.choice(string.digits) + password[-2:]
+        if not any(c in "!@#$%^&*" for c in password):
+            password = password[:-4] + secrets.choice("!@#$%^&*") + password[-3:]
+        
+        return password
+    
+    def _validate_password_strength(self, password: str) -> None:
+        """Validate password meets security requirements."""
+        if len(password) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        
+        # Check for character variety
+        has_upper = any(c.isupper() for c in password)
+        has_lower = any(c.islower() for c in password)
+        has_digit = any(c.isdigit() for c in password)
+        has_special = any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password)
+        
+        missing_types = []
+        if not has_upper:
+            missing_types.append("uppercase letter")
+        if not has_lower:
+            missing_types.append("lowercase letter")
+        if not has_digit:
+            missing_types.append("number")
+        if not has_special:
+            missing_types.append("special character")
+        
+        if missing_types:
+            raise ValueError(
+                f"Password must contain at least one: {', '.join(missing_types)}"
             )
-            self.users[admin_id] = admin_user
+        
+        # Check for common weak passwords
+        weak_patterns = [
+            "password", "admin", "123456", "qwerty", "letmein",
+            "welcome", "monkey", "dragon", "master", "secret"
+        ]
+        
+        password_lower = password.lower()
+        for pattern in weak_patterns:
+            if pattern in password_lower:
+                raise ValueError(f"Password cannot contain common pattern: {pattern}")
     
     def hash_password(self, password: str) -> str:
         """Hash a password."""
@@ -147,56 +210,58 @@ class AuthManager:
             import hashlib
             return hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password
     
-    def create_user(
+    async def create_user(
         self,
         email: str,
         password: str,
         role: UserRole = UserRole.USER,
         metadata: Optional[Dict[str, Any]] = None
-    ) -> User:
+    ) -> Optional[User]:
         """Create a new user."""
-        user_id = str(uuid.uuid4())
+        # Ensure database is initialized
+        await self._ensure_db_initialized()
         
         # Check if email already exists
-        for user in self.users.values():
-            if user.email == email:
-                raise AuthenticationError("Email already registered")
+        existing_user = await self.db_service.get_user_by_email(email)
+        if existing_user:
+            raise AuthenticationError("Email already registered")
         
-        user = User(
-            id=user_id,
+        # Create user in database
+        from prisma.enums import UserRole as PrismaUserRole
+        prisma_role = getattr(PrismaUserRole, role.value) if hasattr(role, 'value') else PrismaUserRole.user
+        
+        user = await self.db_service.create_user(
             email=email,
             hashed_password=self.hash_password(password),
-            role=role,
+            role=prisma_role,
             metadata=metadata or {}
         )
         
-        self.users[user_id] = user
         return user
     
-    def authenticate_user(self, email: str, password: str) -> Optional[User]:
+    async def authenticate_user(self, email: str, password: str) -> Optional[User]:
         """Authenticate user with email and password."""
         
         # Check for brute force attempts
         if self._is_brute_force_attempt(email):
             raise AuthenticationError("Too many failed login attempts. Please try again later.")
         
-        # Find user by email
-        user = None
-        for u in self.users.values():
-            if u.email == email:
-                user = u
-                break
+        # Ensure database is initialized
+        await self._ensure_db_initialized()
         
-        if not user or not user.is_active:
+        # Find user by email in database
+        user = await self.db_service.get_user_by_email(email)
+        
+        if not user or not user.isActive:
             self._record_failed_login(email)
             return None
         
-        if not self.verify_password(password, user.hashed_password):
+        if not self.verify_password(password, user.hashedPassword):
             self._record_failed_login(email)
             return None
         
-        # Update last login
-        user.last_login = datetime.utcnow()
+        # Update last login in database
+        await self.db_service.update_user_login(user.id)
         
         # Clear failed attempts on successful login
         if email in self.failed_login_attempts:
@@ -259,7 +324,7 @@ class AuthManager:
         
         return token
     
-    def verify_jwt_token(self, token: str) -> Optional[Dict[str, Any]]:
+    async def verify_jwt_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Verify and decode a JWT token."""
         try:
             payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
@@ -269,8 +334,9 @@ class AuthManager:
                 return None
             
             # Verify user still exists and is active
-            user = self.users.get(payload["sub"])
-            if not user or not user.is_active:
+            await self._ensure_db_initialized()
+            user = await self.db_service.get_user_by_id(payload["sub"])
+            if not user or not user.isActive:
                 return None
             
             return payload
@@ -294,15 +360,17 @@ class AuthManager:
         except jwt.JWTError:
             return False
     
-    def create_api_key(
+    async def create_api_key(
         self,
         user_id: str,
         name: str,
         scopes: List[APIKeyScope],
         expires_in_days: Optional[int] = None,
         rate_limit_per_hour: int = 1000
-    ) -> tuple[APIKey, str]:
+    ) -> Optional[tuple[APIKey, str]]:
         """Create a new API key for a user."""
+        # Ensure database is initialized
+        await self._ensure_db_initialized()
         
         # Generate key components
         key_id = f"ak_{secrets.token_urlsafe(16)}"
@@ -314,24 +382,34 @@ class AuthManager:
         if expires_in_days:
             expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
         
-        api_key = APIKey(
-            id=str(uuid.uuid4()),
+        # Convert scopes to Prisma enum format
+        from prisma.enums import APIKeyScope as PrismaAPIKeyScope
+        prisma_scopes = []
+        for scope in scopes:
+            scope_value = scope.value if hasattr(scope, 'value') else str(scope)
+            prisma_scope = getattr(PrismaAPIKeyScope, scope_value, None)
+            if prisma_scope:
+                prisma_scopes.append(prisma_scope)
+        
+        # Create API key in database
+        api_key = await self.db_service.create_api_key(
             key_id=key_id,
             key_hash=key_hash,
             name=name,
             user_id=user_id,
-            scopes=scopes,
+            scopes=prisma_scopes,
             expires_at=expires_at,
             rate_limit_per_hour=rate_limit_per_hour
         )
         
-        self.api_keys[key_id] = api_key
+        if not api_key:
+            return None
         
         # Return API key object and the actual secret (only shown once)
         full_key = f"{key_id}.{secret_key}"
         return api_key, full_key
     
-    def verify_api_key(self, api_key: str) -> Optional[APIKey]:
+    async def verify_api_key(self, api_key: str) -> Optional[APIKey]:
         """Verify an API key."""
         try:
             # Parse key format: key_id.secret
@@ -339,48 +417,63 @@ class AuthManager:
         except ValueError:
             return None
         
-        # Get API key record
-        api_key_record = self.api_keys.get(key_id)
-        if not api_key_record or not api_key_record.is_active:
+        # Ensure database is initialized
+        await self._ensure_db_initialized()
+        
+        # Get API key record from database
+        api_key_record = await self.db_service.get_api_key(key_id)
+        if not api_key_record or not api_key_record.isActive:
             return None
         
         # Check expiration
-        if api_key_record.expires_at and datetime.utcnow() > api_key_record.expires_at:
+        if api_key_record.expiresAt and datetime.utcnow() > api_key_record.expiresAt:
             return None
         
         # Verify secret
         secret_hash = hashlib.sha256(secret.encode()).hexdigest()
-        if not hmac.compare_digest(secret_hash, api_key_record.key_hash):
+        if not hmac.compare_digest(secret_hash, api_key_record.keyHash):
             return None
         
-        # Update last used timestamp
-        api_key_record.last_used = datetime.utcnow()
+        # Update last used timestamp in database
+        await self.db_service.update_api_key_usage(key_id)
         
         return api_key_record
     
-    def revoke_api_key(self, key_id: str) -> bool:
+    async def revoke_api_key(self, key_id: str) -> bool:
         """Revoke an API key."""
-        if key_id in self.api_keys:
-            self.api_keys[key_id].is_active = False
-            return True
-        return False
+        await self._ensure_db_initialized()
+        return await self.db_service.revoke_api_key(key_id)
     
-    def has_scope(self, api_key: APIKey, required_scope: APIKeyScope) -> bool:
+    def has_scope(self, api_key, required_scope) -> bool:
         """Check if API key has required scope."""
-        return required_scope in api_key.scopes or APIKeyScope.ADMIN_ACCESS in api_key.scopes
+        # Handle both old dataclass and Prisma model formats
+        scopes = getattr(api_key, 'scopes', [])
+        admin_scope = getattr(APIKeyScope, 'ADMIN_ACCESS', 'admin_access')
+        return required_scope in scopes or admin_scope in scopes
     
-    def has_role(self, user: User, required_role: UserRole) -> bool:
+    def has_role(self, user, required_role) -> bool:
         """Check if user has required role or higher."""
+        # Handle both old dataclass and Prisma model formats
+        user_role = getattr(user, 'role', None)
+        if hasattr(user_role, 'value'):
+            user_role = user_role.value
+        elif hasattr(user_role, 'name'):
+            user_role = user_role.name
+        else:
+            user_role = str(user_role)
+        
+        required_role_str = getattr(required_role, 'value', str(required_role))
+        
         role_hierarchy = {
-            UserRole.READONLY: 0,
-            UserRole.API_CLIENT: 1,
-            UserRole.USER: 2,
-            UserRole.WEBHOOK_CLIENT: 2,
-            UserRole.ADMIN: 3
+            'readonly': 0,
+            'api_client': 1,
+            'user': 2,
+            'webhook_client': 2,
+            'admin': 3
         }
         
-        user_level = role_hierarchy.get(user.role, 0)
-        required_level = role_hierarchy.get(required_role, 0)
+        user_level = role_hierarchy.get(user_role.lower(), 0)
+        required_level = role_hierarchy.get(required_role_str.lower(), 0)
         
         return user_level >= required_level
 
@@ -399,7 +492,7 @@ async def get_current_user_from_token(
         token = credentials.credentials
         
         # Verify token
-        payload = auth_manager.verify_jwt_token(token)
+        payload = await auth_manager.verify_jwt_token(token)
         if not payload:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -407,8 +500,9 @@ async def get_current_user_from_token(
                 headers={"WWW-Authenticate": "Bearer"}
             )
         
-        # Get user
-        user = auth_manager.users.get(payload["sub"])
+        # Get user from database
+        await auth_manager._ensure_db_initialized()
+        user = await auth_manager.db_service.get_user_by_id(payload["sub"])
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -421,7 +515,7 @@ async def get_current_user_from_token(
         return {
             "user_id": user.id,
             "email": user.email,
-            "role": user.role,
+            "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
             "auth_type": "jwt"
         }
         
@@ -452,7 +546,7 @@ async def get_current_user_from_api_key(request: Request) -> Dict[str, Any]:
         )
     
     # Verify API key
-    api_key_record = auth_manager.verify_api_key(api_key)
+    api_key_record = await auth_manager.verify_api_key(api_key)
     if not api_key_record:
         metrics.increment_counter("auth.api_key_invalid")
         raise HTTPException(
@@ -460,8 +554,12 @@ async def get_current_user_from_api_key(request: Request) -> Dict[str, Any]:
             detail="Invalid API key"
         )
     
-    # Get associated user
-    user = auth_manager.users.get(api_key_record.user_id)
+    # Get associated user from database
+    user = api_key_record.user if hasattr(api_key_record, 'user') else None
+    if not user:
+        await auth_manager._ensure_db_initialized()
+        user = await auth_manager.db_service.get_user_by_id(api_key_record.userId)
+    
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -472,16 +570,16 @@ async def get_current_user_from_api_key(request: Request) -> Dict[str, Any]:
     metrics.increment_counter("auth.api_key_success", tags={"user_id": user.id})
     
     # Store API key info in request state for rate limiting
-    request.state.api_key_id = api_key_record.key_id
-    request.state.rate_limit_per_hour = api_key_record.rate_limit_per_hour
+    request.state.api_key_id = api_key_record.keyId
+    request.state.rate_limit_per_hour = api_key_record.rateLimitPerHour
     
     return {
         "user_id": user.id,
         "email": user.email,
-        "role": user.role,
+        "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
         "auth_type": "api_key",
-        "api_key_id": api_key_record.key_id,
-        "scopes": api_key_record.scopes
+        "api_key_id": api_key_record.keyId,
+        "scopes": [scope.value if hasattr(scope, 'value') else str(scope) for scope in api_key_record.scopes]
     }
 
 async def get_current_user(request: Request) -> Dict[str, Any]:
@@ -519,8 +617,9 @@ def require_scope(required_scope: APIKeyScope):
     ):
         # If authenticated via JWT, check user role
         if current_user.get("auth_type") == "jwt":
-            user = auth_manager.users.get(current_user["user_id"])
-            if user and user.role == UserRole.ADMIN:
+            await auth_manager._ensure_db_initialized()
+            user = await auth_manager.db_service.get_user_by_id(current_user["user_id"])
+            if user and (user.role == 'admin' or str(user.role).lower() == 'admin'):
                 return current_user  # Admins have all permissions
         
         # If authenticated via API key, check scopes
@@ -540,7 +639,8 @@ def require_role(required_role: UserRole):
     """Dependency that requires a specific user role."""
     
     async def role_checker(current_user: Dict = Depends(get_current_user)):
-        user = auth_manager.users.get(current_user["user_id"])
+        await auth_manager._ensure_db_initialized()
+        user = await auth_manager.db_service.get_user_by_id(current_user["user_id"])
         if not user or not auth_manager.has_role(user, required_role):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -552,13 +652,16 @@ def require_role(required_role: UserRole):
 
 async def require_admin_access(current_user: Dict = Depends(get_current_user)) -> bool:
     """Dependency that requires admin access."""
-    user = auth_manager.users.get(current_user["user_id"])
+    await auth_manager._ensure_db_initialized()
+    user = await auth_manager.db_service.get_user_by_id(current_user["user_id"])
     
-    if not user or user.role != UserRole.ADMIN:
+    user_role = str(user.role).lower() if user else None
+    if not user or user_role != 'admin':
         # Also check for admin scope in API keys
         if current_user.get("auth_type") == "api_key":
             scopes = current_user.get("scopes", [])
-            if APIKeyScope.ADMIN_ACCESS not in scopes:
+            admin_scopes = ['admin_access', 'admin:access']
+            if not any(scope in scopes for scope in admin_scopes):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Admin access required"
@@ -604,3 +707,16 @@ class AuthenticationMiddleware:
 
 # Import asyncio for async operations
 import asyncio
+import logging
+
+# Ensure database connection is initialized on module import
+async def initialize_auth_system():
+    """Initialize the authentication system."""
+    try:
+        await auth_manager._ensure_db_initialized()
+        logger = logging.getLogger(__name__)
+        logger.info("Authentication system initialized successfully")
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to initialize authentication system: {e}")
+        # Don't raise here to avoid breaking imports

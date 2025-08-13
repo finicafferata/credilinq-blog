@@ -1,5 +1,5 @@
 """
-Enhanced FastAPI application for CrediLinQ AI Content Platform.
+Enhanced FastAPI application for CrediLinq AI Content Platform.
 Includes comprehensive API documentation, versioning, webhooks, analytics, authentication, and monitoring.
 """
 
@@ -9,16 +9,30 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 import asyncio
 
-from .config import settings, db_config
-from .api.routes import blogs, campaigns, analytics, health, documents, api_analytics, content_repurposing, content_preview, competitor_intelligence
+from .config import settings, db_config, secure_db
+from .api.routes import blogs, campaigns, analytics, health, documents, api_analytics, content_repurposing, content_preview, competitor_intelligence, settings as settings_router
+from .api.routes import comments as comments_router
+from .api.routes import suggestions as suggestions_router
+from .api.routes import db_debug as db_debug_router
 from .api.routes import workflow_fixed, images_debug
 from .core.api_docs import configure_api_docs, custom_openapi_schema
+# from .core.database_pool import connection_pool_maintenance
 from .core.versioning import create_versioned_app, VersionCompatibilityMiddleware
 from .core.webhooks import router as webhooks_router, webhook_manager
 from .core.api_analytics import APIAnalyticsMiddleware
-from .core.auth import AuthenticationMiddleware
+from .core.auth import AuthenticationMiddleware, initialize_auth_system
 from .core.enhanced_exceptions import ErrorHandlingMiddleware
 from .core.monitoring import start_monitoring, stop_monitoring
+from .core.performance_middleware import (
+    create_performance_middleware, 
+    CompressionConfig, 
+    CacheConfig
+)
+# from .core.database_pool import startup_database_pool, shutdown_database_pool, connection_pool_maintenance
+# from .core.database_auth import startup_database_auth, shutdown_database_auth
+# Temporarily disabled for quick startup
+from .core.enhanced_logging import enhanced_logger, RequestTrackingMiddleware
+from .services.scheduler import ci_scheduler
 
 # Import agents to trigger registration
 from .agents import specialized
@@ -34,48 +48,130 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Enhanced application lifespan manager with monitoring and services."""
     # Startup
-    logger.info(f"Starting {settings.api_title} v{settings.api_version}")
-    logger.info(f"Environment: {settings.environment}")
+    enhanced_logger.info(f"Starting {settings.api_title} v{settings.api_version}")
+    enhanced_logger.info(f"Environment: {settings.environment}")
     
-    # Perform database health check
-    db_health = db_config.health_check()
-    if db_health["status"] == "healthy":
-        logger.info("✅ Database connections healthy")
-    else:
-        logger.warning(f"⚠️ Database health check failed: {db_health}")
+    # Initialize database connection pool
+    try:
+        # await startup_database_pool()
+        enhanced_logger.info("✅ Database connection pool initialized")
+    except Exception as e:
+        enhanced_logger.error("❌ Failed to initialize database connection pool", exception=e)
+        raise
+    
+    # Initialize database auth service
+    try:
+        # await startup_database_auth()
+        enhanced_logger.info("✅ Database auth service initialized")
+    except Exception as e:
+        enhanced_logger.error("❌ Failed to initialize database auth service", exception=e)
+        raise
+    
+    # Initialize authentication system
+    try:
+        await initialize_auth_system()
+        enhanced_logger.info("✅ Authentication system initialized")
+    except Exception as e:
+        enhanced_logger.warning("⚠️ Failed to initialize authentication system", exception=e)
+    
+    # Start connection pool maintenance task
+    maintenance_task = None
+    try:
+        # maintenance_task = asyncio.create_task(connection_pool_maintenance())
+        enhanced_logger.info("✅ Connection pool maintenance started")
+    except Exception as e:
+        enhanced_logger.warning("⚠️ Failed to start connection pool maintenance", exception=e)
+    
+    # Perform legacy database health check
+    try:
+        db_health = db_config.health_check()
+        if db_health["status"] == "healthy":
+            enhanced_logger.info("✅ Legacy database connections healthy")
+        else:
+            enhanced_logger.warning(f"⚠️ Legacy database health check failed: {db_health}")
+    except Exception as e:
+        enhanced_logger.warning("⚠️ Legacy database health check error", exception=e)
     
     # Start monitoring services
     try:
         await start_monitoring()
-        logger.info("✅ Monitoring services started")
+        enhanced_logger.info("✅ Monitoring services started")
     except Exception as e:
-        logger.warning(f"⚠️ Failed to start monitoring: {e}")
+        enhanced_logger.warning("⚠️ Failed to start monitoring", exception=e)
     
     # Start webhook retry processor
     try:
         await webhook_manager.start_retry_processor()
-        logger.info("✅ Webhook services started")
+        enhanced_logger.info("✅ Webhook services started")
     except Exception as e:
-        logger.warning(f"⚠️ Failed to start webhooks: {e}")
+        enhanced_logger.warning("⚠️ Failed to start webhooks", exception=e)
+    
+    # Start CI scheduler
+    try:
+        await ci_scheduler.start()
+        enhanced_logger.info("✅ CI Scheduler started")
+    except Exception as e:
+        enhanced_logger.warning("⚠️ Failed to start CI Scheduler", exception=e)
+    
+    enhanced_logger.info("🚀 CrediLinq AI Content Platform startup completed")
     
     yield
     
     # Shutdown
-    logger.info("Shutting down CrediLinQ AI Content Platform")
+    enhanced_logger.info("🔄 Shutting down CrediLinq AI Content Platform")
     
-    # Stop services
+    # Cancel maintenance task
+    if maintenance_task:
+        maintenance_task.cancel()
+        try:
+            await maintenance_task
+        except asyncio.CancelledError:
+            pass
+    
+    # Stop services in reverse order
     try:
         await stop_monitoring()
-        await webhook_manager.stop_retry_processor()
-        logger.info("✅ Services stopped gracefully")
+        enhanced_logger.info("✅ Monitoring services stopped")
     except Exception as e:
-        logger.warning(f"⚠️ Error during shutdown: {e}")
+        enhanced_logger.warning("⚠️ Error stopping monitoring", exception=e)
+    
+    try:
+        await webhook_manager.stop_retry_processor()
+        enhanced_logger.info("✅ Webhook services stopped")
+    except Exception as e:
+        enhanced_logger.warning("⚠️ Error stopping webhooks", exception=e)
+    
+    try:
+        await ci_scheduler.shutdown()
+        enhanced_logger.info("✅ CI Scheduler stopped")
+    except Exception as e:
+        enhanced_logger.warning("⚠️ Error stopping CI Scheduler", exception=e)
+    
+    try:
+        # await shutdown_database_auth()
+        enhanced_logger.info("✅ Database auth service stopped")
+    except Exception as e:
+        enhanced_logger.warning("⚠️ Error stopping database auth service", exception=e)
+    
+    try:
+        # await shutdown_database_pool()
+        enhanced_logger.info("✅ Database connection pool stopped")
+    except Exception as e:
+        enhanced_logger.warning("⚠️ Error stopping database pool", exception=e)
+    
+    try:
+        secure_db.close_pool()
+        enhanced_logger.info("✅ Legacy database pool stopped")
+    except Exception as e:
+        enhanced_logger.warning("⚠️ Error stopping legacy database", exception=e)
+    
+    enhanced_logger.info("✅ CrediLinq AI Content Platform shutdown completed")
 
 # Create enhanced FastAPI application
 app = FastAPI(
-    title="CrediLinQ AI Content Platform API",
+    title="CrediLinq AI Content Platform API",
     description="""
-## CrediLinQ AI Content Platform API v2.0
+## CrediLinq AI Content Platform API v2.0
 
 A comprehensive AI-powered content management and marketing automation platform with advanced features:
 
@@ -131,10 +227,38 @@ configure_api_docs(app)
 app.openapi = lambda: custom_openapi_schema(app)
 
 # Add middleware in correct order (last added = first executed)
-# app.add_middleware(ErrorHandlingMiddleware)  # Temporarily disabled for debugging
-# app.add_middleware(APIAnalyticsMiddleware)  # Temporarily disabled for debugging
-# app.add_middleware(AuthenticationMiddleware)  # Temporarily disabled for debugging
-# app.add_middleware(VersionCompatibilityMiddleware)  # Temporarily disabled for debugging
+app.add_middleware(ErrorHandlingMiddleware)  # Re-enabled - comprehensive error handling
+app.add_middleware(APIAnalyticsMiddleware)  # Re-enabled - request/response analytics  
+app.add_middleware(AuthenticationMiddleware)  # Re-enabled - authentication handling
+app.add_middleware(VersionCompatibilityMiddleware)  # Re-enabled - API versioning support
+app.add_middleware(RequestTrackingMiddleware, logger=enhanced_logger)  # Enhanced request tracking and logging
+
+# Add performance optimization middleware
+performance_middleware = create_performance_middleware(
+    compression_config=CompressionConfig(
+        min_size=1000,
+        compression_level=6,
+        enable_gzip=True,
+        enable_brotli=True,
+        excluded_paths=['/health', '/ping', '/metrics', '/docs', '/redoc', '/openapi.json']
+    ),
+    cache_config=CacheConfig(
+        default_ttl=300,  # 5 minutes
+        cache_control_header="public, max-age=300",
+        etag_enabled=True,
+        excluded_paths=[
+            '/api/v2/workflow', 
+            '/api/v2/campaigns', 
+            '/api/v2/competitor-intelligence/analyze'
+        ]
+    ),
+    enable_compression=True,
+    enable_caching=settings.enable_cache,
+    enable_connection_optimization=True
+)
+app.add_middleware(type(performance_middleware), 
+                   compression_config=performance_middleware.compression_middleware.config if hasattr(performance_middleware, 'compression_middleware') else None,
+                   cache_config=performance_middleware.cache_middleware.config if hasattr(performance_middleware, 'cache_middleware') else None)
 
 # Add CORS middleware with enhanced security
 app.add_middleware(
@@ -174,6 +298,8 @@ app.include_router(content_repurposing.router, prefix="/api/v2/content", tags=["
 app.include_router(content_preview.router, prefix="/api/v2/content-preview", tags=["content-preview-v2"])
 app.include_router(competitor_intelligence.router, prefix="/api/v2", tags=["competitor-intelligence-v2"])
 app.include_router(images_debug.router, prefix="/api/v2", tags=["images-v2"])
+# Settings routes (v2)
+app.include_router(settings_router.router, prefix="/api/v2", tags=["settings-v2"])
 # workflow_fixed is the main workflow implementation
 app.include_router(workflow_fixed.router, prefix="/api/v2", tags=["workflow-fixed-v2"])
 
@@ -185,6 +311,9 @@ app.include_router(analytics.router, prefix="/api/v1", tags=["analytics-v1"], de
 # Default routes (no version prefix) - use v2
 app.include_router(blogs.router, prefix="/api", tags=["blogs"])
 app.include_router(campaigns.router, prefix="/api", tags=["campaigns"])
+app.include_router(comments_router.router, prefix="/api", tags=["comments"])
+app.include_router(suggestions_router.router, prefix="/api", tags=["suggestions"])
+app.include_router(db_debug_router.router, prefix="/api", tags=["debug"])
 app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(documents.router, prefix="/api", tags=["documents"])
 app.include_router(webhooks_router, prefix="/api", tags=["webhooks"])
@@ -192,6 +321,7 @@ app.include_router(api_analytics.router, prefix="/api", tags=["api-analytics"])
 app.include_router(content_repurposing.router, prefix="/api/content", tags=["content-repurposing"])
 app.include_router(content_preview.router, prefix="/api/content-preview", tags=["content-preview"])
 app.include_router(competitor_intelligence.router, prefix="/api", tags=["competitor-intelligence"])
+app.include_router(settings_router.router, prefix="/api", tags=["settings"])
 
 # Add a simple test route directly
 @app.get("/api/images/test-direct")

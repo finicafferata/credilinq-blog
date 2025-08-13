@@ -10,6 +10,7 @@ from .writer_agent import WriterAgent
 from .editor_agent import EditorAgent
 from .image_agent import ImageAgent
 from .seo_agent import SEOAgent
+from .geo_analysis_agent import GEOAnalysisAgent
 from .social_media_agent import SocialMediaAgent
 
 # Import agent factory for registration
@@ -28,6 +29,7 @@ def _register_agents():
         register_agent(AgentType.CONTENT_REPURPOSER, ContentRepurposingAgent)
         register_agent(AgentType.IMAGE_PROMPT_GENERATOR, ImageAgent)
         register_agent(AgentType.SEO, SEOAgent)
+        register_agent(AgentType.CONTENT_OPTIMIZER, GEOAnalysisAgent)
         register_agent(AgentType.SOCIAL_MEDIA, SocialMediaAgent)
         register_agent(AgentType.SEARCH, WebSearchAgent)
         print("✅ All specialized agents registered successfully")
@@ -50,5 +52,6 @@ __all__ = [
     "EditorAgent",
     "ImageAgent",
     "SEOAgent",
+    "GEOAnalysisAgent",
     "SocialMediaAgent"
 ]

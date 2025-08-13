@@ -68,9 +68,9 @@ class WriterAgent(BaseAgent[Dict[str, Any]]):
         if not isinstance(input_data["research"], dict):
             raise ValueError("Research must be a dictionary")
         
-        # Security validation
-        self.security_validator.validate_input(str(input_data["blog_title"]))
-        self.security_validator.validate_input(str(input_data["company_context"]))
+        # Security validation (relaxed for NL fields)
+        self.security_validator.validate_content(str(input_data["blog_title"]), "blog_title")
+        self.security_validator.validate_content(str(input_data["company_context"]), "company_context")
     
     def execute(
         self, 

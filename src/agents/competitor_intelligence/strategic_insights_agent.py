@@ -18,7 +18,7 @@ from ..core.base_agent import BaseAgent
 from .models import (
     CompetitorInsight, Trend, ContentGap, MarketAnalysis,
     Competitor, ContentItem, Industry, AlertPriority,
-    CompetitorIntelligenceReport
+    CompetitorIntelligenceReport, CompetitorTier
 )
 from ...core.monitoring import metrics, async_performance_tracker
 from ...core.cache import cache
@@ -30,24 +30,17 @@ class StrategicInsightsAgent(BaseAgent):
     """
     
     def __init__(self):
-        super().__init__(
-            agent_type="strategic_insights",
-            capabilities=[
-                "competitive_positioning_analysis",
-                "market_opportunity_identification",
-                "strategic_recommendation_generation",
-                "competitive_threat_assessment",
-                "market_trend_synthesis",
-                "business_impact_analysis"
-            ]
-        )
+        # Import here to avoid circular imports
+        from ..core.base_agent import AgentMetadata, AgentType
         
-        # Initialize AI for strategic analysis
-        self.strategy_llm = ChatOpenAI(
-            model="gpt-4",  # Use GPT-4 for more sophisticated strategic analysis
-            temperature=0.1,  # Low temperature for consistent strategic insights
-            max_tokens=2500
+        metadata = AgentMetadata(
+            agent_type=AgentType.WORKFLOW_ORCHESTRATOR,
+            name="StrategicInsightsAgent"
         )
+        super().__init__(metadata)
+        
+        # Initialize AI for strategic analysis (lazy loading to avoid requiring API keys at startup)
+        self.strategy_llm = None
         
         # Strategic analysis configuration
         self.strategy_config = {
@@ -116,6 +109,20 @@ class StrategicInsightsAgent(BaseAgent):
                 ]
             }
         }
+    
+    def _get_strategy_llm(self):
+        """Lazy initialize the strategy LLM."""
+        if self.strategy_llm is None:
+            try:
+                self.strategy_llm = ChatOpenAI(
+                    model="gpt-4",  # Use GPT-4 for more sophisticated strategic analysis
+                    temperature=0.1,  # Low temperature for consistent strategic insights
+                    max_tokens=2500
+                )
+            except Exception as e:
+                self.logger.warning(f"Could not initialize OpenAI LLM: {e}")
+                return None
+        return self.strategy_llm
     
     async def generate_strategic_insights(
         self,
@@ -670,7 +677,17 @@ class StrategicInsightsAgent(BaseAgent):
             Focus on actionable, high-impact strategies based on the competitive landscape.
             """
             
-            response = await self.strategy_llm.agenerate([
+            llm = self._get_strategy_llm()
+            if llm is None:
+                # Fallback to rule-based recommendations if LLM not available
+                return self._generate_fallback_recommendations(
+                    competitive_landscape,
+                    market_opportunities,
+                    competitive_threats,
+                    industry
+                )
+            
+            response = await llm.agenerate([
                 [HumanMessage(content=prompt)]
             ])
             
@@ -1005,3 +1022,17 @@ class StrategicInsightsAgent(BaseAgent):
             recommendations=recommendations,
             market_overview=market_overview
         )
+    
+    def execute(self, input_data, context=None, **kwargs):
+        """
+        Execute the strategic insights agent's main functionality.
+        Routes to appropriate analysis method based on input.
+        """
+        return {
+            "status": "ready",
+            "agent_type": "strategic_insights",
+            "available_operations": [
+                "generate_strategic_insights",
+                "generate_competitive_intelligence_report"
+            ]
+        }

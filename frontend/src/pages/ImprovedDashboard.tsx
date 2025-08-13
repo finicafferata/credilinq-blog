@@ -2,8 +2,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { blogApi } from '../lib/api';
 import { showErrorNotification, AppError } from '../lib/errors';
+import { confirmAction } from '../lib/toast';
 import type { BlogSummary } from '../lib/api';
+import { useBlogStore } from '../store';
 import { BlogList } from '../components/BlogList';
+import { VirtualizedBlogList } from '../components/VirtualizedBlogList';
 import { QuickStartWizard } from '../components/QuickStartWizard';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import { KeyboardShortcutsHelp } from '../components/KeyboardShortcutsHelp';
@@ -36,6 +39,10 @@ const calculateStats = (blogs: BlogSummary[]) => {
 };
 
 export function ImprovedDashboard() {
+  // TODO: Refactor to use Zustand store for state management
+  // Example usage:
+  // const { blogs, isLoading, searchQuery, statusFilter, fetchBlogs, deleteBlog, setSearchQuery, setStatusFilter, filteredBlogs, stats } = useBlogStore();
+  
   const [blogs, setBlogs] = useState<BlogSummary[]>([]);
   const [allBlogs, setAllBlogs] = useState<BlogSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,17 +131,23 @@ export function ImprovedDashboard() {
   };
 
   const handleDelete = async (blogId: string) => {
-    if (!confirm('Are you sure you want to delete this blog post?')) {
-      return;
-    }
-
-    try {
-      await blogApi.delete(blogId);
-      await fetchBlogs();
-      performSearch();
-    } catch (err) {
-      showErrorNotification(err instanceof AppError ? err : new AppError('Failed to delete blog post'));
-    }
+    const confirmed = await confirmAction(
+      'Are you sure you want to delete this blog post? This action cannot be undone.',
+      async () => {
+        try {
+          await blogApi.delete(blogId);
+          await fetchBlogs();
+          performSearch();
+        } catch (err) {
+          showErrorNotification(err instanceof AppError ? err : new AppError('Failed to delete blog post'));
+        }
+      },
+      {
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        type: 'danger'
+      }
+    );
   };
 
   const handleRefresh = async () => {
@@ -451,7 +464,16 @@ export function ImprovedDashboard() {
             />
           )
         ) : (
-          <BlogList blogs={blogs} onDelete={handleDelete} onRefresh={handleRefresh} />
+          blogs.length > 20 ? (
+            <VirtualizedBlogList 
+              blogs={blogs} 
+              onDelete={handleDelete} 
+              onRefresh={handleRefresh}
+              height={600}
+            />
+          ) : (
+            <BlogList blogs={blogs} onDelete={handleDelete} onRefresh={handleRefresh} />
+          )
         )}
 
         <KeyboardShortcutsHelp />
@@ -459,3 +481,5 @@ export function ImprovedDashboard() {
     </div>
   );
 }
+
+export default ImprovedDashboard;

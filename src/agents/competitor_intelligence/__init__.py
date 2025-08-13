@@ -1,5 +1,5 @@
 """
-Multi-Agent Competitor Intelligence System for CrediLinQ.
+Multi-Agent Competitor Intelligence System for CrediLinq.
 Provides automated competitor monitoring, trend analysis, and strategic insights.
 """
 

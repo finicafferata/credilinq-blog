@@ -6,7 +6,8 @@ import type {
   MarketingMetric, 
   AgentFeedback, 
   DashboardAnalytics, 
-  AgentAnalytics 
+  AgentAnalytics,
+  CompetitorIntelligenceAnalytics
 } from '../types/analytics';
 import { parseApiError, AppError } from './errors';
 
@@ -17,13 +18,7 @@ const isProduction = import.meta.env.PROD;
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 
   (isDev ? 'http://localhost:8000' : 'https://credilinq-blog-production.up.railway.app');
 
-// Debug log for API URL
-console.log('🔧 API Configuration:', {
-  isDev,
-  isProduction,
-  VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
-  apiBaseUrl
-});
+// Note: avoid noisy console logs in production; use network tab if needed
 
 const api = axios.create({
   baseURL: apiBaseUrl,
@@ -53,6 +48,34 @@ export interface BlogDetail extends BlogSummary {
   initial_prompt: unknown;
 }
 
+// Comments types
+export interface CommentPosition {
+  start: number;
+  end: number;
+  selectedText: string;
+}
+
+export interface CommentItem {
+  id: string;
+  author: string;
+  content: string;
+  timestamp: string;
+  resolved: boolean;
+  position?: CommentPosition;
+  replies?: CommentItem[];
+}
+
+export interface SuggestionItem {
+  id: string;
+  author: string;
+  originalText: string;
+  suggestedText: string;
+  reason: string;
+  timestamp: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  position: { start: number; end: number };
+}
+
 export interface BlogCreateRequest {
   title: string;
   company_context: string;
@@ -68,15 +91,16 @@ export interface BlogEditRequest {
 export const blogApi = {
   // Create a new blog post
   create: async (data: { title: string; company_context: string; content_type?: string }) => {
-    console.log('Sending blog creation request:', data);
-    
-    const response = await api.post('/api/blogs', {
-      title: data.title,
-      company_context: data.company_context,
-      content_type: data.content_type || 'blog'
-    });
-    
-    return response.data;
+    try {
+      const response = await api.post('/api/blogs', {
+        title: data.title,
+        company_context: data.company_context,
+        content_type: data.content_type || 'blog'
+      });
+      return response.data;
+    } catch (err) {
+      throw err;
+    }
   },
 
   // Get all blogs
@@ -93,8 +117,12 @@ export const blogApi = {
 
   // Update blog content
   update: async (id: string, data: BlogEditRequest): Promise<BlogDetail> => {
-    const response = await api.put(`/api/blogs/${id}`, data);
-    return response.data;
+    try {
+      const response = await api.put(`/api/blogs/${id}`, data);
+      return response.data;
+    } catch (err) {
+      throw err;
+    }
   },
 
 
@@ -106,8 +134,12 @@ export const blogApi = {
 
   // Publish blog post
   publish: async (id: string): Promise<BlogDetail> => {
-    const response = await api.post(`/api/blogs/${id}/publish`);
-    return response.data;
+    try {
+      const response = await api.post(`/api/blogs/${id}/publish`);
+      return response.data;
+    } catch (err) {
+      throw err;
+    }
   },
 
 };
@@ -242,6 +274,88 @@ export const analyticsApi = {
     const response = await api.post(`/api/agents/feedback`, feedback);
     return response.data;
   },
+  // Get competitor intelligence analytics
+  getCompetitorIntelligenceAnalytics: async (days: number = 30): Promise<CompetitorIntelligenceAnalytics> => {
+    const response = await api.get(`/api/competitor-intelligence/dashboard?days=${days}`);
+    return response.data;
+  },
 };
 
 export default api; 
+ 
+// Comments API
+export const commentsApi = {
+  list: async (blogId: string): Promise<CommentItem[]> => {
+    const res = await api.get(`/api/blogs/${blogId}/comments`);
+    return res.data;
+  },
+  add: async (
+    blogId: string,
+    data: { content: string; author?: string; position?: CommentPosition }
+  ): Promise<CommentItem> => {
+    const res = await api.post(`/api/blogs/${blogId}/comments`, data);
+    return res.data;
+  },
+  reply: async (
+    blogId: string,
+    commentId: string,
+    data: { content: string; author?: string }
+  ): Promise<CommentItem> => {
+    const res = await api.post(`/api/blogs/${blogId}/comments/${commentId}/reply`, data);
+    return res.data;
+  },
+  resolve: async (blogId: string, commentId: string): Promise<CommentItem> => {
+    const res = await api.post(`/api/blogs/${blogId}/comments/${commentId}/resolve`);
+    return res.data;
+  },
+};
+
+export const suggestionsApi = {
+  list: async (blogId: string): Promise<SuggestionItem[]> => {
+    const res = await api.get(`/api/blogs/${blogId}/suggestions`);
+    return res.data;
+  },
+  add: async (
+    blogId: string,
+    data: { author?: string; originalText: string; suggestedText: string; reason: string; position: { start: number; end: number } }
+  ): Promise<SuggestionItem> => {
+    const res = await api.post(`/api/blogs/${blogId}/suggestions`, data);
+    return res.data;
+  },
+  accept: async (blogId: string, suggestionId: string): Promise<SuggestionItem> => {
+    const res = await api.post(`/api/blogs/${blogId}/suggestions/${suggestionId}/accept`);
+    return res.data;
+  },
+  reject: async (blogId: string, suggestionId: string): Promise<SuggestionItem> => {
+    const res = await api.post(`/api/blogs/${blogId}/suggestions/${suggestionId}/reject`);
+    return res.data;
+  },
+};
+
+// Settings API (lightweight, colocated for now)
+export type CompanyProfile = {
+  companyName?: string;
+  companyContext: string;
+  brandVoice?: string;
+  valueProposition?: string;
+  industries: string[];
+  targetAudiences: string[];
+  tonePresets: string[];
+  keywords: string[];
+  styleGuidelines?: string;
+  prohibitedTopics: string[];
+  complianceNotes?: string;
+  links: { label: string; url: string }[];
+  defaultCTA?: string;
+  updatedAt?: string;
+};
+
+export const settingsApi = {
+  getCompanyProfile: async (): Promise<CompanyProfile> => {
+    const res = await api.get('/api/settings/company-profile');
+    return res.data as CompanyProfile;
+  },
+  updateCompanyProfile: async (profile: CompanyProfile): Promise<void> => {
+    await api.put('/api/settings/company-profile', profile);
+  }
+};

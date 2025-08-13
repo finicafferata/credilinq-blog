@@ -723,11 +723,11 @@ def save_workflow_to_database(workflow_state: WorkflowState, result: dict):
         with db_config.get_db_connection() as conn:
             cur = conn.cursor()
             cur.execute("""
-                INSERT INTO "BlogPost" (id, title, "contentMarkdown", "initialPrompt", status, "createdAt", "updatedAt")
+                INSERT INTO blog_posts (id, title, content_markdown, initial_prompt, status, "createdAt", "updatedAt")
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET
                     title = EXCLUDED.title,
-                    "contentMarkdown" = EXCLUDED."contentMarkdown",
+                    content_markdown = EXCLUDED.content_markdown,
                     "initialPrompt" = EXCLUDED."initialPrompt",
                     status = EXCLUDED.status,
                     "updatedAt" = EXCLUDED."updatedAt"

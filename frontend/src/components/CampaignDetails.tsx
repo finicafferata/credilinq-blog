@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import type { CampaignDetail } from '../lib/api';
 
 interface CampaignDetailsProps {
@@ -7,6 +7,17 @@ interface CampaignDetailsProps {
 }
 
 export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
+  const overlayRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
   const formatDate = (dateString: string) => {
     if (!dateString) return "No date";
     try {
@@ -39,8 +50,21 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div
+      ref={overlayRef}
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={(e) => {
+        if (e.target === overlayRef.current) {
+          onClose()
+        }
+      }}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div>
@@ -50,6 +74,8 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Close"
+            title="Close"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -71,7 +97,7 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
               <p className="text-2xl font-bold text-blue-600">{campaign.tasks?.length || 0}</p>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-medium text-gray-900 mb-2">Scheduled Posts</h3>
+              <h3 className="font-medium text-gray-900 mb-2">Scheduled</h3>
               <p className="text-2xl font-bold text-green-600">{campaign.scheduled_posts?.length || 0}</p>
             </div>
           </div>
@@ -103,7 +129,7 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
                     <div className="flex flex-wrap gap-2">
                       {campaign.strategy.distribution_channels.map((channel: string, index: number) => (
                         <span key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm">
-                          {channel}
+                          {channel.toLowerCase()}
                         </span>
                       ))}
                     </div>
@@ -122,7 +148,10 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
                   <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900">{task.task_type}</h4>
-                      <p className="text-sm text-gray-600">{task.content}</p>
+                      <p className="text-sm text-gray-600">{task.result || task.content}</p>
+                      {task.error && (
+                        <p className="text-sm text-red-600">{task.error}</p>
+                      )}
                       {task.created_at && (
                         <p className="text-xs text-gray-500 mt-1">
                           Created: {formatDate(task.created_at)}
@@ -177,21 +206,22 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
               <h3 className="text-xl font-semibold mb-4">Performance</h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <h4 className="font-medium text-gray-900">Total Posts</h4>
-                  <p className="text-2xl font-bold text-blue-600">{campaign.performance.total_posts || 0}</p>
+                  <h4 className="font-medium text-gray-900">Views</h4>
+                  <p className="text-2xl font-bold text-blue-600">{campaign.performance.views || 0}</p>
                 </div>
                 <div className="text-center">
-                  <h4 className="font-medium text-gray-900">Published</h4>
-                  <p className="text-2xl font-bold text-green-600">{campaign.performance.published_posts || 0}</p>
+                  <h4 className="font-medium text-gray-900">Clicks</h4>
+                  <p className="text-2xl font-bold text-green-600">{campaign.performance.clicks || 0}</p>
                 </div>
                 <div className="text-center">
-                  <h4 className="font-medium text-gray-900">Success Rate</h4>
-                  <p className="text-2xl font-bold text-purple-600">{campaign.performance.success_rate || 0}%</p>
+                  <h4 className="font-medium text-gray-900">Engagement Rate</h4>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {campaign.performance.engagement_rate !== undefined
+                      ? `${(campaign.performance.engagement_rate * 100).toFixed(2)}%`
+                      : '0.00%'}
+                  </p>
                 </div>
-                <div className="text-center">
-                  <h4 className="font-medium text-gray-900">Engagement</h4>
-                  <p className="text-2xl font-bold text-orange-600">{campaign.performance.engagement || 0}</p>
-                </div>
+                <div className="text-center" />
               </div>
             </div>
           )}

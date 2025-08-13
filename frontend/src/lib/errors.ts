@@ -1,6 +1,7 @@
 /**
  * Error handling utilities for consistent frontend error responses
  */
+import { toastService } from './toast';
 
 export interface ApiError {
   message: string;
@@ -107,16 +108,14 @@ export function showErrorNotification(error: ApiError | AppError | Error) {
     message = error.message || 'An unexpected error occurred';
   }
 
-  // For now, use alert - could be replaced with toast notifications
-  alert(`Error: ${message}`);
+  toastService.error(message);
 }
 
 /**
  * Show success notification
  */
 export function showSuccessNotification(message: string) {
-  // For now, use alert - could be replaced with toast notifications
-  alert(`Success: ${message}`);
+  toastService.success(message);
 }
 
 /**

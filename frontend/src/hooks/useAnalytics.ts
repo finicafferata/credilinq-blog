@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { DashboardAnalytics, AgentAnalytics, BlogAnalyticsResponse } from '../types/analytics';
+import type { DashboardAnalytics, AgentAnalytics, BlogAnalyticsResponse, CompetitorIntelligenceAnalytics } from '../types/analytics';
 import { analyticsApi } from '../lib/api';
 
 // Custom hook for dashboard analytics
@@ -110,5 +110,36 @@ export function useBlogAnalytics(blogId: string) {
     error,
     refetch: fetchAnalytics,
     updateAnalytics,
+  };
+}
+
+// Custom hook for competitor intelligence analytics
+export function useCompetitorIntelligenceAnalytics(days: number = 30) {
+  const [analytics, setAnalytics] = useState<CompetitorIntelligenceAnalytics | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAnalytics = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await analyticsApi.getCompetitorIntelligenceAnalytics(days);
+      setAnalytics(data);
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || err?.message || 'Failed to fetch CI analytics');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [days]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  return {
+    analytics,
+    isLoading,
+    error,
+    refetch: fetchAnalytics,
   };
 }

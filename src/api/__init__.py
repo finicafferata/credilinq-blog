@@ -1,1 +1,1 @@
-"""API module for CrediLinQ AI Content Platform."""
+"""API module for CrediLinq AI Content Platform."""

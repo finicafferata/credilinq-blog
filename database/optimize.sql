@@ -1,4 +1,4 @@
--- Performance optimization queries for CrediLinQ database
+-- Performance optimization queries for CrediLinq database
 -- Includes indexes, query optimizations, and maintenance procedures
 
 -- ====================================
@@ -7,23 +7,23 @@
 
 -- Blog posts indexes
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_blog_posts_status 
-ON "BlogPost" (status);
+ON blog_posts (status);
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_blog_posts_created_at 
-ON "BlogPost" (created_at DESC);
+ON blog_posts (created_at DESC);
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_blog_posts_user_created 
-ON "BlogPost" (user_id, created_at DESC) 
+ON blog_posts (user_id, created_at DESC) 
 WHERE user_id IS NOT NULL;
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_blog_posts_status_created 
-ON "BlogPost" (status, created_at DESC);
+ON blog_posts (status, created_at DESC);
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_blog_posts_title_search 
-ON "BlogPost" USING gin(to_tsvector('english', title));
+ON blog_posts USING gin(to_tsvector('english', title));
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_blog_posts_content_search 
-ON "BlogPost" USING gin(to_tsvector('english', content_markdown));
+ON blog_posts USING gin(to_tsvector('english', content_markdown));
 
 -- Campaign indexes
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_campaigns_blog_id 
@@ -107,7 +107,7 @@ SELECT
     SUM(CASE WHEN ap.agent_type = 'editor_agent' THEN ap.execution_time_seconds ELSE 0 END) as editor_time,
     COUNT(c.id) as campaign_count,
     COUNT(ct.id) as total_tasks
-FROM "BlogPost" bp
+FROM blog_posts bp
 LEFT JOIN "AgentPerformance" ap ON bp.id = ap.blog_id
 LEFT JOIN "Campaign" c ON bp.id = c.blog_id
 LEFT JOIN "CampaignTask" ct ON c.id = ct.campaign_id
@@ -230,7 +230,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION analyze_table_stats()
 RETURNS void AS $$
 BEGIN
-    ANALYZE "BlogPost";
+    ANALYZE blog_posts;
     ANALYZE "Campaign";
     ANALYZE "CampaignTask";
     ANALYZE "AgentPerformance";
@@ -311,7 +311,7 @@ $$ LANGUAGE plpgsql;
 
 -- Search blogs by title with full-text search
 -- SELECT id, title, status, ts_rank(to_tsvector('english', title), query) as rank
--- FROM "BlogPost", to_tsquery('english', 'search terms') query
+-- FROM blog_posts, to_tsquery('english', 'search terms') query
 -- WHERE to_tsvector('english', title) @@ query
 -- ORDER BY rank DESC, created_at DESC;
 

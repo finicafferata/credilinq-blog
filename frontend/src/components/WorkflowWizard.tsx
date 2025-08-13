@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronRightIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { useNavigate } from 'react-router-dom';
+import { blogApi } from '../lib/api';
 
 // API configuration - same logic as api.ts
 const isDev = import.meta.env.DEV;
@@ -44,6 +46,9 @@ const WorkflowWizard: React.FC = () => {
   const [selectedMode, setSelectedMode] = useState<WorkflowMode | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [blogDraftId, setBlogDraftId] = useState<string | null>(null);
+  const blogDraftIdRef = useRef<string | null>(null);
+  const navigate = useNavigate();
 
   const modeOptions: ModeOption[] = [
     {
@@ -133,6 +138,22 @@ const WorkflowWizard: React.FC = () => {
     setError(null);
     
     try {
+      const startedAt = Date.now();
+      // Create blog draft before starting
+      try {
+        if (!blogDraftIdRef.current) {
+          const draft = await blogApi.create({
+            title,
+            company_context: context,
+            content_type: 'blog'
+          });
+          setBlogDraftId(draft.id);
+          blogDraftIdRef.current = draft.id;
+          // Draft created
+        }
+      } catch (draftErr) {
+        // Ignore draft creation failure; persist at completion instead
+      }
       const response = await fetch(`${apiBaseUrl}/api/workflow-fixed/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -142,7 +163,6 @@ const WorkflowWizard: React.FC = () => {
       if (!response.ok) throw new Error('Error starting workflow');
       
       const data = await response.json();
-      console.log('Initial workflow response:', data);
       setWorkflowState(data);
       
       // Start polling for progress updates
@@ -150,6 +170,7 @@ const WorkflowWizard: React.FC = () => {
         startProgressPolling(data.workflow_id);
       }
     } catch (err) {
+      // Swallow console noise; error is shown in UI state
       setError(err instanceof Error ? err.message : 'Unknown error');
       setIsLoading(false);
     }
@@ -165,17 +186,38 @@ const WorkflowWizard: React.FC = () => {
         }
         
         const data = await response.json();
-        console.log('Progress update:', data);
         setWorkflowState(data);
         
         // Stop polling when workflow is complete or failed
         if (data.progress >= 100 || data.status === 'failed' || data.status === 'completed') {
           clearInterval(pollInterval);
           setIsLoading(false);
-          console.log('Workflow completed, stopping polling');
+          // Completed
+          if (data.status === 'completed') {
+            try {
+              let id = blogDraftIdRef.current;
+              if (!id) {
+                const fallbackDraft = await blogApi.create({
+                  title: data.blog_title || 'Untitled',
+                  company_context: data.company_context || '',
+                  content_type: 'blog'
+                });
+                id = fallbackDraft.id;
+                setBlogDraftId(id);
+                blogDraftIdRef.current = id;
+              }
+              if (id && typeof data.content === 'string' && data.content.length > 0) {
+                await blogApi.update(id, { content_markdown: data.content });
+                // Content persisted
+                navigate(`/edit/${id}`);
+              }
+            } catch (persistErr) {
+              // Show non-blocking failure in UI only
+            }
+          }
         }
       } catch (err) {
-        console.error('Error polling workflow status:', err);
+        // Polling error
       }
     }, 2000); // Poll every 2 seconds
     
@@ -344,6 +386,25 @@ const WorkflowInput: React.FC<{
 }> = ({ onStart, isLoading }) => {
   const [title, setTitle] = useState('');
   const [context, setContext] = useState('');
+  const [useDefaultContext, setUseDefaultContext] = useState(true);
+
+  // Prefill from settings
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const base = apiBaseUrl;
+        const res = await fetch(`${base}/api/settings/company-profile`);
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          if (useDefaultContext && data?.companyContext) {
+            setContext(data.companyContext);
+          }
+        }
+      } catch (_) {}
+    })();
+    return () => { cancelled = true; };
+  }, [useDefaultContext]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -372,6 +433,10 @@ const WorkflowInput: React.FC<{
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Company Context
         </label>
+        <div className="flex items-center gap-2 mb-2">
+          <input id="useDefault" type="checkbox" checked={useDefaultContext} onChange={(e)=> setUseDefaultContext(e.target.checked)} />
+          <label htmlFor="useDefault" className="text-sm text-gray-600">Use default company context</label>
+        </div>
         <textarea
           value={context}
           onChange={(e) => setContext(e.target.value)}

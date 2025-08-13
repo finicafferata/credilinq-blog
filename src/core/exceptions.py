@@ -1,5 +1,5 @@
 """
-Custom exception classes for the CrediLinQ Content Agent.
+Custom exception classes for the CrediLinq Content Agent.
 Provides specific error types for better error handling and debugging.
 """
 
@@ -7,8 +7,8 @@ from typing import Optional, Dict, Any
 from fastapi import HTTPException, status
 
 
-class CrediLinQException(Exception):
-    """Base exception class for all CrediLinQ Content Agent errors."""
+class CrediLinqException(Exception):
+    """Base exception class for all CrediLinq Content Agent errors."""
     
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         self.message = message
@@ -20,7 +20,7 @@ class CrediLinQException(Exception):
 # SECURITY EXCEPTIONS
 # ========================================
 
-class SecurityException(CrediLinQException):
+class SecurityException(CrediLinqException):
     """Base class for security-related exceptions."""
     pass
 
@@ -84,7 +84,7 @@ class RateLimitExceeded(SecurityException):
 # DATABASE EXCEPTIONS
 # ========================================
 
-class DatabaseException(CrediLinQException):
+class DatabaseException(CrediLinqException):
     """Base class for database-related exceptions."""
     pass
 
@@ -129,7 +129,7 @@ class DuplicateRecordError(DatabaseException):
 # AI AGENT EXCEPTIONS
 # ========================================
 
-class AgentException(CrediLinQException):
+class AgentException(CrediLinqException):
     """Base class for AI agent-related exceptions."""
     pass
 
@@ -185,7 +185,7 @@ class WorkflowExecutionError(AgentException):
 # API EXCEPTIONS
 # ========================================
 
-class APIException(CrediLinQException):
+class APIException(CrediLinqException):
     """Base class for API-related exceptions."""
     pass
 
@@ -218,7 +218,7 @@ class ConflictError(APIException):
 # EXTERNAL SERVICE EXCEPTIONS
 # ========================================
 
-class ExternalServiceException(CrediLinQException):
+class ExternalServiceException(CrediLinqException):
     """Base class for external service exceptions."""
     pass
 
@@ -251,7 +251,7 @@ class SearchServiceError(ExternalServiceException):
 # FILE HANDLING EXCEPTIONS
 # ========================================
 
-class FileException(CrediLinQException):
+class FileException(CrediLinqException):
     """Base class for file-related exceptions."""
     pass
 
@@ -290,8 +290,8 @@ class FileSizeExceededError(FileException):
 # HTTP EXCEPTION CONVERTERS
 # ========================================
 
-def convert_to_http_exception(error: CrediLinQException) -> HTTPException:
-    """Convert CrediLinQ exceptions to appropriate HTTP exceptions."""
+def convert_to_http_exception(error: CrediLinqException) -> HTTPException:
+    """Convert CrediLinq exceptions to appropriate HTTP exceptions."""
     
     # Security exceptions -> 400 Bad Request or 403 Forbidden
     if isinstance(error, (InputValidationError, SQLInjectionAttempt, XSSAttempt, PathTraversalAttempt)):

@@ -7,7 +7,7 @@ name = "credilinq-content-platform"
 version = "4.0.0"
 description = "A scalable, persistent blog and knowledge management platform powered by multi-agent AI"
 authors = [
-    {name = "CrediLinQ AI Team"}
+    {name = "CrediLinq AI Team"}
 ]
 readme = "README.md"
 requires-python = ">=3.8"
@@ -37,7 +37,8 @@ dependencies = [
     "langgraph>=0.1.0",
     "openai>=1.0.0",
     "numpy>=1.24.0",
-    "requests>=2.31.0",
+  "requests>=2.31.0",
+  "APScheduler>=3.10.4",
 ]
 
 [project.optional-dependencies]

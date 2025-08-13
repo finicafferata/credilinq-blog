@@ -75,3 +75,37 @@ export interface AgentAnalytics {
     created_at: string;
   }>;
 }
+
+export interface CompetitorIntelligenceAnalytics {
+  total_competitors: number;
+  active_monitoring: number;
+  content_analyzed: number;
+  trends_identified: number;
+  alerts_generated: number;
+  top_competitors: Array<{
+    id: string;
+    name: string;
+    domain: string;
+    content_count: number;
+    last_activity: string;
+  }>;
+  content_types_distribution: Array<{
+    type: string;
+    count: number;
+    percentage: number;
+  }>;
+  platform_activity: Array<{
+    platform: string;
+    posts: number;
+    engagement: number;
+  }>;
+  trending_topics: Array<{
+    topic: string;
+    mentions: number;
+    growth_rate: number;
+  }>;
+  alerts_by_priority: Array<{
+    priority: string;
+    count: number;
+  }>;
+}

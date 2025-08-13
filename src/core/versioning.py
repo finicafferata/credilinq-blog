@@ -1,5 +1,5 @@
 """
-API versioning system for CrediLinQ platform.
+API versioning system for CrediLinq platform.
 Supports multiple API versions with backward compatibility and deprecation management.
 """
 
@@ -187,7 +187,7 @@ def create_versioned_app() -> FastAPI:
     """Create FastAPI app with version-specific routers."""
     
     app = FastAPI(
-        title="CrediLinQ AI Content Platform API",
+        title="CrediLinq AI Content Platform API",
         description="Multi-version API with comprehensive content management capabilities",
         version="2.0.0"
     )

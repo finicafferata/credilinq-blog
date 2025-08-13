@@ -542,4 +542,6 @@ export function KnowledgeBase() {
       </div>
     </div>
   );
-} 
+}
+
+export default KnowledgeBase; 

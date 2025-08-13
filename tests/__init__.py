@@ -1,1 +1,1 @@
-"""Test package for CrediLinQ Content Agent."""
+"""Test package for CrediLinq Content Agent."""

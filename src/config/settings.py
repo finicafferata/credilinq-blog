@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # ========================================
     environment: str = Field("development", env="ENVIRONMENT")
     debug: bool = Field(False, env="DEBUG")
-    api_title: str = Field("CrediLinQ Content Agent API", env="API_TITLE")
+    api_title: str = Field("CrediLinq Content Agent API", env="API_TITLE")
     api_version: str = Field("4.0.0", env="API_VERSION")
     api_description: str = Field(
         "AI-powered content management platform",
@@ -74,9 +74,14 @@ class Settings(BaseSettings):
         "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,*",
         env="CORS_ORIGINS"
     )
-    secret_key: str = Field("change-this-secret-key", env="SECRET_KEY")
-    jwt_secret: str = Field("change-this-jwt-secret", env="JWT_SECRET")
+    secret_key: str = Field("", env="SECRET_KEY")
+    jwt_secret: str = Field("", env="JWT_SECRET")
     jwt_expiration_hours: int = Field(24, env="JWT_EXPIRATION_HOURS")
+    
+    # Admin Account Configuration
+    admin_email: Optional[str] = Field(None, env="ADMIN_EMAIL")
+    admin_password: Optional[str] = Field(None, env="ADMIN_PASSWORD")
+    require_admin_password_change: bool = Field(True, env="REQUIRE_ADMIN_PASSWORD_CHANGE")
     
     # Rate Limiting
     rate_limit_per_minute: int = Field(60, env="RATE_LIMIT_PER_MINUTE")
@@ -169,18 +174,38 @@ class Settings(BaseSettings):
     # ========================================
     @validator('secret_key')
     def validate_secret_key(cls, v, values):
-        """Ensure secret key is changed from default in production."""
+        """Ensure secret key meets security requirements - auto-generate if empty."""
         environment = values.get('environment', 'development')
-        if v == "change-this-secret-key" and environment == "production":
-            raise ValueError("Secret key must be changed from default in production")
+        
+        # Auto-generate if empty or insecure
+        if not v or v in ["change-this-secret-key", "default", "secret", "key"]:
+            import secrets
+            v = secrets.token_hex(32)  # Generate 64-character hex string (256-bit)
+            if environment != 'production':
+                print(f"🔐 Auto-generated secure secret key for {environment} environment")
+        
+        # Ensure minimum length for security
+        if len(v) < 32:
+            raise ValueError("Secret key must be at least 32 characters long")
+            
         return v
     
     @validator('jwt_secret')
     def validate_jwt_secret(cls, v, values):
-        """Ensure JWT secret is changed from default in production."""
+        """Ensure JWT secret meets security requirements - auto-generate if empty."""
         environment = values.get('environment', 'development')
-        if v == "change-this-jwt-secret" and environment == "production":
-            raise ValueError("JWT secret must be changed from default in production")
+        
+        # Auto-generate if empty or insecure
+        if not v or v in ["change-this-jwt-secret", "default", "secret", "jwt"]:
+            import secrets
+            v = secrets.token_hex(32)  # Generate 64-character hex string (256-bit)
+            if environment != 'production':
+                print(f"🔐 Auto-generated secure JWT secret for {environment} environment")
+        
+        # Ensure minimum length for security
+        if len(v) < 32:
+            raise ValueError("JWT secret must be at least 32 characters long")
+            
         return v
     
     @validator('openai_temperature')
@@ -195,6 +220,58 @@ class Settings(BaseSettings):
         """Ensure rate limit is reasonable."""
         if v <= 0 or v > 10000:
             raise ValueError("Rate limit must be between 1 and 10000 requests per minute")
+        return v
+    
+    @validator('admin_password')
+    def validate_admin_password(cls, v, values):
+        """Validate admin password strength if provided."""
+        if v is None:
+            return v  # Will be auto-generated
+        
+        environment = values.get('environment', 'development')
+        
+        # Basic length check
+        if len(v) < 8:
+            raise ValueError("Admin password must be at least 8 characters long")
+        
+        # In production, enforce stronger requirements
+        if environment == 'production':
+            # Check for character variety
+            has_upper = any(c.isupper() for c in v)
+            has_lower = any(c.islower() for c in v)
+            has_digit = any(c.isdigit() for c in v)
+            has_special = any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in v)
+            
+            missing_types = []
+            if not has_upper:
+                missing_types.append("uppercase letter")
+            if not has_lower:
+                missing_types.append("lowercase letter")
+            if not has_digit:
+                missing_types.append("number")
+            if not has_special:
+                missing_types.append("special character")
+            
+            if missing_types:
+                raise ValueError(
+                    f"Production admin password must contain at least one: {', '.join(missing_types)}"
+                )
+            
+            # Check minimum length for production
+            if len(v) < 12:
+                raise ValueError("Production admin password must be at least 12 characters long")
+            
+            # Check for common weak passwords
+            weak_patterns = [
+                "password", "admin", "123456", "qwerty", "letmein",
+                "welcome", "monkey", "dragon", "master", "secret", "admin123"
+            ]
+            
+            v_lower = v.lower()
+            for pattern in weak_patterns:
+                if pattern in v_lower:
+                    raise ValueError(f"Admin password cannot contain common pattern: {pattern}")
+        
         return v
     
     class Config:
@@ -226,17 +303,37 @@ def get_settings() -> Settings:
 # Validate critical settings on import
 if settings.environment == "production":
     # Additional production validations
-    required_production_vars = [
-        'OPENAI_API_KEY', 'SUPABASE_URL', 'SUPABASE_KEY', 
-        'SECRET_KEY', 'JWT_SECRET'
-    ]
+    critical_production_vars = ['OPENAI_API_KEY']
+    optional_production_vars = ['SUPABASE_URL', 'SUPABASE_KEY']
     
-    missing_vars = []
-    for var in required_production_vars:
+    missing_critical = []
+    for var in critical_production_vars:
         if not os.getenv(var):
-            missing_vars.append(var)
+            missing_critical.append(var)
     
-    if missing_vars:
+    if missing_critical:
         raise ValueError(
-            f"Missing required environment variables for production: {', '.join(missing_vars)}"
+            f"Missing critical environment variables for production: {', '.join(missing_critical)}"
+        )
+    
+    # Check for auto-generated secrets in production (should be explicitly set)
+    if not os.getenv('SECRET_KEY'):
+        import warnings
+        warnings.warn(
+            "SECRET_KEY not explicitly set in production - using auto-generated key. "
+            "For better security, set SECRET_KEY environment variable."
+        )
+    
+    if not os.getenv('JWT_SECRET'):
+        import warnings
+        warnings.warn(
+            "JWT_SECRET not explicitly set in production - using auto-generated key. "
+            "For better security, set JWT_SECRET environment variable."
+        )
+    
+    if not os.getenv('ADMIN_PASSWORD'):
+        import warnings
+        warnings.warn(
+            "ADMIN_PASSWORD not set in production - admin password will be auto-generated. "
+            "For better security, set ADMIN_EMAIL and ADMIN_PASSWORD environment variables."
         )

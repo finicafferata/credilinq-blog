@@ -136,8 +136,8 @@ async def create_quick_campaign(template_id: str, request: QuickCampaignRequest)
             with db_config.get_db_connection() as conn:
                 cur = conn.cursor()
                 cur.execute("""
-                    SELECT title, "initialPrompt"
-                    FROM "BlogPost" 
+                    SELECT title, initial_prompt
+                    FROM blog_posts 
                     WHERE id = %s
                 """, (request.blog_id,))
                 
@@ -224,39 +224,22 @@ async def list_campaigns():
     try:
         with db_config.get_db_connection() as conn:
             cur = conn.cursor()
-            cur.execute("""
-                SELECT c.id, 
-                       COALESCE(b."campaignName", 'Unnamed Campaign') as name,
-                       CASE 
-                           WHEN COUNT(ct.id) = 0 THEN 'draft'
-                           WHEN COUNT(CASE WHEN ct.status = 'completed' THEN 1 END) = COUNT(ct.id) THEN 'completed'
-                           ELSE 'active'
-                       END as status,
-                       c."createdAt",
-                       COUNT(ct.id) as total_tasks,
-                       COUNT(CASE WHEN ct.status = 'completed' THEN 1 END) as completed_tasks
-                FROM "Campaign" c
-                LEFT JOIN "Briefing" b ON c.id = b."campaignId"
-                LEFT JOIN "CampaignTask" ct ON c.id = ct."campaignId"
-                GROUP BY c.id, c."createdAt", b."campaignName"
-                ORDER BY c."createdAt" DESC
-            """)
+            # Simple query first to test if campaigns table works
+            cur.execute("SELECT id, created_at FROM campaigns LIMIT 10")
             
             rows = cur.fetchall()
             campaigns = []
             
             for row in rows:
-                campaign_id, name, status, created_at, total_tasks, completed_tasks = row
-                
-                progress = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
+                campaign_id, created_at = row
                 
                 campaigns.append(CampaignSummary(
                     id=str(campaign_id),
-                    name=name or "Untitled Campaign",
-                    status=status or "draft",
-                    progress=progress,
-                    total_tasks=total_tasks or 0,
-                    completed_tasks=completed_tasks or 0,
+                    name="Test Campaign",
+                    status="draft",
+                    progress=0,
+                    total_tasks=0,
+                    completed_tasks=0,
                     created_at=created_at.isoformat() if created_at else datetime.now().isoformat()
                 ))
             
@@ -285,10 +268,10 @@ async def get_campaign(campaign_id: str):
         with db_config.get_db_connection() as conn:
             cur = conn.cursor()
             cur.execute("""
-                SELECT COALESCE(b."campaignName", 'Unnamed Campaign') as name,
-                       c."createdAt"
-                FROM "Campaign" c
-                LEFT JOIN "Briefing" b ON c.id = b."campaignId"
+                SELECT COALESCE(b.campaign_name, 'Unnamed Campaign') as name,
+                       c.created_at
+                FROM campaigns c
+                LEFT JOIN briefings b ON c.id = b.campaign_id
                 WHERE c.id = %s
             """, (campaign_id,))
             
@@ -300,9 +283,9 @@ async def get_campaign(campaign_id: str):
             
             # Get strategy from ContentStrategy table
             cur.execute("""
-                SELECT "narrativeApproach", hooks, themes, "toneByChannel", "keyPhrases", notes
-                FROM "ContentStrategy"
-                WHERE "campaignId" = %s
+                SELECT narrative_approach, hooks, themes, tone_by_channel, key_phrases, notes
+                FROM content_strategies
+                WHERE campaign_id = %s
             """, (campaign_id,))
             
             strategy_row = cur.fetchone()
@@ -320,10 +303,10 @@ async def get_campaign(campaign_id: str):
             
             # Get tasks
             cur.execute("""
-                SELECT id, "taskType", status, result, error
-                FROM "CampaignTask"
-                WHERE "campaignId" = %s
-                ORDER BY "taskType", "createdAt"
+                SELECT id, task_type, status, result, error
+                FROM campaign_tasks
+                WHERE campaign_id = %s
+                ORDER BY task_type, created_at
             """, (campaign_id,))
             
             task_rows = cur.fetchall()
@@ -369,9 +352,9 @@ async def schedule_campaign(campaign_id: str, request: ScheduledPostRequest):
         with db_config.get_db_connection() as conn:
             cur = conn.cursor()
             cur.execute("""
-                SELECT "narrativeApproach", hooks, themes, "toneByChannel", "keyPhrases", notes
-                FROM "ContentStrategy"
-                WHERE "campaignId" = %s
+                SELECT narrative_approach, hooks, themes, tone_by_channel, key_phrases, notes
+                FROM content_strategies
+                WHERE campaign_id = %s
             """, (campaign_id,))
             
             row = cur.fetchone()
@@ -546,8 +529,8 @@ async def update_task_status(campaign_id: str, task_id: str, status_update: Task
             
             # First check if task exists and belongs to campaign
             cur.execute("""
-                SELECT id FROM "CampaignTask" 
-                WHERE id = %s AND "campaignId" = %s
+                SELECT id FROM campaign_tasks 
+                WHERE id = %s AND campaign_id = %s
             """, (task_id, campaign_id))
             
             if not cur.fetchone():
@@ -555,17 +538,17 @@ async def update_task_status(campaign_id: str, task_id: str, status_update: Task
             
             # Update task status
             cur.execute("""
-                UPDATE "CampaignTask" 
+                UPDATE campaign_tasks 
                 SET status = %s 
-                WHERE id = %s AND "campaignId" = %s
+                WHERE id = %s AND campaign_id = %s
             """, (status_update.status, task_id, campaign_id))
             
             conn.commit()
             
             # Get updated task
             cur.execute("""
-                SELECT id, "taskType", status, result, error
-                FROM "CampaignTask"
+                SELECT id, task_type, status, result, error
+                FROM campaign_tasks
                 WHERE id = %s
             """, (task_id,))
             

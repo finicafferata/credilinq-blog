@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { blogApi } from '../lib/api';
+import api, { blogApi } from '../lib/api';
 import { showErrorNotification, AppError } from '../lib/errors';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import { KeyboardShortcutsHelp } from '../components/KeyboardShortcutsHelp';
@@ -240,9 +240,12 @@ function Step3Details({ formData, setFormData, onNext, onBack, isValid }: StepPr
         </div>
 
         <div>
-          <label htmlFor="context" className="block text-sm font-medium text-gray-700 mb-2">
-            Company Context *
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label htmlFor="context" className="block text-sm font-medium text-gray-700">
+              Company Context *
+            </label>
+            <span className="text-xs text-gray-500">Prefilled from Settings when available</span>
+          </div>
           <textarea
             id="context"
             rows={6}
@@ -295,14 +298,17 @@ function Step4Review({ formData, onBack }: StepProps & { onSubmit: () => void; i
   const handleSubmit = async () => {
     try {
       setIsLoading(true);
+      console.log('🆕 Creator:submit:start', { title: formData.title, type: formData.content_type });
       const newBlog = await blogApi.create({
         title: formData.title,
         company_context: formData.company_context,
         content_type: formData.content_type
       });
+      console.log('✅ Creator:submit:success', { id: newBlog.id });
       navigate(`/edit/${newBlog.id}`);
     } catch (error) {
       showErrorNotification(error instanceof AppError ? error : new AppError('Failed to create blog. Please try again.'));
+      console.error('❌ Creator:submit:error', error);
     } finally {
       setIsLoading(false);
     }
@@ -399,9 +405,27 @@ export function EnhancedBlogCreator() {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<BlogFormData>({
     title: '',
-    company_context: 'Credilinq.ai is a global fintech leader in embedded lending and B2B credit solutions, operating across Southeast Asia, Europe, and the United States. We empower businesses to access funding through embedded financial products and cutting-edge credit infrastructure tailored to digital platforms and marketplaces.',
+    company_context: '',
     content_type: 'blog'
   });
+  const [prefilled, setPrefilled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/api/settings/company-profile');
+        if (!cancelled) {
+          const data = res.data as { companyContext?: string };
+          if (!prefilled && !formData.company_context && data?.companyContext) {
+            setFormData(prev => ({ ...prev, company_context: data.companyContext! }));
+            setPrefilled(true);
+          }
+        }
+      } catch (_) {}
+    })();
+    return () => { cancelled = true; };
+  }, [prefilled, formData.company_context]);
 
   const totalSteps = 4;
   const progress = (currentStep / totalSteps) * 100;

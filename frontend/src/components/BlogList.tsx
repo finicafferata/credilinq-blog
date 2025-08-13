@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { BlogSummary } from '../lib/api';
 import { blogApi } from '../lib/api';
 import { showErrorNotification, showSuccessNotification, AppError } from '../lib/errors';
+import { confirmAction } from '../lib/toast';
 import { QuickCampaignActions } from './QuickCampaignActions';
 
 interface BlogListProps {
@@ -57,19 +58,25 @@ export function BlogList({ blogs, onDelete, onRefresh }: BlogListProps) {
   };
 
   const handlePublish = async (blogId: string) => {
-    if (!confirm('Are you sure you want to publish this blog post?')) {
-      return;
-    }
-
-    try {
-      await blogApi.publish(blogId);
-      showSuccessNotification('Blog published successfully!');
-      if (onRefresh) {
-        onRefresh(); // Refresh list to show new status
+    const confirmed = await confirmAction(
+      'Are you sure you want to publish this blog post?',
+      async () => {
+        try {
+          await blogApi.publish(blogId);
+          showSuccessNotification('Blog published successfully!');
+          if (onRefresh) {
+            onRefresh(); // Refresh list to show new status
+          }
+        } catch (err) {
+          showErrorNotification(err instanceof AppError ? err : new AppError('Failed to publish blog post'));
+        }
+      },
+      {
+        confirmText: 'Publish',
+        cancelText: 'Cancel',
+        type: 'info'
       }
-    } catch (err) {
-      showErrorNotification(err instanceof AppError ? err : new AppError('Failed to publish blog post'));
-    }
+    );
   };
 
   // Legacy function - now handled by QuickCampaignActions component
@@ -77,15 +84,27 @@ export function BlogList({ blogs, onDelete, onRefresh }: BlogListProps) {
 
   if (blogs.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-          <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="text-center py-12" role="region" aria-label="No blogs found">
+        <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center" aria-hidden="true">
+          <svg 
+            className="w-12 h-12 text-gray-400" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            role="img"
+          >
+            <title>Document icon</title>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">No blogs yet</h3>
         <p className="text-gray-600 mb-6">Get started by creating your first AI-generated blog post.</p>
-        <Link to="/workflow" className="btn-primary">
+        <Link 
+          to="/workflow" 
+          className="btn-primary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+          aria-label="Create your first blog post"
+        >
           Create First Blog
         </Link>
       </div>
@@ -93,14 +112,14 @@ export function BlogList({ blogs, onDelete, onRefresh }: BlogListProps) {
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3" role="list" aria-label="Blog posts">
       {blogs
         .filter((blog, index, self) => 
           // Remove duplicates based on ID
           blog.id && self.findIndex(b => b.id === blog.id) === index
         )
         .map((blog, index) => (
-        <div key={`${blog.id}-${index}`} className="card hover:shadow-md transition-shadow">
+        <article key={`${blog.id}-${index}`} className="card hover:shadow-md transition-shadow" role="listitem">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
@@ -120,7 +139,8 @@ export function BlogList({ blogs, onDelete, onRefresh }: BlogListProps) {
             <div className="flex space-x-2 flex-wrap">
               <Link
                 to={`/edit/${blog.id}`}
-                className="btn-primary text-sm mb-1"
+                className="btn-primary text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                aria-label={`Edit blog post: ${blog.title || 'Untitled'}`}
               >
                 Edit
               </Link>
@@ -128,30 +148,41 @@ export function BlogList({ blogs, onDelete, onRefresh }: BlogListProps) {
               {canPublish(blog.status) && (
                 <button
                   onClick={() => handlePublish(blog.id)}
-                  className="btn-secondary text-sm mb-1"
+                  className="btn-secondary text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                  aria-label={`Publish blog post: ${blog.title || 'Untitled'}`}
                 >
                   Publish
                 </button>
               )}
               
               {canLaunchCampaign(blog.status) && (
-                <QuickCampaignActions 
-                  blog={blog} 
-                  onRefresh={onRefresh}
-                />
+                <>
+                  <Link
+                    to={`/campaign/${blog.id}`}
+                    className="btn-secondary text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                    aria-label={`Create campaign for blog post: ${blog.title || 'Untitled'}`}
+                  >
+                    Create Campaign
+                  </Link>
+                  <QuickCampaignActions 
+                    blog={blog} 
+                    onRefresh={onRefresh}
+                  />
+                </>
               )}
             </div>
             
             {onDelete && (
               <button 
                 onClick={() => onDelete(blog.id)}
-                className="text-sm text-gray-500 hover:text-red-600 transition-colors"
+                className="text-sm text-gray-500 hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded"
+                aria-label={`Delete blog post: ${blog.title || 'Untitled'}`}
               >
                 Delete
               </button>
             )}
           </div>
-        </div>
+        </article>
       ))}
     </div>
   );

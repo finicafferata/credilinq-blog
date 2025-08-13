@@ -12,88 +12,149 @@ datasource db {
 
 model BlogPost {
   id              String     @id @default(uuid()) @db.Uuid
-  title           String
-  contentMarkdown String
-  initialPrompt   Json?
+  title           String     @db.VarChar(255)
+  contentMarkdown String     @map("content_markdown") @db.Text
+  initialPrompt   Json?      @map("initial_prompt")
   status          PostStatus @default(draft)
-  geoMetadata     Json?
-  geoOptimized    Boolean    @default(false)
-  geoScore        Int?
-  createdAt       DateTime   @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime   @updatedAt @db.Timestamptz(6)
-  campaignId      String?    @unique @db.Uuid
+  geoMetadata     Json?      @map("geo_metadata")
+  geoOptimized    Boolean    @default(false) @map("geo_optimized")
+  geoScore        Int?       @map("geo_score") @db.SmallInt
+  seoScore        Float?     @map("seo_score")
+  wordCount       Int?       @map("word_count")
+  readingTime     Int?       @map("reading_time") // in minutes
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  publishedAt     DateTime?  @map("published_at") @db.Timestamptz(6)
+  campaignId      String?    @unique @map("campaign_id") @db.Uuid
   campaign        Campaign?
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([publishedAt])
+  @@index([status, createdAt])
+  @@index([geoOptimized, geoScore])
+  @@index([status, publishedAt])
+  @@map("blog_posts")
 }
 
 model Campaign {
   id              String           @id @default(uuid()) @db.Uuid
-  createdAt       DateTime         @default(now())
-  blogPostId      String?          @unique @db.Uuid
+  name            String?          @db.VarChar(255)
+  status          String           @default("draft") @db.VarChar(50)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  blogPostId      String?          @unique @map("blog_post_id") @db.Uuid
   briefing        Briefing?
-  blogPost        BlogPost?        @relation(fields: [blogPostId], references: [id])
+  blogPost        BlogPost?        @relation(fields: [blogPostId], references: [id], onDelete: SetNull)
   tasks           CampaignTask[]
   contentStrategy ContentStrategy?
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([status, createdAt])
+  @@map("campaigns")
 }
 
 model Briefing {
   id                 String    @id @default(uuid()) @db.Uuid
-  campaignName       String
-  marketingObjective String
-  targetAudience     String
+  campaignName       String    @map("campaign_name") @db.VarChar(255)
+  marketingObjective String    @map("marketing_objective") @db.Text
+  targetAudience     String    @map("target_audience") @db.VarChar(500)
   channels           Json
-  desiredTone        String
-  language           String
-  companyContext     String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  campaignId         String?   @unique @db.Uuid
-  campaign           Campaign? @relation(fields: [campaignId], references: [id])
+  desiredTone        String    @map("desired_tone") @db.VarChar(100)
+  language           String    @db.VarChar(50)
+  companyContext     String?   @map("company_context") @db.Text
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  campaignId         String?   @unique @map("campaign_id") @db.Uuid
+  campaign           Campaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([createdAt])
+  @@map("briefings")
 }
 
 model ContentStrategy {
   id                String    @id @default(uuid()) @db.Uuid
-  campaignName      String
-  narrativeApproach String
+  campaignName      String    @map("campaign_name") @db.VarChar(255)
+  narrativeApproach String    @map("narrative_approach") @db.Text
   hooks             Json
   themes            Json
-  toneByChannel     Json
-  keyPhrases        Json
-  notes             String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  campaignId        String?   @unique @db.Uuid
-  campaign          Campaign? @relation(fields: [campaignId], references: [id])
+  toneByChannel     Json      @map("tone_by_channel")
+  keyPhrases        Json      @map("key_phrases")
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  campaignId        String?   @unique @map("campaign_id") @db.Uuid
+  campaign          Campaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([createdAt])
+  @@map("content_strategies")
 }
 
 model CampaignTask {
-  id           String   @id @default(uuid()) @db.Uuid
-  campaignId   String   @db.Uuid
-  taskType     String
-  targetFormat String?
-  targetAsset  String?
-  status       String
-  result       String?
-  imageUrl     String?
-  error        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  id           String     @id @default(uuid()) @db.Uuid
+  campaignId   String     @map("campaign_id") @db.Uuid
+  taskType     TaskType   @map("task_type")
+  targetFormat String?    @map("target_format") @db.VarChar(100)
+  targetAsset  String?    @map("target_asset") @db.VarChar(200)
+  status       TaskStatus @default(pending)
+  result       String?    @db.Text
+  imageUrl     String?    @map("image_url") @db.VarChar(500)
+  error        String?    @db.Text
+  executionTime Int?      @map("execution_time") // milliseconds
+  priority     Int        @default(5) // 1-10 scale
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  startedAt    DateTime?  @map("started_at") @db.Timestamptz(6)
+  completedAt  DateTime?  @map("completed_at") @db.Timestamptz(6)
+  campaign     Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([status])
+  @@index([taskType])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([status, priority])
+  @@map("campaign_tasks")
 }
 
 model Document {
   id             String          @id @default(uuid()) @db.Uuid
-  title          String
-  storagePath    String
-  uploadedAt     DateTime?       @default(now()) @db.Timestamptz(6)
+  title          String          @db.VarChar(500)
+  fileName       String          @map("file_name") @db.VarChar(255)
+  fileSize       BigInt?         @map("file_size") // in bytes
+  mimeType       String?         @map("mime_type") @db.VarChar(100)
+  storagePath    String          @map("storage_path") @db.VarChar(1000)
+  uploadedAt     DateTime        @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  processedAt    DateTime?       @map("processed_at") @db.Timestamptz(6)
+  chunkCount     Int?            @map("chunk_count")
+  metadata       Json?
   documentChunks DocumentChunk[]
+
+  @@index([uploadedAt])
+  @@index([title])
+  @@index([fileName])
+  @@index([storagePath])
+  @@index([processedAt])
+  @@map("documents")
 }
 
 model DocumentChunk {
-  id         BigInt    @id @default(autoincrement())
-  content    String
-  embedding  String?
-  documentId String?   @db.Uuid
-  document   Document? @relation(fields: [documentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id         BigInt                @id @default(autoincrement())
+  content    String                @db.Text
+  embedding  Unsupported("vector(1536)")?  // Proper vector type for OpenAI embeddings
+  documentId String?               @map("document_id") @db.Uuid
+  document   Document?             @relation(fields: [documentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  createdAt  DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([documentId])
+  // Vector index will be created manually after schema setup
+  @@map("document_chunks")
 }
 
 enum PostStatus {
@@ -112,4 +173,606 @@ enum TaskStatus {
   rejected
   completed
   error
+  cancelled
+  timeout
+}
+
+enum TaskType {
+  content_creation
+  content_editing
+  content_repurposing
+  image_generation
+  seo_optimization
+  social_media_adaptation
+  email_formatting
+  blog_to_linkedin
+  blog_to_twitter
+  blog_to_video_script
+  distribution
+}
+
+// Competitor Intelligence Enums
+enum CIContentType {
+  blog_post
+  social_media_post
+  video
+  podcast
+  whitepaper
+  case_study
+  webinar
+  email_newsletter
+  press_release
+  product_update
+}
+
+enum CIPlatform {
+  website
+  linkedin
+  twitter
+  facebook
+  instagram
+  youtube
+  medium
+  substack
+  tiktok
+  reddit
+}
+
+enum CISocialPostType {
+  text
+  image
+  video
+  link
+  repost
+  article
+  story
+}
+
+enum CIIndustry {
+  fintech
+  saas
+  ecommerce
+  healthcare
+  education
+  marketing
+  technology
+  finance
+  retail
+  media
+}
+
+enum CITrendStrength {
+  weak
+  moderate
+  strong
+  viral
+}
+
+enum CIAlertPriority {
+  low
+  medium
+  high
+  critical
+}
+
+enum CICompetitorTier {
+  direct
+  indirect
+  aspirational
+  adjacent
+}
+
+// Content Gap Analysis - moved from CI schema
+model CIContentGap {
+  id                    String        @id @default(uuid()) @db.Uuid
+  topic                 String        @db.VarChar(500)
+  description           String        @db.Text
+  opportunityScore      Float         @map("opportunity_score")
+  difficultyScore       Float         @map("difficulty_score")
+  potentialReach        Int           @map("potential_reach")
+  contentTypesMissing   CIContentType[] @map("content_types_missing")
+  platformsMissing      CIPlatform[]  @map("platforms_missing")
+  keywords              String[]
+  competitorsCovering   String[]      @map("competitors_covering")
+  suggestedApproach     String?       @map("suggested_approach") @db.Text
+  identifiedAt          DateTime      @default(now()) @map("identified_at") @db.Timestamptz(6)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  metadata              Json?
+  
+  // Relations
+  relatedContent        CIContentItem[] @relation("CIGapContent")
+  relatedTrends         CITrend[]       @relation("CITrendGaps")
+  alerts                CIAlert[]       @relation("CIGapAlerts")
+  
+  @@index([opportunityScore])
+  @@index([difficultyScore])
+  @@index([identifiedAt])
+  @@index([opportunityScore, difficultyScore])
+  @@map("ci_content_gaps")
+}
+
+// Trends Analysis - moved from CI schema
+model CITrend {
+  id              String          @id @default(uuid()) @db.Uuid
+  topic           String          @db.VarChar(500)
+  keywords        String[]
+  industry        CIIndustry
+  strength        CITrendStrength
+  growthRate      Float           @map("growth_rate")
+  firstDetected   DateTime        @map("first_detected") @db.Timestamptz(6)
+  lastUpdated     DateTime        @updatedAt @map("last_updated") @db.Timestamptz(6)
+  peakDate        DateTime?       @map("peak_date") @db.Timestamptz(6)
+  competitorsUsing String[]       @map("competitors_using")
+  opportunityScore Float?         @map("opportunity_score")
+  metadata        Json?
+  
+  // Relations
+  relatedContent  CIContentItem[] @relation("CITrendContent")
+  gaps            CIContentGap[]  @relation("CITrendGaps")
+  alerts          CIAlert[]       @relation("CITrendAlerts")
+  
+  @@index([industry])
+  @@index([strength])
+  @@index([firstDetected])
+  @@index([lastUpdated])
+  @@index([industry, strength])
+  @@index([strength, growthRate])
+  @@map("ci_trends")
+}
+
+// Competitor Intelligence Tables
+
+model CICompetitor {
+  id                  String           @id @default(uuid()) @db.Uuid
+  name                String           @db.VarChar(255)
+  domain              String           @db.VarChar(255)
+  tier                CICompetitorTier
+  industry            CIIndustry
+  description         String           @db.Text
+  platforms           CIPlatform[]
+  monitoringKeywords  String[]
+  socialHandles       Json?            @map("social_handles")
+  lastMonitored       DateTime?        @map("last_monitored") @db.Timestamptz(6)
+  lastSocialMonitored DateTime?        @map("last_social_monitored") @db.Timestamptz(6)
+  isActive            Boolean          @default(true) @map("is_active")
+  metadata            Json?
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  // Relations
+  contentItems        CIContentItem[]
+  socialPosts         CISocialPost[]
+  alerts              CIAlert[]
+  insights            CICompetitorInsight[]
+  
+  @@index([industry])
+  @@index([tier])
+  @@index([isActive])
+  @@index([domain])
+  @@index([industry, tier])
+  @@index([isActive, lastMonitored])
+  @@unique([domain])
+  @@map("ci_competitors")
+}
+
+model CIContentItem {
+  id                String       @id @default(uuid()) @db.Uuid
+  competitorId      String       @map("competitor_id") @db.Uuid
+  title             String       @db.VarChar(500)
+  content           String       @db.Text
+  contentType       CIContentType @map("content_type")
+  platform          CIPlatform
+  url               String       @db.VarChar(1000)
+  publishedAt       DateTime?    @map("published_at") @db.Timestamptz(6)
+  discoveredAt      DateTime     @default(now()) @map("discovered_at") @db.Timestamptz(6)
+  lastChecked       DateTime?    @map("last_checked") @db.Timestamptz(6)
+  author            String?      @db.VarChar(255)
+  engagementMetrics Json?        @map("engagement_metrics")
+  keywords          String[]
+  sentimentScore    Float?       @map("sentiment_score")
+  qualityScore      Float?       @map("quality_score")
+  wordCount         Int?         @map("word_count")
+  readTime          Int?         @map("read_time") // minutes
+  shareCount        Int?         @map("share_count")
+  likeCount         Int?         @map("like_count")
+  commentCount      Int?         @map("comment_count")
+  viewCount         Int?         @map("view_count")
+  contentHash       String?      @map("content_hash") @db.VarChar(64)
+  metadata          Json?
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  // Relations
+  competitor        CICompetitor   @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  relatedTrends     CITrend[]      @relation("CITrendContent")
+  relatedGaps       CIContentGap[] @relation("CIGapContent")
+  
+  @@index([competitorId])
+  @@index([contentType])
+  @@index([platform])
+  @@index([publishedAt])
+  @@index([discoveredAt])
+  @@index([contentHash])
+  @@index([sentimentScore])
+  @@index([qualityScore])
+  @@index([competitorId, contentType])
+  @@index([platform, publishedAt])
+  @@index([contentType, publishedAt])
+  @@unique([competitorId, url])
+  @@map("ci_content_items")
+}
+
+model CISocialPost {
+  id                String            @id @default(uuid()) @db.Uuid
+  competitorId      String            @map("competitor_id") @db.Uuid
+  platform          CIPlatform
+  postId            String            @map("post_id") // Platform-specific post ID
+  url               String?
+  content           String
+  author            String?
+  authorHandle      String?           @map("author_handle")
+  publishedAt       DateTime?         @map("published_at") @db.Timestamptz(6)
+  discoveredAt      DateTime          @default(now()) @map("discovered_at") @db.Timestamptz(6)
+  engagementMetrics Json?             @map("engagement_metrics")
+  hashtags          String[]
+  mentions          String[]
+  mediaUrls         String[]          @map("media_urls")
+  postType          CISocialPostType  @map("post_type")
+  sentimentScore    Float?            @map("sentiment_score")
+  viralityScore     Float?            @map("virality_score")
+  metadata          Json?
+  
+  // Relations
+  competitor        CICompetitor      @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  
+  @@unique([competitorId, platform, postId])
+  @@index([competitorId])
+  @@index([platform])
+  @@index([publishedAt])
+  @@index([discoveredAt])
+  @@index([postType])
+  @@map("ci_social_posts")
+}
+
+model CIAlert {
+  id            String         @id @default(uuid()) @db.Uuid
+  title         String
+  message       String
+  alertType     String         @map("alert_type") // Will be enum values as strings
+  priority      CIAlertPriority
+  competitorId  String?        @map("competitor_id") @db.Uuid
+  contentId     String?        @map("content_id") @db.Uuid
+  metadata      Json?
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  isRead        Boolean        @default(false) @map("is_read")
+  readAt        DateTime?      @map("read_at") @db.Timestamptz(6)
+  isDismissed   Boolean        @default(false) @map("is_dismissed")
+  dismissedAt   DateTime?      @map("dismissed_at") @db.Timestamptz(6)
+  
+  // Relations
+  competitor    CICompetitor?  @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  relatedTrends CITrend[]      @relation("CITrendAlerts")
+  relatedGaps   CIContentGap[] @relation("CIGapAlerts")
+  relatedInsights CICompetitorInsight[] @relation("CIInsightAlerts")
+  subscriptions CIAlertSubscription[] @relation("CIAlertSubscriptions")
+  
+  @@index([competitorId])
+  @@index([alertType])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([isRead])
+  @@index([isDismissed])
+  @@index([priority, createdAt])
+  @@index([isRead, priority])
+  @@map("ci_alerts")
+}
+
+// Additional CI models from separate schema
+model CICompetitorInsight {
+  id                  String    @id @default(uuid()) @db.Uuid
+  competitorId        String    @map("competitor_id") @db.Uuid
+  insightType         String    @map("insight_type") @db.VarChar(100)
+  title               String    @db.VarChar(500)
+  description         String    @db.Text
+  confidenceScore     Float     @map("confidence_score")
+  impactLevel         String    @map("impact_level") @db.VarChar(50)
+  supportingEvidence  String[]  @map("supporting_evidence")
+  recommendations     String[]
+  generatedAt         DateTime  @default(now()) @map("generated_at") @db.Timestamptz(6)
+  expiresAt           DateTime? @map("expires_at") @db.Timestamptz(6)
+  isRead              Boolean   @default(false) @map("is_read")
+  metadata            Json?
+  
+  // Relations
+  competitor          CICompetitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  alerts              CIAlert[]    @relation("CIInsightAlerts")
+  
+  @@index([competitorId])
+  @@index([insightType])
+  @@index([confidenceScore])
+  @@index([generatedAt])
+  @@index([impactLevel])
+  @@index([isRead])
+  @@index([competitorId, insightType])
+  @@map("ci_competitor_insights")
+}
+
+model CIMarketAnalysis {
+  id                      String      @id @default(uuid()) @db.Uuid
+  industry                CIIndustry
+  analysisStartDate       DateTime    @map("analysis_start_date") @db.Timestamptz(6)
+  analysisEndDate         DateTime    @map("analysis_end_date") @db.Timestamptz(6)
+  totalContentAnalyzed    Int         @map("total_content_analyzed")
+  topTopics               Json        @map("top_topics")
+  contentTypeDistribution Json        @map("content_type_distribution")
+  platformDistribution    Json        @map("platform_distribution")
+  engagementBenchmarks    Json        @map("engagement_benchmarks")
+  trendingKeywords        String[]    @map("trending_keywords")
+  contentVelocity         Float       @map("content_velocity")
+  qualityTrends           Json        @map("quality_trends")
+  sentimentTrends         Json        @map("sentiment_trends")
+  competitorRankings      Json        @map("competitor_rankings")
+  generatedAt             DateTime    @default(now()) @map("generated_at") @db.Timestamptz(6)
+  metadata                Json?
+  
+  @@index([industry])
+  @@index([generatedAt])
+  @@index([analysisStartDate])
+  @@index([analysisEndDate])
+  @@index([industry, generatedAt])
+  @@map("ci_market_analysis")
+}
+
+model CIAlertSubscription {
+  id                String        @id @default(uuid()) @db.Uuid
+  userId            String        @map("user_id") @db.Uuid
+  alertTypes        String[]      @map("alert_types")
+  competitors       String[]      // Competitor IDs
+  keywords          String[]
+  priorityThreshold CIAlertPriority @default(medium) @map("priority_threshold")
+  deliveryChannels  String[]      @map("delivery_channels")
+  frequencyLimit    Int           @default(10) @map("frequency_limit")
+  isActive          Boolean       @default(true) @map("is_active")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  metadata          Json?
+  
+  // Relations
+  alerts            CIAlert[]     @relation("CIAlertSubscriptions")
+  
+  @@index([userId])
+  @@index([isActive])
+  @@index([priorityThreshold])
+  @@index([userId, isActive])
+  @@map("ci_alert_subscriptions")
+}
+
+// Agent Performance Tracking Models
+model AgentPerformance {
+  id               String   @id @default(uuid()) @db.Uuid
+  agentName        String   @map("agent_name") @db.VarChar(100)
+  agentType        String   @map("agent_type") @db.VarChar(100)
+  executionId      String   @unique @map("execution_id") @db.VarChar(255)
+  blogPostId       String?  @map("blog_post_id") @db.Uuid
+  campaignId       String?  @map("campaign_id") @db.Uuid
+  startTime        DateTime @map("start_time") @db.Timestamptz(6)
+  endTime          DateTime? @map("end_time") @db.Timestamptz(6)
+  duration         Int?     // Duration in milliseconds
+  status           AgentExecutionStatus @default(running)
+  inputTokens      Int?     @map("input_tokens")
+  outputTokens     Int?     @map("output_tokens")
+  totalTokens      Int?     @map("total_tokens")
+  cost             Float?   // Estimated cost in USD
+  errorMessage     String?  @map("error_message") @db.Text
+  errorCode        String?  @map("error_code") @db.VarChar(50)
+  retryCount       Int      @default(0) @map("retry_count")
+  maxRetries       Int      @default(3) @map("max_retries")
+  metadata         Json?    // Agent-specific performance data
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  decisions        AgentDecision[]
+  
+  @@index([agentName])
+  @@index([agentType])
+  @@index([status])
+  @@index([startTime])
+  @@index([duration])
+  @@index([blogPostId])
+  @@index([campaignId])
+  @@index([agentName, startTime])
+  @@index([status, createdAt])
+  @@index([agentType, status])
+  @@index([cost])
+  @@map("agent_performance")
+}
+
+enum AgentExecutionStatus {
+  pending
+  running
+  success
+  error
+  timeout
+  cancelled
+  retry
+}
+
+model AgentDecision {
+  id                     String           @id @default(uuid()) @db.Uuid
+  performanceId          String           @map("performance_id") @db.Uuid
+  decisionPoint          String           @map("decision_point") @db.VarChar(255)
+  inputData              Json?            @map("input_data")
+  outputData             Json?            @map("output_data")
+  reasoning              String?          @db.Text
+  confidenceScore        Float?           @map("confidence_score")
+  alternativesConsidered Json?            @map("alternatives_considered")
+  executionTime          Int?             @map("execution_time") // milliseconds
+  tokensUsed             Int?             @map("tokens_used")
+  decisionLatency        Float?           @map("decision_latency") // seconds
+  timestamp              DateTime         @default(now()) @db.Timestamptz(6)
+  metadata               Json?
+
+  // Relations
+  performance            AgentPerformance @relation(fields: [performanceId], references: [id], onDelete: Cascade)
+  
+  @@index([performanceId])
+  @@index([decisionPoint])
+  @@index([timestamp])
+  @@index([confidenceScore])
+  @@index([executionTime])
+  @@index([performanceId, timestamp])
+  @@map("agent_decisions")
+}
+
+// Cache Management Model
+model CacheEntry {
+  id          String    @id @default(uuid()) @db.Uuid
+  cacheKey    String    @unique @db.VarChar(255)
+  cacheValue  Json
+  expiresAt   DateTime? @db.Timestamptz(6)
+  cacheType   String    @db.VarChar(100) // agent_result, query_result, api_response
+  hitCount    Int       @default(0)
+  lastAccessed DateTime @default(now()) @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  
+  @@index([cacheKey])
+  @@index([cacheType])
+  @@index([expiresAt])
+  @@index([lastAccessed])
+  @@index([cacheType, expiresAt]) // Composite index for cleanup queries
+  @@map("cache_entries")
+}
+
+// Authentication and User Management Models
+enum UserRole {
+  admin
+  user
+  api_client
+  readonly
+  webhook_client
+}
+
+enum APIKeyScope {
+  blogs_read
+  blogs_write
+  campaigns_read
+  campaigns_write
+  analytics_read
+  webhooks_manage
+  admin_access
+}
+
+model User {
+  id              String     @id @default(uuid()) @db.Uuid
+  email           String     @unique @db.VarChar(255)
+  hashedPassword  String     @map("hashed_password") @db.VarChar(255)
+  role            UserRole   @default(user)
+  isActive        Boolean    @default(true) @map("is_active")
+  lastLogin       DateTime?  @map("last_login") @db.Timestamptz(6)
+  metadata        Json?
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  // Relations
+  apiKeys         APIKey[]
+  
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([lastLogin])
+  @@map("users")
+}
+
+model APIKey {
+  id                String       @id @default(uuid()) @db.Uuid
+  keyId             String       @unique @map("key_id") @db.VarChar(100) // Public identifier like ak_xxxxx
+  keyHash           String       @map("key_hash") @db.VarChar(255) // Hashed secret key
+  name              String       @db.VarChar(255)
+  userId            String       @map("user_id") @db.Uuid
+  scopes            APIKeyScope[]
+  isActive          Boolean      @default(true) @map("is_active")
+  lastUsed          DateTime?    @map("last_used") @db.Timestamptz(6)
+  expiresAt         DateTime?    @map("expires_at") @db.Timestamptz(6)
+  rateLimitPerHour  Int          @default(1000) @map("rate_limit_per_hour")
+  metadata          Json?
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  // Relations
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([keyId])
+  @@index([userId])
+  @@index([isActive])
+  @@index([expiresAt])
+  @@index([lastUsed])
+  @@index([isActive, expiresAt]) // For active, non-expired keys
+  @@map("api_keys")
+}
+
+// Error Logging and Request Tracking Models
+enum LogLevel {
+  debug
+  info
+  warning
+  error
+  critical
+}
+
+model ErrorLog {
+  id          String    @id @default(uuid()) @db.Uuid
+  requestId   String?   @map("request_id") @db.VarChar(255) // For request tracking
+  level       LogLevel
+  message     String    @db.Text
+  errorCode   String?   @map("error_code") @db.VarChar(100)
+  stackTrace  String?   @map("stack_trace") @db.Text
+  context     Json?     // Request context, user info, etc.
+  userId      String?   @map("user_id") @db.Uuid
+  endpoint    String?   @db.VarChar(255)
+  method      String?   @db.VarChar(10) // HTTP method
+  userAgent   String?   @map("user_agent") @db.VarChar(500)
+  ipAddress   String?   @map("ip_address") @db.VarChar(45) // IPv6 compatible
+  timestamp   DateTime  @default(now()) @db.Timestamptz(6)
+  resolved    Boolean   @default(false)
+  resolvedAt  DateTime? @map("resolved_at") @db.Timestamptz(6)
+  
+  @@index([requestId])
+  @@index([level])
+  @@index([timestamp])
+  @@index([userId])
+  @@index([endpoint])
+  @@index([resolved])
+  @@index([level, timestamp]) // For error analysis
+  @@index([resolved, level]) // For unresolved errors
+  @@map("error_logs")
+}
+
+model RequestLog {
+  id            String    @id @default(uuid()) @db.Uuid
+  requestId     String    @unique @map("request_id") @db.VarChar(255)
+  method        String    @db.VarChar(10)
+  endpoint      String    @db.VarChar(255)
+  statusCode    Int       @map("status_code")
+  duration      Int       // Duration in milliseconds
+  userId        String?   @map("user_id") @db.Uuid
+  userAgent     String?   @map("user_agent") @db.VarChar(500)
+  ipAddress     String?   @map("ip_address") @db.VarChar(45)
+  requestSize   Int?      @map("request_size") // Request body size in bytes
+  responseSize  Int?      @map("response_size") // Response body size in bytes
+  headers       Json?     // Selected headers for debugging
+  queryParams   Json?     @map("query_params")
+  authType      String?   @map("auth_type") @db.VarChar(50) // jwt, api_key, etc.
+  errorMessage  String?   @map("error_message") @db.Text
+  timestamp     DateTime  @default(now()) @db.Timestamptz(6)
+  
+  @@index([requestId])
+  @@index([endpoint])
+  @@index([statusCode])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([duration])
+  @@index([method, endpoint]) // For endpoint analysis
+  @@index([statusCode, timestamp]) // For error rate analysis
+  @@index([userId, timestamp]) // For user activity analysis
+  @@map("request_logs")
 }

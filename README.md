@@ -1,8 +1,8 @@
-# CrediLinQ AI Content Platform
+# CrediLinq AI Content Platform
 
 <div align="center">
 
-![CrediLinQ Logo](https://img.shields.io/badge/CrediLinQ-AI%20Content%20Platform-blue?style=for-the-badge&logo=robot)
+![CrediLinq Logo](https://img.shields.io/badge/CrediLinq-AI%20Content%20Platform-blue?style=for-the-badge&logo=robot)
 
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -37,7 +37,7 @@
 
 ## 🌟 Overview
 
-CrediLinQ AI Content Platform is a sophisticated, AI-powered content management system designed specifically for B2B financial services companies. It leverages advanced AI agents to automate content creation, campaign management, and performance analytics.
+CrediLinq AI Content Platform is a sophisticated, AI-powered content management system designed specifically for B2B financial services companies. It leverages advanced AI agents to automate content creation, campaign management, and performance analytics.
 
 ### 🎯 Built For
 
@@ -46,9 +46,9 @@ CrediLinQ AI Content Platform is a sophisticated, AI-powered content management 
 - **B2B Content Teams** - Automated content creation and optimization
 - **Marketing Agencies** - Scalable content production for fintech clients
 
-### 🏢 About CrediLinQ
+### 🏢 About CrediLinq
 
-CrediLinQ.ai is a global fintech leader in embedded lending and B2B credit solutions, operating across Southeast Asia, Europe, and the United States. We empower businesses to access funding through embedded financial products and cutting-edge credit infrastructure tailored to digital platforms and marketplaces.
+CrediLinq.ai is a global fintech leader in embedded lending and B2B credit solutions, operating across Southeast Asia, Europe, and the United States. We empower businesses to access funding through embedded financial products and cutting-edge credit infrastructure tailored to digital platforms and marketplaces.
 
 ---
 
@@ -621,7 +621,7 @@ writer_agent = create_agent(
 result = writer_agent.execute({
     "outline": ["Introduction", "Main Points", "Conclusion"],
     "research": {"industry_data": "..."},
-    "company_context": "CrediLinQ.ai context"
+    "company_context": "CrediLinq.ai context"
 })
 ```
 
@@ -753,7 +753,7 @@ tests/
 
 ## 🤝 Contributing
 
-We welcome contributions to the CrediLinQ AI Content Platform! Please follow these guidelines:
+We welcome contributions to the CrediLinq AI Content Platform! Please follow these guidelines:
 
 ### Development Process
 
@@ -898,7 +898,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Made with ❤️ by the CrediLinQ Team**
+**Made with ❤️ by the CrediLinq Team**
 
 [🌐 Website](https://credilinq.ai) • [📧 Contact](mailto:hello@credilinq.ai) • [🐦 Twitter](https://twitter.com/credilinq)
 

@@ -115,8 +115,8 @@ class CampaignManagerAgent(BaseAgent):
             with db_config.get_db_connection() as conn:
                 cur = conn.cursor()
                 cur.execute("""
-                    SELECT title, "contentMarkdown", "initialPrompt"
-                    FROM "BlogPost" 
+                    SELECT title, content_markdown, initial_prompt
+                    FROM blog_posts 
                     WHERE id = %s
                 """, (blog_id,))
                 row = cur.fetchone()
@@ -443,16 +443,16 @@ class CampaignManagerAgent(BaseAgent):
                 cur = conn.cursor()
                 # Insert into Campaign table (basic record)
                 cur.execute("""
-                    INSERT INTO "Campaign" (id, "blogPostId", "createdAt")
-                    VALUES (%s, %s, NOW())
+                    INSERT INTO campaigns (id, blog_post_id, created_at, updated_at)
+                    VALUES (%s, %s, NOW(), NOW())
                 """, (campaign_id, blog_id))
                 
                 # Insert into Briefing table (campaign details)
                 briefing_id = str(uuid.uuid4())
                 cur.execute("""
-                    INSERT INTO "Briefing" (id, "campaignName", "marketingObjective", "targetAudience", 
-                                          channels, "desiredTone", language, "companyContext", 
-                                          "createdAt", "updatedAt", "campaignId")
+                    INSERT INTO briefings (id, campaign_name, marketing_objective, target_audience, 
+                                          channels, desired_tone, language, company_context, 
+                                          created_at, updated_at, campaign_id)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), %s)
                 """, (
                     briefing_id,
@@ -469,8 +469,8 @@ class CampaignManagerAgent(BaseAgent):
                 # Insert into ContentStrategy table (strategy details)
                 content_strategy_id = str(uuid.uuid4())
                 cur.execute("""
-                    INSERT INTO "ContentStrategy" (id, "campaignName", "narrativeApproach", hooks, themes, 
-                                                 "toneByChannel", "keyPhrases", notes, "createdAt", "updatedAt", "campaignId")
+                    INSERT INTO content_strategies (id, campaign_name, narrative_approach, hooks, themes, 
+                                                 tone_by_channel, key_phrases, notes, created_at, updated_at, campaign_id)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), %s)
                 """, (
                     content_strategy_id,
@@ -503,7 +503,7 @@ class CampaignManagerAgent(BaseAgent):
                 for task in tasks:
                     task_id = str(uuid.uuid4())
                     cur.execute("""
-                        INSERT INTO "CampaignTask" (id, "campaignId", "taskType", status, result, "createdAt", "updatedAt")
+                        INSERT INTO campaign_tasks (id, campaign_id, task_type, status, result, created_at, updated_at)
                         VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
                     """, (
                         task_id,
@@ -530,21 +530,21 @@ class CampaignManagerAgent(BaseAgent):
                 
                 # Get campaign info
                 cur.execute("""
-                    SELECT COALESCE(b."campaignName", 'Unnamed Campaign') as name,
+                    SELECT COALESCE(b.campaign_name, 'Unnamed Campaign') as name,
                            CASE 
                                WHEN COUNT(ct.id) = 0 THEN 'draft'
                                WHEN COUNT(CASE WHEN ct.status = 'completed' THEN 1 END) = COUNT(ct.id) THEN 'completed'
                                ELSE 'active'
                            END as status,
-                           cs."narrativeApproach" as strategy, 
+                           cs.narrative_approach as strategy, 
                            COUNT(ct.id) as total_tasks,
                            COUNT(CASE WHEN ct.status = 'completed' THEN 1 END) as completed_tasks
-                    FROM "Campaign" c
-                    LEFT JOIN "Briefing" b ON c.id = b."campaignId"
-                    LEFT JOIN "ContentStrategy" cs ON c.id = cs."campaignId"
-                    LEFT JOIN "CampaignTask" ct ON c.id = ct."campaignId"
+                    FROM campaigns c
+                    LEFT JOIN briefings b ON c.id = b.campaign_id
+                    LEFT JOIN content_strategies cs ON c.id = cs.campaign_id
+                    LEFT JOIN campaign_tasks ct ON c.id = ct.campaign_id
                     WHERE c.id = %s
-                    GROUP BY c.id, b."campaignName", cs."narrativeApproach"
+                    GROUP BY c.id, b.campaign_name, cs.narrative_approach
                 """, (campaign_id,))
                 
                 row = cur.fetchone()
@@ -597,7 +597,7 @@ class CampaignManagerAgent(BaseAgent):
                 cur = conn.cursor()
                 # Update status in the Briefing table since Campaign table doesn't have a status column
                 cur.execute("""
-                    UPDATE "Briefing" SET "updatedAt" = NOW() WHERE "campaignId" = %s
+                    UPDATE briefings SET updated_at = NOW() WHERE campaign_id = %s
                 """, (campaign_id,))
                 conn.commit()
                 

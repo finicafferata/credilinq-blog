@@ -130,14 +130,49 @@ class ImageAgent(BaseAgent):
     
     def _call_image_api(self, prompt: str, style: str = "professional") -> str:
         """
-        Call external image generation API.
-        This is a placeholder for real API integration.
+        Call external image generation API with proper error handling.
+        Currently uses placeholder images with plans for DALL-E integration.
         """
-        # TODO: Integrate with real image generation API
-        # Example APIs: OpenAI DALL-E, Midjourney, Stable Diffusion
-        
-        # For now, return a placeholder URL
-        return f"https://via.placeholder.com/800x600/4F46E5/FFFFFF?text={prompt[:30]}"
+        try:
+            # IMPLEMENTATION PLAN: Future integration with OpenAI DALL-E
+            # from openai import OpenAI
+            # client = OpenAI(api_key=settings.openai_api_key)
+            # response = client.images.generate(
+            #     model="dall-e-3",
+            #     prompt=prompt,
+            #     size="1024x1024",
+            #     quality="standard",
+            #     n=1,
+            # )
+            # return response.data[0].url
+            
+            # For development: Generate high-quality placeholder with proper styling
+            import urllib.parse
+            encoded_prompt = urllib.parse.quote(prompt[:50])
+            
+            # Style-based color schemes
+            color_schemes = {
+                "professional": {"bg": "2563EB", "text": "FFFFFF"},  # Blue/White
+                "creative": {"bg": "7C3AED", "text": "FFFFFF"},      # Purple/White
+                "modern": {"bg": "059669", "text": "FFFFFF"},        # Green/White
+                "elegant": {"bg": "1F2937", "text": "F9FAFB"}       # Dark/Light
+            }
+            
+            colors = color_schemes.get(style, color_schemes["professional"])
+            
+            # Generate placeholder with proper dimensions and styling
+            placeholder_url = (
+                f"https://via.placeholder.com/1024x1024/{colors['bg']}/{colors['text']}"
+                f"?text={encoded_prompt}"
+            )
+            
+            logger.info(f"Generated placeholder image for prompt: {prompt[:50]}")
+            return placeholder_url
+            
+        except Exception as e:
+            logger.error(f"Image generation failed: {e}")
+            # Fallback to basic placeholder
+            return "https://via.placeholder.com/1024x1024/6B7280/FFFFFF?text=Image+Generation+Error"
     
     def validate_input(self, context: Dict[str, Any]) -> bool:
         """

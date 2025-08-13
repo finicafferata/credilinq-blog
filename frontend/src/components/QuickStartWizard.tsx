@@ -23,7 +23,7 @@ export function QuickStartWizard({ onComplete, onSkip }: QuickStartWizardProps) 
   const steps: WizardStep[] = [
     {
       id: 1,
-      title: "Welcome to CrediLinQ!",
+      title: "Welcome to CrediLinq!",
       description: "Let's get you started with creating amazing AI-powered content. This quick tour will show you the basics.",
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -201,7 +201,7 @@ export function QuickStartWizard({ onComplete, onSkip }: QuickStartWizardProps) 
             </div>
             <div className="flex items-center space-x-1">
               <span>Powered by</span>
-              <span className="font-semibold text-blue-600">CrediLinQ AI</span>
+              <span className="font-semibold text-blue-600">CrediLinq AI</span>
             </div>
           </div>
         </div>

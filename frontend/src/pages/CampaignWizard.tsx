@@ -435,4 +435,6 @@ export function CampaignWizard() {
       </div>
     </div>
   );
-} 
+}
+
+export default CampaignWizard; 

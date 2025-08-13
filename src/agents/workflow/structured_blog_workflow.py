@@ -224,9 +224,13 @@ class BlogWorkflow(WorkflowAgent):
             if field not in input_data:
                 raise ValueError(f"Missing required field: {field}")
         
-        # Security validation
-        self.security_validator.validate_input(str(input_data["title"]))
-        self.security_validator.validate_input(str(input_data["company_context"]))
+        # Security validation (relaxed for NL content)
+        try:
+            self.security_validator.validate_content(str(input_data["title"]).strip(), "title")
+            self.security_validator.validate_content(str(input_data["company_context"]).strip(), "company_context")
+        except Exception as e:
+            self.logger.error(f"Workflow input validation failed: title='{str(input_data['title'])[:80]}', error={e}")
+            raise
         
         # Validate content type
         valid_content_types = ["blog", "linkedin", "article"]
@@ -273,7 +277,7 @@ class BlogWorkflow(WorkflowAgent):
                 with self.db_service.get_db_connection() as conn:
                     cur = conn.cursor()
                     cur.execute("""
-                        INSERT INTO "BlogPost" (id, title, status, "contentMarkdown", "initialPrompt", "createdAt", "updatedAt")
+                        INSERT INTO blog_posts (id, title, status, content_markdown, initial_prompt, "createdAt", "updatedAt")
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """, (
                         blog_data["id"],
@@ -504,8 +508,8 @@ class BlogWorkflow(WorkflowAgent):
                 with self.db_service.get_db_connection() as conn:
                     cur = conn.cursor()
                     cur.execute("""
-                        UPDATE "BlogPost" 
-                        SET "contentMarkdown" = %s, status = %s, "updatedAt" = %s
+                        UPDATE blog_posts 
+                        SET content_markdown = %s, status = %s, "updatedAt" = %s
                         WHERE id = %s
                     """, (
                         update_data["content_markdown"],

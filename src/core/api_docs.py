@@ -18,10 +18,10 @@ def custom_openapi_schema(app: FastAPI) -> Dict[str, Any]:
         return app.openapi_schema
     
     openapi_schema = get_openapi(
-        title="CrediLinQ AI Content Platform API",
+        title="CrediLinq AI Content Platform API",
         version="2.0.0",
         description="""
-## CrediLinQ AI Content Platform API
+## CrediLinq AI Content Platform API
 
 A comprehensive AI-powered content management and marketing automation platform.
 
@@ -163,12 +163,12 @@ All endpoints return standardized error responses:
     # Add custom extensions
     openapi_schema["x-logo"] = {
         "url": "https://credilinq.com/assets/logo.png",
-        "altText": "CrediLinQ Logo"
+        "altText": "CrediLinq Logo"
     }
     
     # Add contact and license information
     openapi_schema["info"]["contact"] = {
-        "name": "CrediLinQ API Support",
+        "name": "CrediLinq API Support",
         "url": "https://support.credilinq.com",
         "email": "api-support@credilinq.com"
     }
@@ -381,7 +381,7 @@ API_EXAMPLES = {
         "description": "Generate a new blog post using AI with specific company context",
         "value": {
             "title": "How AI is Transforming Content Marketing in 2025",
-            "company_context": "CrediLinQ is a fintech company specializing in AI-powered business solutions",
+            "company_context": "CrediLinq is a fintech company specializing in AI-powered business solutions",
             "content_type": "blog",
             "target_audience": "marketing professionals",
             "keywords": ["AI", "content marketing", "automation"],

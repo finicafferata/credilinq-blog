@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test runner script for CrediLinQ Content Agent.
+Test runner script for CrediLinq Content Agent.
 Runs both backend (Python) and frontend (TypeScript) tests.
 """
 
@@ -90,7 +90,7 @@ def run_linting():
 
 def main():
     """Main test runner function."""
-    parser = argparse.ArgumentParser(description="Run tests for CrediLinQ Content Agent")
+    parser = argparse.ArgumentParser(description="Run tests for CrediLinq Content Agent")
     parser.add_argument("--backend-only", action="store_true", help="Run only backend tests")
     parser.add_argument("--frontend-only", action="store_true", help="Run only frontend tests")
     parser.add_argument("--unit", action="store_true", help="Run only unit tests")

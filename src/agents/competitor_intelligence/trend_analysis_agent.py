@@ -34,24 +34,31 @@ class TrendAnalysisAgent(BaseAgent):
     """
     
     def __init__(self):
-        super().__init__(
-            agent_type="trend_analysis",
-            capabilities=[
-                "keyword_trend_detection",
-                "topic_clustering", 
-                "viral_content_identification",
-                "temporal_analysis",
-                "industry_benchmarking",
-                "predictive_trend_modeling"
-            ]
-        )
+        # Import here to avoid circular imports
+        from ..core.base_agent import AgentMetadata, AgentType
         
-        # Initialize AI for trend analysis
-        self.analysis_llm = ChatOpenAI(
-            model="gpt-3.5-turbo",
-            temperature=0.2,
-            max_tokens=1500
+        metadata = AgentMetadata(
+            agent_type=AgentType.WORKFLOW_ORCHESTRATOR,
+            name="TrendAnalysisAgent"
         )
+        super().__init__(metadata)
+        
+        # Initialize AI for trend analysis (lazy loading)
+        self.analysis_llm = None
+        
+    def _get_analysis_llm(self):
+        """Lazy initialize the analysis LLM."""
+        if self.analysis_llm is None:
+            try:
+                self.analysis_llm = ChatOpenAI(
+                    model="gpt-3.5-turbo",
+                    temperature=0.2,
+                    max_tokens=1500
+                )
+            except Exception as e:
+                self.logger.warning(f"Could not initialize OpenAI LLM: {e}")
+                return None
+        return self.analysis_llm
         
         # Trend detection parameters
         self.trend_config = {
@@ -877,3 +884,18 @@ class TrendAnalysisAgent(BaseAgent):
             return f"Monitor: '{trend.topic}' shows steady interest, good for evergreen content"
         else:
             return f"Declining: '{trend.topic}' may be losing momentum, use cautiously"
+    
+    def execute(self, input_data, context=None, **kwargs):
+        """
+        Execute the trend analysis agent's main functionality.
+        Routes to appropriate analysis method based on input.
+        """
+        return {
+            "status": "ready",
+            "agent_type": "trend_analysis",
+            "available_operations": [
+                "analyze_trending_topics",
+                "generate_market_analysis",
+                "predict_trend_trajectory"
+            ]
+        }

@@ -31,17 +31,14 @@ class CompetitorIntelligenceOrchestrator(BaseAgent):
     """
     
     def __init__(self):
-        super().__init__(
-            agent_type="competitor_intelligence_orchestrator",
-            capabilities=[
-                "multi_agent_coordination",
-                "competitive_intelligence_synthesis",
-                "workflow_orchestration",
-                "comprehensive_reporting",
-                "real_time_monitoring",
-                "strategic_analysis"
-            ]
+        # Import here to avoid circular imports
+        from ..core.base_agent import AgentMetadata, AgentType
+        
+        metadata = AgentMetadata(
+            agent_type=AgentType.WORKFLOW_ORCHESTRATOR,
+            name="CompetitorIntelligenceOrchestrator"
         )
+        super().__init__(metadata)
         
         # Initialize all specialized agents
         self.content_monitor = ContentMonitoringAgent()
@@ -557,4 +554,21 @@ class CompetitorIntelligenceOrchestrator(BaseAgent):
             },
             "configuration": self.orchestration_config,
             "system_health": "healthy"
+        }
+    
+    def execute(self, input_data, context=None, **kwargs):
+        """
+        Execute the orchestrator's main functionality.
+        Routes to appropriate analysis based on input parameters.
+        """
+        # For now, return a simple status
+        return {
+            "status": "ready",
+            "orchestrator_type": "competitor_intelligence",
+            "available_operations": [
+                "run_comprehensive_analysis",
+                "run_incremental_monitoring", 
+                "get_competitor_dashboard_data",
+                "get_system_status"
+            ]
         }

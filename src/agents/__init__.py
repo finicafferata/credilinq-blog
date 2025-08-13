@@ -1,4 +1,4 @@
-"""AI Agents for CrediLinQ Content Platform."""
+"""AI Agents for CrediLinq Content Platform."""
 
 from .core import get_db_service, DatabaseService
 

@@ -137,7 +137,7 @@ class TaskSchedulerAgent(BaseAgent):
                 cur = conn.cursor()
                 cur.execute("""
                     SELECT id, "taskType", result, error
-                    FROM "CampaignTask"
+                    FROM campaign_tasks
                     WHERE "campaignId" = %s AND status = 'pending'
                     ORDER BY "taskType", "createdAt"
                 """, (campaign_id,))

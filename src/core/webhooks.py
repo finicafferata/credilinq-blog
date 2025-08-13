@@ -338,7 +338,7 @@ class WebhookManager:
                 
                 headers = {
                     "content-type": "application/json",
-                    "user-agent": f"CrediLinQ-Webhooks/{settings.api_version}",
+                    "user-agent": f"CrediLinq-Webhooks/{settings.api_version}",
                     "x-webhook-event": payload.event,
                     "x-webhook-delivery": payload.delivery_id,
                     "x-webhook-signature": signature,

@@ -1,5 +1,5 @@
 """
-Security utilities and input validation for the CrediLinQ Content Agent.
+Security utilities and input validation for the CrediLinq Content Agent.
 """
 
 import re
@@ -85,6 +85,51 @@ class InputValidator:
                     f"Potential SQL injection detected in '{field_name}': {pattern}"
                 )
         
+        return value
+
+    @staticmethod
+    def validate_content_text(value: str, field_name: str, max_length: int = 10000, min_length: int = 1) -> str:
+        """
+        Relaxed validator for natural-language content (titles, contexts).
+        Allows common words like 'create', 'select', etc., while still blocking
+        obvious injection vectors such as SQL comments and statement separators.
+        """
+        if not isinstance(value, str):
+            raise InputValidationError(field_name, f"Must be a string, got {type(value).__name__}")
+
+        if len(value) < min_length:
+            raise InputValidationError(field_name, f"Must be at least {min_length} characters")
+
+        if len(value) > max_length:
+            raise InputValidationError(field_name, f"Must be no more than {max_length} characters")
+
+        value = value.strip()
+
+        # Block only high-signal injection primitives
+        blocked_tokens = [
+            '--',   # SQL comment
+            ';',    # Statement separator
+            '/*',   # Block comment start
+            '*/',   # Block comment end
+            'xp_',  # Extended stored procedures
+            'sp_',  # Stored procedures
+        ]
+
+        lower = value.lower()
+        for token in blocked_tokens:
+            if token in lower:
+                raise SecurityException(
+                    f"Potential SQL injection detected in '{field_name}': {token}"
+                )
+
+        # Optionally block explicit EXEC/UNION chains without banning common words
+        risky_phrases = ['exec ', 'execute ', 'union select']
+        for phrase in risky_phrases:
+            if phrase in lower:
+                raise SecurityException(
+                    f"Potential SQL injection detected in '{field_name}': {phrase.strip()}"
+                )
+
         return value
     
     @staticmethod
@@ -237,6 +282,12 @@ class SecurityValidator:
             SecurityException: If validation fails
         """
         return self.input_validator.validate_string_input(value, field_name, max_length)
+
+    def validate_content(self, value: str, field_name: str = "input", max_length: int = 10000) -> str:
+        """
+        Validate natural-language content using a relaxed rule set.
+        """
+        return self.input_validator.validate_content_text(value, field_name, max_length)
     
     def validate_vector_embedding(self, embedding: List[float]) -> bool:
         """

@@ -61,9 +61,17 @@ class PlannerAgent(BaseAgent[Dict[str, Any]]):
             if field not in input_data:
                 raise ValueError(f"Missing required field: {field}")
         
-        # Security validation
-        for field in required_fields:
-            self.security_validator.validate_input(str(input_data[field]))
+        # Security validation (relaxed for natural-language fields)
+        title = str(input_data["blog_title"]).strip()
+        context_text = str(input_data["company_context"]).strip()
+        try:
+            self.security_validator.validate_content(title, "blog_title")
+            self.security_validator.validate_content(context_text, "company_context")
+        except Exception as e:
+            self.logger.error(f"Planner input validation failed: title='{title[:80]}', error={e}")
+            raise
+        # content_type is a small controlled string, keep normal validation
+        self.security_validator.validate_input(str(input_data["content_type"]), "content_type")
     
     def execute(
         self, 

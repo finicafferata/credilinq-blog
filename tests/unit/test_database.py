@@ -45,7 +45,7 @@ class TestDatabaseOperations:
         with mock_db_config.get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO "BlogPost" (id, title, "contentMarkdown", status, "createdAt", "updatedAt")
+                INSERT INTO blog_posts (id, title, content_markdown, status, "createdAt", "updatedAt")
                 VALUES (%s, %s, %s, %s, NOW(), NOW())
                 RETURNING id
             """, ("blog-123", "Test Blog", "# Content", "draft"))
@@ -72,8 +72,8 @@ class TestDatabaseOperations:
             
             # Create campaign
             cursor.execute("""
-                INSERT INTO "Campaign" (id, "blogPostId", "createdAt")
-                VALUES (%s, %s, NOW())
+                INSERT INTO campaigns (id, blog_post_id, created_at, updated_at)
+                VALUES (%s, %s, NOW(), NOW())
             """, ("campaign-123", "blog-123"))
             
             # Create briefing
@@ -117,7 +117,7 @@ class TestDatabaseOperations:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT id, title, status, "createdAt"
-                FROM "BlogPost"
+                FROM blog_posts
                 ORDER BY "createdAt" DESC
             """)
             blogs = cursor.fetchall()

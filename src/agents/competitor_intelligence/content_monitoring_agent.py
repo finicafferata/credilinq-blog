@@ -33,24 +33,17 @@ class ContentMonitoringAgent(BaseAgent):
     """
     
     def __init__(self):
-        super().__init__(
-            agent_type="content_monitoring",
-            capabilities=[
-                "web_scraping",
-                "rss_monitoring", 
-                "social_media_tracking",
-                "content_classification",
-                "duplicate_detection",
-                "content_quality_assessment"
-            ]
-        )
+        # Import here to avoid circular imports
+        from ..core.base_agent import AgentMetadata, AgentType
         
-        # Initialize AI for content analysis
-        self.analysis_llm = ChatOpenAI(
-            model="gpt-3.5-turbo",
-            temperature=0.3,
-            max_tokens=1000
+        metadata = AgentMetadata(
+            agent_type=AgentType.WORKFLOW_ORCHESTRATOR,  # Use available type
+            name="ContentMonitoringAgent"
         )
+        super().__init__(metadata)
+        
+        # Initialize AI for content analysis (lazy loading)
+        self.analysis_llm = None
         
         # Text splitter for large content
         self.text_splitter = RecursiveCharacterTextSplitter(
@@ -93,10 +86,24 @@ class ContentMonitoringAgent(BaseAgent):
         # Content cache to avoid duplicates
         self.content_hashes: Set[str] = set()
     
+    def _get_analysis_llm(self):
+        """Lazy initialize the analysis LLM."""
+        if self.analysis_llm is None:
+            try:
+                self.analysis_llm = ChatOpenAI(
+                    model="gpt-3.5-turbo",
+                    temperature=0.3,
+                    max_tokens=1000
+                )
+            except Exception as e:
+                self.logger.warning(f"Could not initialize OpenAI LLM: {e}")
+                return None
+        return self.analysis_llm
+    
     async def start_monitoring_session(self):
         """Initialize monitoring session with proper headers and settings."""
         headers = {
-            'User-Agent': 'CrediLinQ Content Intelligence Bot 1.0 (+https://credilinq.com/bot)',
+            'User-Agent': 'CrediLinq Content Intelligence Bot 1.0 (+https://credilinq.com/bot)',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
@@ -965,6 +972,23 @@ class ContentMonitoringAgent(BaseAgent):
             "active_session": self.session is not None,
             "content_cache_size": len(self.content_hashes),
             "supported_platforms": list(self.platform_handlers.keys()),
-            "monitoring_capabilities": self.capabilities,
+            "monitoring_capabilities": ["web_scraping", "rss_monitoring", "social_media_tracking"],
             "last_activity": datetime.utcnow().isoformat()
+        }
+    
+    def execute(self, input_data, context=None, **kwargs):
+        """
+        Execute the content monitoring agent's main functionality.
+        Routes to appropriate monitoring method based on input.
+        """
+        # For now, return a simple status
+        return {
+            "status": "ready",
+            "agent_type": "content_monitoring",
+            "available_operations": [
+                "monitor_competitor",
+                "start_monitoring_session",
+                "close_monitoring_session",
+                "get_monitoring_status"
+            ]
         }

@@ -1,5 +1,5 @@
 """
-Enhanced error handling and response models for the CrediLinQ API.
+Enhanced error handling and response models for the CrediLinq API.
 Provides standardized error responses, comprehensive logging, and error tracking.
 """
 
@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .monitoring import metrics
+from .logging_config import set_correlation_context, security_audit_logger, performance_logger
 from ..config.settings import settings
 
 class ErrorCategory(str, Enum):
@@ -348,15 +349,41 @@ class ErrorTracker:
 error_tracker = ErrorTracker()
 
 class ErrorHandlingMiddleware(BaseHTTPMiddleware):
-    """Middleware for comprehensive error handling and response formatting."""
+    """Enhanced middleware for comprehensive error handling and response formatting."""
     
     async def dispatch(self, request: Request, call_next):
-        # Generate request ID
+        # Generate request ID and correlation ID
         request_id = str(uuid.uuid4())
+        correlation_id = str(uuid.uuid4())
+        
+        # Set correlation context for logging
+        user_id = getattr(request.state, 'user_id', None)
+        set_correlation_context(
+            correlation_id=correlation_id,
+            request_id=request_id,
+            user_id=user_id
+        )
+        
+        # Store in request state
         request.state.request_id = request_id
+        request.state.correlation_id = correlation_id
+        
+        import time
+        start_time = time.time()
         
         try:
             response = await call_next(request)
+            
+            # Log successful request performance
+            duration_ms = (time.time() - start_time) * 1000
+            performance_logger.log_api_performance(
+                endpoint=request.url.path,
+                method=request.method,
+                duration_ms=duration_ms,
+                status_code=response.status_code,
+                user_id=user_id
+            )
+            
             return response
             
         except CustomHTTPException as exc:
