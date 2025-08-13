@@ -48,3 +48,11 @@ faiss_index/
 # Otros
 *.swp
 *.swo 
+
+# Python virtual environments (additional)
+.venv/
+venv311/
+venv*/
+
+# Local logs directory
+logs/
