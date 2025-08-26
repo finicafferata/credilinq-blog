@@ -50,11 +50,11 @@ def main():
     if is_railway:
         # Single worker for Railway (better for memory usage)
         cmd.extend(['--workers', '1'])
-        # Disable reload in production
-        if not reload:
-            cmd.append('--no-reload')
         # Add access log for Railway
         cmd.extend(['--access-log', '--log-level', 'info'])
+        # Only add --reload if explicitly requested
+        if reload:
+            cmd.append('--reload')
     else:
         # Local development settings
         cmd.extend(['--workers', str(workers)])
@@ -63,7 +63,7 @@ def main():
     
     # Environment-specific settings
     if os.environ.get('ENVIRONMENT') == 'production':
-        cmd.extend(['--no-reload', '--log-level', 'warning'])
+        cmd.extend(['--log-level', 'warning'])
     
     logger.info(f"Executing: {' '.join(cmd)}")
     
