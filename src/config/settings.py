@@ -74,8 +74,8 @@ class Settings(BaseSettings):
         "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,*",
         env="CORS_ORIGINS"
     )
-    secret_key: str = Field("", env="SECRET_KEY")
-    jwt_secret: str = Field("", env="JWT_SECRET")
+    secret_key: str = Field(default_factory=lambda: "", env="SECRET_KEY")
+    jwt_secret: str = Field(default_factory=lambda: "", env="JWT_SECRET")
     jwt_expiration_hours: int = Field(24, env="JWT_EXPIRATION_HOURS")
     
     # Admin Account Configuration
@@ -177,17 +177,19 @@ class Settings(BaseSettings):
         """Ensure secret key meets security requirements - auto-generate if empty."""
         environment = values.get('environment', 'development')
         
-        # Auto-generate if empty or insecure
-        if not v or v in ["change-this-secret-key", "default", "secret", "key"]:
+        # Auto-generate if empty or insecure (including common default values)
+        insecure_defaults = [
+            "change-this-secret-key", "default", "secret", "key", 
+            "your_secret_key_here", "your-secret-key-here", 
+            "your-secret-key-for-sessions-change-this-in-production"
+        ]
+        
+        if not v or v in insecure_defaults or len(v) < 32:
             import secrets
             v = secrets.token_hex(32)  # Generate 64-character hex string (256-bit)
             if environment != 'production':
                 print(f"🔐 Auto-generated secure secret key for {environment} environment")
         
-        # Ensure minimum length for security
-        if len(v) < 32:
-            raise ValueError("Secret key must be at least 32 characters long")
-            
         return v
     
     @validator('jwt_secret')
@@ -195,17 +197,19 @@ class Settings(BaseSettings):
         """Ensure JWT secret meets security requirements - auto-generate if empty."""
         environment = values.get('environment', 'development')
         
-        # Auto-generate if empty or insecure
-        if not v or v in ["change-this-jwt-secret", "default", "secret", "jwt"]:
+        # Auto-generate if empty or insecure (including common default values)
+        insecure_defaults = [
+            "change-this-jwt-secret", "default", "secret", "jwt", 
+            "credilinqblogs", "your-jwt-secret-here", 
+            "your-jwt-secret-change-this-in-production"
+        ]
+        
+        if not v or v in insecure_defaults or len(v) < 32:
             import secrets
             v = secrets.token_hex(32)  # Generate 64-character hex string (256-bit)
             if environment != 'production':
                 print(f"🔐 Auto-generated secure JWT secret for {environment} environment")
         
-        # Ensure minimum length for security
-        if len(v) < 32:
-            raise ValueError("JWT secret must be at least 32 characters long")
-            
         return v
     
     @validator('openai_temperature')
