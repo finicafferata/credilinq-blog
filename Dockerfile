@@ -20,8 +20,8 @@ WORKDIR /build
 # Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --user -r requirements.txt
+# Install Python dependencies with no warnings
+RUN pip install --no-cache-dir --user --no-warn-script-location -r requirements.txt
 
 # Production stage
 FROM python:3.11-slim
