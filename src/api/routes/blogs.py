@@ -826,6 +826,223 @@ def get_blog_analytics_summary():
         raise HTTPException(status_code=500, detail=f"Analytics error: {str(e)}")
 
 
+@router.post("/blogs/from-brief/{brief_id}", response_model=BlogSummary)
+def create_blog_from_brief(brief_id: str):
+    """Generate a new blog post from an approved content brief."""
+    
+    logger.info(f"Creating blog from brief: {brief_id}")
+    
+    try:
+        # Validate brief ID
+        validated_brief_id = InputValidator.validate_uuid(brief_id, "brief_id")
+    except SecurityException as e:
+        raise convert_to_http_exception(e)
+    
+    start_time = time.time()
+    
+    try:
+        # Get the content brief from database
+        with db_config.get_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT id, brief_data, status, created_at 
+                    FROM content_briefs 
+                    WHERE id = %s
+                    """,
+                    (validated_brief_id,),
+                )
+                brief_row = cur.fetchone()
+                
+                if not brief_row:
+                    raise HTTPException(status_code=404, detail="Content brief not found")
+                
+                if brief_row["status"] != "approved":
+                    raise HTTPException(status_code=400, detail="Only approved briefs can be used for blog generation")
+                
+                brief_data = brief_row["brief_data"]
+        
+        # Import agents for content generation
+        from ...agents.specialized.planner_agent import PlannerAgent
+        from ...agents.specialized.researcher_agent import ResearcherAgent
+        from ...agents.specialized.writer_agent import WriterAgent
+        from ...agents.core.base_agent import AgentExecutionContext
+        
+        context = AgentExecutionContext(workflow_id=str(uuid.uuid4()))
+        
+        # Extract key information from brief for agent input
+        content_brief = brief_data
+        
+        try:
+            # Step 1: Create outline based on brief structure
+            planner_input = {
+                "blog_title": content_brief["title"],
+                "company_context": content_brief["business_context"],
+                "content_type": content_brief["content_type"].lower(),
+                "brief_outline": content_brief["content_structure"]["content_outline"],
+                "target_audience": content_brief["target_audience"],
+                "primary_keyword": content_brief["primary_keyword"]["keyword"],
+                "key_messages": content_brief["key_messages"]
+            }
+            
+            planner = PlannerAgent()
+            outline_result = planner.execute_safe(planner_input, context)
+            
+            if not outline_result.success:
+                raise Exception(f"Planning failed: {outline_result.error_message}")
+            
+            # Step 2: Enhanced research using brief keywords and competitor insights
+            researcher = ResearcherAgent()
+            research_input = {
+                "outline": outline_result.data["outline"],
+                "blog_title": content_brief["title"],
+                "company_context": content_brief["business_context"],
+                "primary_keyword": content_brief["primary_keyword"]["keyword"],
+                "secondary_keywords": [kw["keyword"] for kw in content_brief["secondary_keywords"]],
+                "competitor_insights": content_brief["competitor_insights"],
+                "target_search_intent": content_brief["target_search_intent"]
+            }
+            research_result = researcher.execute_safe(research_input, context)
+            
+            if not research_result.success:
+                raise Exception(f"Research failed: {research_result.error_message}")
+            
+            # Step 3: Strategic content writing using brief guidelines
+            writer = WriterAgent()
+            writing_input = {
+                "outline": outline_result.data["outline"],
+                "research": research_result.data["research"],
+                "blog_title": content_brief["title"],
+                "company_context": content_brief["business_context"],
+                "content_type": content_brief["content_type"].lower(),
+                "brief_data": {
+                    "unique_value_proposition": content_brief["unique_value_proposition"],
+                    "key_messages": content_brief["key_messages"],
+                    "tone_and_voice": content_brief["tone_and_voice"],
+                    "writing_style_notes": content_brief["writing_style_notes"],
+                    "call_to_actions": content_brief["content_structure"]["call_to_actions"],
+                    "target_word_count": content_brief["content_structure"]["estimated_word_count"],
+                    "seo_guidelines": {
+                        "primary_keyword": content_brief["primary_keyword"]["keyword"],
+                        "secondary_keywords": [kw["keyword"] for kw in content_brief["secondary_keywords"]],
+                        "semantic_keywords": content_brief["semantic_keywords"]
+                    }
+                }
+            }
+            writing_result = writer.execute_safe(writing_input, context)
+            
+            if not writing_result.success:
+                raise Exception(f"Writing failed: {writing_result.error_message}")
+            
+            final_post = writing_result.data["content"]
+            result = {"final_post": final_post, "success": True}
+            
+        except Exception as e:
+            result = {"final_post": f"Content generation error: {str(e)}", "success": False}
+        
+        # Store the generated blog with brief reference
+        final_post = result.get("final_post", "")
+        
+        # Create initial prompt that references the brief
+        initial_prompt = {
+            "source": "content_brief",
+            "brief_id": validated_brief_id,
+            "title": content_brief["title"],
+            "content_type": content_brief["content_type"],
+            "company_context": content_brief["business_context"],
+            "generated_from_brief": True
+        }
+        
+        blog_id = str(uuid.uuid4())
+        created_at = datetime.datetime.utcnow().isoformat()
+        updated_at = datetime.datetime.utcnow().isoformat()
+        
+        # Store in database with enhanced metadata
+        try:
+            with db_config.get_db_connection() as conn:
+                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                    # Calculate metadata
+                    word_count = len(final_post.split()) if final_post else 0
+                    reading_time = max(1, word_count // 200)
+                    
+                    # Store with brief reference
+                    cur.execute(
+                        """
+                        INSERT INTO blog_posts (
+                            id, title, content_markdown, initial_prompt, status, 
+                            word_count, reading_time, created_at, updated_at,
+                            seo_score, geo_optimized
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            blog_id,
+                            content_brief["title"],
+                            final_post,
+                            json.dumps(initial_prompt),
+                            "brief_generated",  # Special status for brief-generated content
+                            word_count,
+                            reading_time,
+                            created_at,
+                            updated_at,
+                            80,  # Higher initial SEO score for brief-based content
+                            True  # Mark as geo-optimized since it's based on strategic brief
+                        ),
+                    )
+                    
+                    # Update brief status to indicate blog was generated
+                    cur.execute(
+                        """
+                        UPDATE content_briefs 
+                        SET status = 'blog_generated', updated_at = NOW() 
+                        WHERE id = %s
+                        """,
+                        (validated_brief_id,)
+                    )
+                    
+                    conn.commit()
+        except Exception as e:
+            logger.error(f"Error storing brief-generated blog: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        
+        # Log successful creation
+        execution_time = int((time.time() - start_time) * 1000)
+        logger.info(f"Blog created from brief successfully: {blog_id} in {execution_time}ms")
+        
+        return BlogSummary(
+            id=blog_id,
+            title=content_brief["title"],
+            status="brief_generated",
+            created_at=created_at,
+            word_count=word_count,
+            reading_time=reading_time
+        )
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error creating blog from brief {brief_id}: {str(e)}")
+        raise HTTPException(
+            status_code=400, 
+            detail={
+                "error": "Validation Error", 
+                "message": "Invalid brief data or configuration",
+                "brief_id": brief_id,
+                "details": str(e)
+            }
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error creating blog from brief {brief_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "error": "Internal Server Error",
+                "message": "An unexpected error occurred during blog generation",
+                "brief_id": brief_id,
+                "request_id": str(uuid.uuid4())[:8]
+            }
+        )
+
+
 @router.post("/blogs/{post_id}/create-campaign")
 def create_campaign_from_blog(post_id: str, request: dict):
     """Create a campaign from a blog post."""

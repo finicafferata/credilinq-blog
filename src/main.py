@@ -11,10 +11,11 @@ import asyncio
 
 from .config import settings, db_config, secure_db
 from .api.routes import blogs, campaigns, analytics, health, documents, api_analytics, content_repurposing, content_preview, competitor_intelligence, settings as settings_router
+from .api.routes import content_briefs, content_deliverables
 from .api.routes import comments as comments_router
 from .api.routes import suggestions as suggestions_router
 from .api.routes import db_debug as db_debug_router
-from .api.routes import workflow_fixed, images_debug
+from .api.routes import workflow_fixed, images_debug, content_workflows, agents, auth
 from .core.api_docs import configure_api_docs, custom_openapi_schema
 # from .core.database_pool import connection_pool_maintenance
 from .core.versioning import create_versioned_app, VersionCompatibilityMiddleware
@@ -28,6 +29,9 @@ from .core.performance_middleware import (
     CompressionConfig, 
     CacheConfig
 )
+from .core.rate_limiting import RateLimitMiddleware
+from .core.security_headers import SecurityHeadersMiddleware, ProductionSecurityMiddleware, SECURITY_CONFIGS
+from .core.request_validation import RequestValidationMiddleware, VALIDATION_CONFIGS
 # from .core.database_pool import startup_database_pool, shutdown_database_pool, connection_pool_maintenance
 # from .core.database_auth import startup_database_auth, shutdown_database_auth
 # Temporarily disabled for quick startup
@@ -228,6 +232,16 @@ app.openapi = lambda: custom_openapi_schema(app)
 
 # Add middleware in correct order (last added = first executed)
 app.add_middleware(ErrorHandlingMiddleware)  # Re-enabled - comprehensive error handling
+
+# Add security middleware based on environment
+security_config = SECURITY_CONFIGS.get(settings.environment, SECURITY_CONFIGS["production"])
+validation_config = VALIDATION_CONFIGS.get(settings.environment, VALIDATION_CONFIGS["production"])
+
+app.add_middleware(RequestValidationMiddleware, config=validation_config)  # Request validation and security
+app.add_middleware(SecurityHeadersMiddleware, config=security_config)  # Security headers
+app.add_middleware(ProductionSecurityMiddleware, config=security_config)  # Production security
+
+app.add_middleware(RateLimitMiddleware)  # Rate limiting with sliding window algorithm
 app.add_middleware(APIAnalyticsMiddleware)  # Re-enabled - request/response analytics  
 app.add_middleware(AuthenticationMiddleware)  # Re-enabled - authentication handling
 app.add_middleware(VersionCompatibilityMiddleware)  # Re-enabled - API versioning support
@@ -288,6 +302,9 @@ app.add_middleware(
 
 # Include API routes with versioning
 # V2 routes (current)
+# Authentication routes (public - no auth required for login/register)
+app.include_router(auth.router, prefix="/api/v2", tags=["authentication"])
+
 app.include_router(blogs.router, prefix="/api/v2", tags=["blogs-v2"])
 app.include_router(campaigns.router, prefix="/api/v2", tags=["campaigns-v2"])  
 app.include_router(analytics.router, prefix="/api/v2", tags=["analytics-v2"])
@@ -297,11 +314,16 @@ app.include_router(api_analytics.router, prefix="/api/v2", tags=["api-analytics-
 app.include_router(content_repurposing.router, prefix="/api/v2/content", tags=["content-repurposing-v2"])
 app.include_router(content_preview.router, prefix="/api/v2/content-preview", tags=["content-preview-v2"])
 app.include_router(competitor_intelligence.router, prefix="/api/v2", tags=["competitor-intelligence-v2"])
+app.include_router(content_briefs.router, prefix="/api/v2", tags=["content-briefs-v2"])
+app.include_router(content_deliverables.router, tags=["content-deliverables-v2"])
 app.include_router(images_debug.router, prefix="/api/v2", tags=["images-v2"])
 # Settings routes (v2)
 app.include_router(settings_router.router, prefix="/api/v2", tags=["settings-v2"])
 # workflow_fixed is the main workflow implementation
 app.include_router(workflow_fixed.router, prefix="/api/v2", tags=["workflow-fixed-v2"])
+# Content generation workflows
+app.include_router(content_workflows.router, prefix="/api/v2", tags=["content-workflows-v2"])
+app.include_router(agents.router, prefix="/api/v2", tags=["agents-v2"])
 
 # V1 routes (deprecated, for backward compatibility)
 app.include_router(blogs.router, prefix="/api/v1", tags=["blogs-v1"], deprecated=True)
@@ -320,6 +342,7 @@ app.include_router(webhooks_router, prefix="/api", tags=["webhooks"])
 app.include_router(api_analytics.router, prefix="/api", tags=["api-analytics"])
 app.include_router(content_repurposing.router, prefix="/api/content", tags=["content-repurposing"])
 app.include_router(content_preview.router, prefix="/api/content-preview", tags=["content-preview"])
+app.include_router(content_briefs.router, prefix="/api", tags=["content-briefs"])
 app.include_router(competitor_intelligence.router, prefix="/api", tags=["competitor-intelligence"])
 app.include_router(settings_router.router, prefix="/api", tags=["settings"])
 

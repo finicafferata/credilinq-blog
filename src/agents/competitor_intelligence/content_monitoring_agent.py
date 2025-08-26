@@ -14,7 +14,7 @@ import re
 from dataclasses import asdict
 
 from langchain.schema import BaseMessage, HumanMessage, SystemMessage
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from bs4 import BeautifulSoup
 

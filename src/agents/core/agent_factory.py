@@ -378,6 +378,78 @@ class BlogWorkflowAgentFactory(AgentFactory):
         
         return self.create_workflow_agents(agent_types)
 
+# Initialize specialized agents registration
+def _initialize_default_agents():
+    """Initialize registration of all specialized agents."""
+    try:
+        # Import specialized agents
+        from ..specialized.image_agent import ImageAgent
+        from ..specialized.campaign_manager import CampaignManagerAgent
+        from ..specialized.content_repurposer import ContentRepurposer
+        from ..specialized.content_brief_agent import ContentBriefAgent
+        
+        # Register Image Agent
+        register_agent(
+            AgentType.IMAGE,
+            ImageAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.IMAGE,
+                name="ImageAgent",
+                description="Generates images and visual content for campaigns and blog posts",
+                capabilities=["image_generation", "visual_content_creation", "prompt_optimization"],
+                dependencies=[]
+            )
+        )
+        
+        # Register Campaign Manager Agent
+        register_agent(
+            AgentType.CAMPAIGN_MANAGER,
+            CampaignManagerAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.CAMPAIGN_MANAGER,
+                name="CampaignManagerAgent",
+                description="Manages campaign strategy and coordination",
+                capabilities=["campaign_planning", "strategy_development", "workflow_coordination"],
+                dependencies=[]
+            )
+        )
+        
+        # Register Content Repurposer Agent
+        register_agent(
+            AgentType.CONTENT_REPURPOSER,
+            ContentRepurposer,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.CONTENT_REPURPOSER,
+                name="ContentRepurposer", 
+                description="Repurposes content across different formats and platforms",
+                capabilities=["content_adaptation", "format_conversion", "platform_optimization"],
+                dependencies=[]
+            )
+        )
+        
+        # Register Content Brief Agent
+        register_agent(
+            AgentType.CONTENT_BRIEF,
+            ContentBriefAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.CONTENT_BRIEF,
+                name="ContentBriefAgent",
+                description="Creates strategic content briefs with SEO research and competitive analysis",
+                capabilities=["seo_keyword_research", "competitor_analysis", "content_strategy", "audience_analysis"],
+                dependencies=[]
+            )
+        )
+        
+        logger.info("Successfully registered specialized agents")
+        
+    except ImportError as e:
+        logger.warning(f"Failed to register some specialized agents: {e}")
+    except Exception as e:
+        logger.error(f"Error during agent registration: {e}")
+
+# Initialize agents on module load
+_initialize_default_agents()
+
 # Global instances
 global_factory = AgentFactory()
 global_pool = AgentPool()

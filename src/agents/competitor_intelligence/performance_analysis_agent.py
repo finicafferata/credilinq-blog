@@ -13,7 +13,7 @@ import statistics
 from scipy import stats
 
 from langchain.schema import BaseMessage, HumanMessage, SystemMessage
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 
 from ..core.base_agent import BaseAgent
 from .models import (

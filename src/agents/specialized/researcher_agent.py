@@ -263,20 +263,59 @@ class ResearcherAgent(BaseAgent[Dict[str, Any]]):
         blog_title: str, 
         company_context: str
     ) -> str:
-        """Generate contextual content as final fallback."""
+        """Generate contextual content focusing on supporting elements for compelling content."""
         return f"""
-        General information about {section} in the context of {blog_title}.
+        Research Framework for: {section} in the context of {blog_title}
         
-        This section should cover key aspects of {section} relevant to the main topic.
-        Consider the following context: {company_context}
+        STATISTICS & DATA POINTS NEEDED:
+        - Industry benchmarks relevant to {section}
+        - Market statistics that support the problem/challenge
+        - Performance metrics demonstrating the impact
+        - Percentage-based claims that add credibility
         
-        Key points to address:
-        - Definition and importance of {section}
-        - Relationship to {blog_title}
-        - Practical implications
-        - Best practices or recommendations
+        REAL EXAMPLES & CASE STUDIES:
+        - Specific company examples facing {section} challenges
+        - Customer scenarios that illustrate the pain points
+        - Success stories showing problem resolution
+        - Industry-specific examples (e.g., "Amazon sellers", "TikTok merchants")
         
-        Note: This is generated content that should be enhanced with specific research.
+        EXPERT QUOTES & AUTHORITY SOURCES:
+        - Industry leader quotes about {section}
+        - Expert insights on the challenges and solutions
+        - Authority figures supporting the approach (like Jack Welch style quotes)
+        - Credible third-party validation
+        
+        CUSTOMER TESTIMONIALS & SOCIAL PROOF:
+        - User testimonials about {section} challenges
+        - Forum quotes or social media evidence
+        - Customer success metrics and outcomes
+        - Before/after scenarios from real users
+        
+        COMPARISON DATA:
+        - Traditional approach vs. modern solutions
+        - Competitor analysis for {section}
+        - Feature/benefit comparisons
+        - "Old way vs. new way" structures
+        
+        VISUAL ELEMENTS TO SUPPORT:
+        - Chart concepts for illustrating {section} data
+        - Table structures for comparisons
+        - Process diagrams or flowcharts
+        - Timeline or step-by-step visual concepts
+        
+        COMPANY-SPECIFIC APPLICATION:
+        - How {company_context} specifically addresses {section}
+        - Unique value propositions related to this challenge
+        - Competitive advantages in solving {section} problems
+        - Customer success metrics specific to the company solution
+        
+        ENGAGEMENT HOOKS:
+        - Surprising statistics or counterintuitive facts about {section}
+        - Common misconceptions to address
+        - Urgent problems that need immediate attention
+        - Future trends and implications
+        
+        Note: This research framework should be populated with specific, credible data points.
         """
     
     def _assess_research_quality(self, research_results: Dict[str, Any]) -> Dict[str, Any]:

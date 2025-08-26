@@ -56,3 +56,30 @@ venv*/
 
 # Local logs directory
 logs/
+
+# Development and testing files - do not deploy
+demo_*.py
+test_*.py
+*_test.py
+fix_*.py
+*_fix.sql
+simple_*.sql
+focused_*.sql
+quick_*.sql
+sample_*.json
+run_*.py
+
+# Documentation that shouldn't be deployed
+CONTENT_FIRST_*.md
+ROADMAP_*.md
+docs/
+
+# Development configurations and temp files
+.claude/
+config/dev/
+database/migrations/migration_test_suite.sql
+database/migrations/migration_validation.sql
+
+# Test directories
+tests/performance/
+frontend/src/tests/

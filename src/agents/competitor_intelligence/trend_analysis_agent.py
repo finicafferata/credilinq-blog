@@ -14,7 +14,7 @@ import re
 from statistics import mean, stdev
 
 from langchain.schema import BaseMessage, HumanMessage, SystemMessage
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import DBSCAN
 from sklearn.metrics.pairwise import cosine_similarity

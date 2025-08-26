@@ -6,7 +6,7 @@ import { RepurposeModal } from '../components/RepurposeModal';
 import type { CampaignDetail } from '../lib/api';
 
 // CampaignView is the main page for managing a campaign workflow for a blog post
-export function CampaignView() {
+function CampaignView() {
   // Get the blogId or campaignId from the route params
   const { blogId, campaignId } = useParams<{ blogId?: string; campaignId?: string }>();
   
@@ -337,4 +337,5 @@ export function CampaignView() {
   );
 }
 
-export default CampaignView; 
+export { CampaignView };
+export default CampaignView;

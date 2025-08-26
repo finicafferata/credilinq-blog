@@ -1,0 +1,212 @@
+# Application-specific alerting rules for CrediLinq AI Content Platform
+
+groups:
+  - name: credilinq.application
+    interval: 30s
+    rules:
+      # Application Health Alerts
+      - alert: ApplicationDown
+        expr: up{job="credilinq-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "CrediLinq application is down"
+          description: "The CrediLinq application has been down for more than 1 minute."
+          runbook_url: "https://docs.credilinq.com/runbooks/app-down"
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{job="credilinq-app",status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second over the last 5 minutes."
+
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="credilinq-app"}[5m])) > 2
+        for: 3m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s over the last 5 minutes."
+
+      # Database Connection Alerts
+      - alert: DatabaseConnectionsHigh
+        expr: sum(pg_stat_database_numbackends{job="postgres"}) / sum(pg_settings_max_connections{job="postgres"}) > 0.8
+        for: 2m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "Database connections are high"
+          description: "Database connection usage is at {{ $value | humanizePercentage }}."
+
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: database
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "The PostgreSQL database has been unreachable for more than 1 minute."
+
+      # Memory and CPU Alerts
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
+        for: 2m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 90% ({{ $value | humanizePercentage }})."
+
+      - alert: HighCPUUsage
+        expr: 100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is above 80% ({{ $value | humanizePercentage }})."
+
+      # Disk Space Alerts
+      - alert: DiskSpaceLow
+        expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) > 0.85
+        for: 1m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "Disk space is running low"
+          description: "Disk usage is above 85% on {{ $labels.mountpoint }} ({{ $value | humanizePercentage }})."
+
+      - alert: DiskSpaceCritical
+        expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) > 0.95
+        for: 1m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "Disk space is critically low"
+          description: "Disk usage is above 95% on {{ $labels.mountpoint }} ({{ $value | humanizePercentage }})."
+
+  - name: credilinq.ai-agents
+    interval: 60s
+    rules:
+      # AI Agent Performance Alerts
+      - alert: AgentExecutionFailure
+        expr: increase(agent_execution_failures_total[10m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+          team: ai-engineering
+        annotations:
+          summary: "High AI agent execution failures"
+          description: "{{ $labels.agent_name }} has failed {{ $value }} times in the last 10 minutes."
+
+      - alert: SlowAgentExecution
+        expr: histogram_quantile(0.95, rate(agent_execution_duration_seconds_bucket[10m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+          team: ai-engineering
+        annotations:
+          summary: "Slow AI agent execution"
+          description: "95th percentile execution time for {{ $labels.agent_name }} is {{ $value }}s."
+
+      - alert: OpenAIAPIErrors
+        expr: increase(openai_api_errors_total[5m]) > 3
+        for: 1m
+        labels:
+          severity: warning
+          team: ai-engineering
+        annotations:
+          summary: "OpenAI API errors detected"
+          description: "{{ $value }} OpenAI API errors in the last 5 minutes."
+
+      - alert: AgentQueueBacklog
+        expr: agent_task_queue_size > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: ai-engineering
+        annotations:
+          summary: "AI agent task queue backlog"
+          description: "Agent task queue has {{ $value }} pending tasks."
+
+  - name: credilinq.redis
+    interval: 30s
+    rules:
+      # Redis Alerts
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "Redis is down"
+          description: "Redis has been unreachable for more than 1 minute."
+
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 2m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "Redis memory usage is high"
+          description: "Redis memory usage is {{ $value | humanizePercentage }}."
+
+      - alert: RedisSlowQueries
+        expr: redis_slowlog_length > 10
+        for: 1m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Redis slow queries detected"
+          description: "Redis has {{ $value }} slow queries in the log."
+
+  - name: credilinq.security
+    interval: 60s
+    rules:
+      # Security Alerts
+      - alert: HighFailedAuthAttempts
+        expr: increase(http_requests_total{status="401"}[5m]) > 50
+        for: 1m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "High number of failed authentication attempts"
+          description: "{{ $value }} failed authentication attempts in the last 5 minutes."
+
+      - alert: SuspiciousTraffic
+        expr: increase(http_requests_total{status="403"}[5m]) > 20
+        for: 1m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Suspicious traffic detected"
+          description: "{{ $value }} blocked requests in the last 5 minutes."
+
+      - alert: RateLimitExceeded
+        expr: increase(http_requests_total{status="429"}[5m]) > 100
+        for: 1m
+        labels:
+          severity: info
+          team: backend
+        annotations:
+          summary: "Rate limit frequently exceeded"
+          description: "{{ $value }} rate limit violations in the last 5 minutes."

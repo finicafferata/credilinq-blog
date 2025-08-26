@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  DocumentTextIcon,
+  PencilIcon,
+  CheckIcon,
+  ArrowTrendingUpIcon
+} from '@heroicons/react/24/outline';
 import { blogApi } from '../lib/api';
 import { showErrorNotification, AppError } from '../lib/errors';
 import { confirmAction } from '../lib/toast';
@@ -159,31 +165,10 @@ export function ImprovedDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          <Breadcrumbs />
-          
-          {/* Header Skeleton */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <div className="h-8 w-64 bg-gray-200 rounded animate-pulse mb-2"></div>
-              <div className="h-4 w-96 bg-gray-200 rounded animate-pulse"></div>
-            </div>
-            <div className="h-10 w-40 bg-gray-200 rounded animate-pulse"></div>
-          </div>
-
-          {/* Stats Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-xl shadow-sm p-6">
-                <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mb-4"></div>
-                <div className="h-8 w-16 bg-gray-200 rounded animate-pulse mb-2"></div>
-                <div className="h-3 w-24 bg-gray-200 rounded animate-pulse"></div>
-              </div>
-            ))}
-          </div>
-
-          <BlogCardSkeleton />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -191,17 +176,19 @@ export function ImprovedDashboard() {
 
   if (error && blogs.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          <Breadcrumbs />
-          <EmptyState
-            title="Failed to load dashboard"
-            description={error}
-            action={{
-              label: "Retry",
-              onClick: fetchBlogs
-            }}
-          />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <svg className="h-12 w-12 text-red-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          <h2 className="mt-4 text-xl font-semibold text-gray-900">Unable to load dashboard</h2>
+          <p className="mt-2 text-gray-600">{error}</p>
+          <button
+            onClick={fetchBlogs}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -209,114 +196,64 @@ export function ImprovedDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <Breadcrumbs />
-        
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-              Content Dashboard
-              <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                {stats.totalBlogs} {stats.totalBlogs === 1 ? 'post' : 'posts'}
-              </span>
-            </h1>
-            <p className="text-gray-600 mt-1 flex items-center">
-              Manage your AI-generated content and campaigns
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <Link to="/workflow" className="btn-primary">
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Create Content
-            </Link>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Posts</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalBlogs}</p>
-                <p className="text-sm text-gray-500 mt-1">All time</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
+      {/* Header */}
+      <div className="bg-white shadow">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Content Dashboard</h1>
+              <p className="mt-2 text-gray-600">Manage your AI-generated content and campaigns</p>
             </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Drafts</p>
-                <p className="text-3xl font-bold text-yellow-600 mt-2">{stats.draftBlogs}</p>
-                <p className="text-sm text-gray-500 mt-1">In progress</p>
-              </div>
-              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            <div className="flex space-x-3">
+              <Link
+                to="/workflow"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Published</p>
-                <p className="text-3xl font-bold text-green-600 mt-2">{stats.publishedBlogs}</p>
-                <p className="text-sm text-gray-500 mt-1">Live content</p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">This Week</p>
-                <p className="text-3xl font-bold text-purple-600 mt-2">{stats.recentActivity}</p>
-                <p className="text-sm text-gray-500 mt-1">New posts</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-              </div>
+                Create Content
+              </Link>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Create Content */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-          <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Create Content</h3>
-            <p className="text-gray-600 mb-6">Choose your content creation approach</p>
-            <Link
-              to="/workflow"
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Start Creating
-            </Link>
-          </div>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        {/* Key Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <MetricCard
+            title="Total Posts"
+            value={stats.totalBlogs}
+            icon={DocumentTextIcon}
+            color="blue"
+            trend="All time"
+          />
+          <MetricCard
+            title="Drafts"
+            value={stats.draftBlogs}
+            icon={PencilIcon}
+            color="yellow"
+            trend="In progress"
+          />
+          <MetricCard
+            title="Published"
+            value={stats.publishedBlogs}
+            icon={CheckIcon}
+            color="green"
+            trend="Live content"
+          />
+          <MetricCard
+            title="This Week"
+            value={stats.recentActivity}
+            icon={ArrowTrendingUpIcon}
+            color="purple"
+            trend="New posts"
+          />
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
           <form onSubmit={handleSearchSubmit} className="space-y-4">
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search bar */}
@@ -443,40 +380,86 @@ export function ImprovedDashboard() {
         </div>
 
         {/* Content */}
-        {blogs.length === 0 && !loading ? (
-          hasActiveFilters ? (
-            <EmptyState
-              title="No blogs match your search"
-              description="Try adjusting your search terms or filters to find what you're looking for."
-              action={{
-                label: "Clear Filters",
-                onClick: clearFilters
-              }}
-            />
-          ) : (
-            <EmptyState
-              title="No blogs yet"
-              description="Get started by creating your first AI-generated blog post. Our intelligent agents will help you create amazing content."
-              action={{
-                label: "Create First Blog",
-                onClick: () => window.location.href = "/new"
-              }}
-            />
-          )
-        ) : (
-          blogs.length > 20 ? (
-            <VirtualizedBlogList 
-              blogs={blogs} 
-              onDelete={handleDelete} 
-              onRefresh={handleRefresh}
-              height={600}
-            />
-          ) : (
-            <BlogList blogs={blogs} onDelete={handleDelete} onRefresh={handleRefresh} />
-          )
-        )}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Blog Posts</h2>
+          </div>
+          <div className="p-6">
+            {blogs.length === 0 && !loading ? (
+              hasActiveFilters ? (
+                <EmptyState
+                  title="No blogs match your search"
+                  description="Try adjusting your search terms or filters to find what you're looking for."
+                  action={{
+                    label: "Clear Filters",
+                    onClick: clearFilters
+                  }}
+                />
+              ) : (
+                <EmptyState
+                  title="No blogs yet"
+                  description="Get started by creating your first AI-generated blog post. Our intelligent agents will help you create amazing content."
+                  action={{
+                    label: "Create First Blog",
+                    onClick: () => window.location.href = "/new"
+                  }}
+                />
+              )
+            ) : (
+              blogs.length > 20 ? (
+                <VirtualizedBlogList 
+                  blogs={blogs} 
+                  onDelete={handleDelete} 
+                  onRefresh={handleRefresh}
+                  height={600}
+                />
+              ) : (
+                <BlogList blogs={blogs} onDelete={handleDelete} onRefresh={handleRefresh} />
+              )
+            )}
+          </div>
+        </div>
 
         <KeyboardShortcutsHelp />
+      </div>
+    </div>
+  );
+}
+
+// Helper Components
+interface MetricCardProps {
+  title: string;
+  value: number;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  color: 'blue' | 'green' | 'purple' | 'yellow' | 'red';
+  trend?: string;
+}
+
+function MetricCard({ title, value, icon: Icon, color, trend }: MetricCardProps) {
+  const colorClasses = {
+    blue: 'bg-blue-500',
+    green: 'bg-green-500',
+    purple: 'bg-purple-500',
+    yellow: 'bg-yellow-500',
+    red: 'bg-red-500'
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-center">
+        <div className={`p-3 rounded-md ${colorClasses[color]}`}>
+          <Icon className="h-6 w-6 text-white" />
+        </div>
+        <div className="ml-4 flex-1">
+          <p className="text-sm font-medium text-gray-600">{title}</p>
+          <p className="text-2xl font-semibold text-gray-900">{value.toLocaleString()}</p>
+          {trend && (
+            <p className="text-xs text-gray-500 mt-1 flex items-center">
+              <ArrowTrendingUpIcon className="h-3 w-3 mr-1" />
+              {trend}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,0 +1,181 @@
+// Content Deliverable Schema Extension
+// This extends the main schema with content-centric models
+
+// Core Content Deliverable Model
+model ContentDeliverable {
+  id              String                @id @default(uuid()) @db.Uuid
+  title           String                @db.VarChar(500)
+  content         String                @db.Text
+  summary         String?               @db.VarChar(1000)
+  contentType     ContentType           @map("content_type")
+  format          ContentFormat         @default(markdown)
+  status          DeliverableStatus     @default(draft)
+  
+  // Content relationships and narrative flow
+  parentId        String?               @map("parent_id") @db.Uuid
+  parent          ContentDeliverable?   @relation("ContentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children        ContentDeliverable[]  @relation("ContentHierarchy")
+  
+  // Cross-references between content pieces
+  relatedContent  ContentDeliverable[]  @relation("ContentReferences", fields: [id], references: [id])
+  referencedBy    ContentDeliverable[]  @relation("ContentReferences", fields: [id], references: [id])
+  
+  // Campaign and metadata
+  campaignId      String                @map("campaign_id") @db.Uuid
+  campaign        Campaign              @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  // Content metadata for narrative coherence
+  narrativeOrder  Int?                  @map("narrative_order")
+  keyMessages     String[]              @map("key_messages")
+  targetAudience  String?               @map("target_audience") @db.VarChar(500)
+  tone            String?               @db.VarChar(100)
+  platform        String?               @db.VarChar(100)
+  
+  // Content metrics and optimization
+  wordCount       Int?                  @map("word_count")
+  readingTime     Int?                  @map("reading_time")
+  seoScore        Float?                @map("seo_score")
+  engagementScore Float?                @map("engagement_score")
+  
+  // Agent information
+  createdBy       String?               @map("created_by") @db.VarChar(100) // Agent name
+  lastEditedBy    String?               @map("last_edited_by") @db.VarChar(100)
+  
+  // Version and revision tracking
+  version         Int                   @default(1)
+  isPublished     Boolean               @default(false) @map("is_published")
+  publishedAt     DateTime?             @map("published_at") @db.Timestamptz(6)
+  
+  // Timestamps
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  // Metadata JSON for extensibility
+  metadata        Json?
+  
+  // Relations
+  revisions       ContentRevision[]
+  tasks           CampaignTask[]        @relation("DeliverableTasks")
+  
+  @@index([campaignId])
+  @@index([contentType])
+  @@index([status])
+  @@index([createdAt])
+  @@index([narrativeOrder])
+  @@index([platform])
+  @@index([campaignId, narrativeOrder])
+  @@index([contentType, status])
+  @@index([parentId])
+  @@map("content_deliverables")
+}
+
+// Content revision history for tracking changes
+model ContentRevision {
+  id              String               @id @default(uuid()) @db.Uuid
+  deliverableId   String               @map("deliverable_id") @db.Uuid
+  deliverable     ContentDeliverable   @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  
+  version         Int
+  title           String               @db.VarChar(500)
+  content         String               @db.Text
+  summary         String?              @db.VarChar(1000)
+  
+  // Revision metadata
+  changeType      RevisionType         @map("change_type")
+  changeReason    String?              @map("change_reason") @db.Text
+  changedBy       String               @map("changed_by") @db.VarChar(100)
+  
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  metadata        Json?
+  
+  @@index([deliverableId])
+  @@index([version])
+  @@index([createdAt])
+  @@index([deliverableId, version])
+  @@map("content_revisions")
+}
+
+// Content narrative coordinator for story flow
+model ContentNarrative {
+  id              String               @id @default(uuid()) @db.Uuid
+  campaignId      String               @map("campaign_id") @db.Uuid
+  campaign        Campaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  title           String               @db.VarChar(500)
+  description     String?              @db.Text
+  
+  // Narrative structure
+  narrativeTheme  String               @map("narrative_theme") @db.VarChar(500)
+  keyStoryArc     String[]             @map("key_story_arc")
+  contentFlow     Json                 @map("content_flow") // Ordered structure of content pieces
+  
+  // Coordination metadata
+  totalPieces     Int                  @map("total_pieces")
+  completedPieces Int                  @default(0) @map("completed_pieces")
+  
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  @@index([campaignId])
+  @@index([createdAt])
+  @@unique([campaignId])
+  @@map("content_narratives")
+}
+
+// Enums for content deliverables
+enum ContentType {
+  blog_post
+  social_media_post
+  email_campaign
+  newsletter
+  whitepaper
+  case_study
+  video_script
+  podcast_script
+  press_release
+  product_description
+  landing_page
+  ad_copy
+  infographic_concept
+  webinar_outline
+}
+
+enum ContentFormat {
+  markdown
+  html
+  plain_text
+  json
+  structured_data
+}
+
+enum DeliverableStatus {
+  draft
+  in_review
+  approved
+  published
+  archived
+  needs_revision
+}
+
+enum RevisionType {
+  initial_creation
+  content_update
+  style_revision
+  factual_correction
+  narrative_adjustment
+  platform_optimization
+}
+
+// Extend existing Campaign model to include content narrative
+// Note: This would be added to the main schema
+// Campaign {
+//   contentNarrative ContentNarrative?
+//   deliverables     ContentDeliverable[]
+// }
+
+// Extend existing CampaignTask to link with deliverables
+// Note: This would be added to the main schema
+// CampaignTask {
+//   deliverableId    String?             @map("deliverable_id") @db.Uuid
+//   deliverable      ContentDeliverable? @relation("DeliverableTasks", fields: [deliverableId], references: [id], onDelete: SetNull)
+// }

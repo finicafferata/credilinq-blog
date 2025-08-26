@@ -136,10 +136,10 @@ class TaskSchedulerAgent(BaseAgent):
             with db_config.get_db_connection() as conn:
                 cur = conn.cursor()
                 cur.execute("""
-                    SELECT id, "taskType", result, error
+                    SELECT id, task_type, result, error
                     FROM campaign_tasks
-                    WHERE "campaignId" = %s AND status = 'pending'
-                    ORDER BY "taskType", "createdAt"
+                    WHERE campaign_id = %s AND status = 'pending'
+                    ORDER BY task_type, created_at
                 """, (campaign_id,))
                 
                 rows = cur.fetchall()

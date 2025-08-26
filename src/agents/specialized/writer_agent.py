@@ -166,7 +166,7 @@ class WriterAgent(BaseAgent[Dict[str, Any]]):
         research_text = self._format_research_for_prompt(research)
         revision_notes = self._format_revision_notes(review_notes)
         
-        prompt = f"""You are 'ContextMark', an expert blog writer with 15+ years of experience. Write a comprehensive, engaging blog post.
+        prompt = f"""You are 'ContextMark', an expert blog writer with 15+ years of experience creating high-converting content. Write a comprehensive, engaging blog post that follows the proven structure of top-performing financial services content.
 
 BLOG TITLE: {blog_title}
 
@@ -184,19 +184,39 @@ COMPANY CONTEXT & TONE:
 {revision_notes}
 
 BLOG-SPECIFIC REQUIREMENTS:
-- Write in professional yet conversational tone
-- Use the research as your primary source of truth
-- Follow the outline structure closely
-- Include engaging introduction and strong conclusion
-- Use proper Markdown formatting with headers (## for main sections)
+
+**OPENING STRUCTURE:**
+- Start with a compelling quote from an industry authority (like Jack Welch style)
+- Follow with a clear problem statement that resonates with the target audience
+- Use the format: "It's common for [target audience] to see [positive indicator] and yet feel stuck when it comes to [real problem]"
+- Include specific pain points with concrete examples
+
+**CONTENT STRUCTURE:**
+- Create numbered sections (e.g., "1. Delayed payouts from marketplaces", "2. High upfront inventory costs")
+- Include real customer testimonials/quotes (format as: "Quote here" - Via Reddit/Source)
+- Add visual element callouts using format: "Via - [Source]" for charts/images
+- Use comparison tables with clear headers and structured data
+- Include specific statistics and percentages where available
+
+**SOLUTION PRESENTATION:**
+- Create "How [Company] Solves [Problem]" sections with bullet points
+- Include specific examples: "A beauty seller on TikTok secured $75,000..."
+- Use comparison tables showing "Traditional vs. [Company Solution]"
+- Format benefits as concrete outcomes, not just features
+
+**ENGAGEMENT ELEMENTS:**
+- Include multiple CTAs throughout (not just at the end)
+- Add "Tip:" callout boxes with actionable advice
+- Use social proof and specific customer success stories
+- End with strong urgency: "Get funded in as little as 24 hours!"
+
+**FORMATTING REQUIREMENTS:**
+- Use proper Markdown formatting with ## for main sections
 - Aim for 1500-2500 words for comprehensive coverage
-- Include actionable insights and practical advice
-- Provide detailed explanations and examples
-- Use bullet points and numbered lists where appropriate
-- Maintain consistency with company voice
-- Ensure content is original and well-researched
-- Include relevant statistics or data from research
-- Make content scannable with subheadings
+- Include bullet points and numbered lists for readability
+- Use **bold text** for key benefits and important points
+- Create scannable subheadings that promise specific value
+- Include actionable insights with concrete next steps
 
 Write the complete blog post in Markdown format now."""
 

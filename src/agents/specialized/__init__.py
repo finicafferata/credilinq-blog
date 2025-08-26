@@ -12,6 +12,7 @@ from .image_agent import ImageAgent
 from .seo_agent import SEOAgent
 from .geo_analysis_agent import GEOAnalysisAgent
 from .social_media_agent import SocialMediaAgent
+from .ai_content_generator import AIContentGeneratorAgent
 
 # Import agent factory for registration
 from ..core.agent_factory import register_agent
@@ -32,6 +33,7 @@ def _register_agents():
         register_agent(AgentType.CONTENT_OPTIMIZER, GEOAnalysisAgent)
         register_agent(AgentType.SOCIAL_MEDIA, SocialMediaAgent)
         register_agent(AgentType.SEARCH, WebSearchAgent)
+        register_agent(AgentType.AI_CONTENT_GENERATOR, AIContentGeneratorAgent)
         print("✅ All specialized agents registered successfully")
     except Exception as e:
         print(f"❌ Error registering agents: {e}")
@@ -53,5 +55,6 @@ __all__ = [
     "ImageAgent",
     "SEOAgent",
     "GEOAnalysisAgent",
-    "SocialMediaAgent"
+    "SocialMediaAgent",
+    "AIContentGeneratorAgent"
 ]

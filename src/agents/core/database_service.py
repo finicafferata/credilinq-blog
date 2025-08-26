@@ -205,9 +205,10 @@ class DatabaseService:
                                        days: int = 30) -> List[Dict]:
         """Get agent performance analytics using real data."""
         try:
+            from src.config.database import db_config
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
             
-            with self.get_db_connection() as conn:
+            with db_config.get_db_connection() as conn:
                 cur = conn.cursor()
                 
                 # Build query with optional agent type filter
@@ -577,9 +578,11 @@ class DatabaseService:
     def get_dashboard_analytics(self, days: int = 30) -> Dict:
         """Get comprehensive analytics for dashboard using real data."""
         try:
+            from src.config.database import db_config
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
             
-            with self.get_db_connection() as conn:
+            # Use the same database connection as campaigns
+            with db_config.get_db_connection() as conn:
                 cur = conn.cursor()
                 
                 # Get real blog post counts
@@ -867,6 +870,316 @@ class DatabaseService:
             health_data["status"] = "unhealthy"
         
         return health_data
+
+    # --- Content Deliverable Methods ---
+    
+    def create_content_deliverable(self, deliverable_data: Dict[str, Any]) -> str:
+        """Create a new content deliverable"""
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                query = """
+                INSERT INTO content_deliverables (
+                    title, content, summary, content_type, format, status,
+                    campaign_id, narrative_order, key_messages, target_audience,
+                    tone, platform, word_count, reading_time, seo_score,
+                    engagement_score, created_by, last_edited_by, version,
+                    is_published, metadata
+                ) VALUES (
+                    %(title)s, %(content)s, %(summary)s, %(content_type)s, 
+                    %(format)s, %(status)s, %(campaign_id)s, %(narrative_order)s,
+                    %(key_messages)s, %(target_audience)s, %(tone)s, %(platform)s,
+                    %(word_count)s, %(reading_time)s, %(seo_score)s, %(engagement_score)s,
+                    %(created_by)s, %(last_edited_by)s, %(version)s, %(is_published)s,
+                    %(metadata)s
+                ) RETURNING id;
+                """
+                
+                # Set defaults
+                params = {
+                    'format': deliverable_data.get('format', 'markdown'),
+                    'status': deliverable_data.get('status', 'draft'),
+                    'version': deliverable_data.get('version', 1),
+                    'is_published': deliverable_data.get('is_published', False),
+                    'seo_score': deliverable_data.get('seo_score'),
+                    'engagement_score': deliverable_data.get('engagement_score'),
+                    'last_edited_by': deliverable_data.get('created_by'),
+                    **deliverable_data
+                }
+                
+                cursor.execute(query, params)
+                deliverable_id = cursor.fetchone()[0]
+                conn.commit()
+                
+                logger.info(f"✅ Created content deliverable: {deliverable_id}")
+                return str(deliverable_id)
+                
+        except Exception as e:
+            error_msg = f"Failed to create content deliverable: {str(e)}"
+            logger.error(error_msg)
+            raise DatabaseQueryError(error_msg)
+    
+    def create_content_narrative(self, narrative_data: Dict[str, Any]) -> str:
+        """Create a content narrative record"""
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                query = """
+                INSERT INTO content_narratives (
+                    campaign_id, title, description, narrative_theme,
+                    key_story_arc, content_flow, total_pieces, completed_pieces
+                ) VALUES (
+                    %(campaign_id)s, %(title)s, %(description)s, %(narrative_theme)s,
+                    %(key_story_arc)s, %(content_flow)s, %(total_pieces)s, %(completed_pieces)s
+                ) RETURNING id;
+                """
+                
+                cursor.execute(query, narrative_data)
+                narrative_id = cursor.fetchone()[0]
+                conn.commit()
+                
+                logger.info(f"✅ Created content narrative: {narrative_id}")
+                return str(narrative_id)
+                
+        except Exception as e:
+            error_msg = f"Failed to create content narrative: {str(e)}"
+            logger.error(error_msg)
+            raise DatabaseQueryError(error_msg)
+    
+    def get_campaign_deliverables(self, campaign_id: str) -> List[Dict[str, Any]]:
+        """Get all deliverables for a campaign"""
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+                
+                query = """
+                SELECT cd.*, cn.narrative_theme, cn.content_flow
+                FROM content_deliverables cd
+                LEFT JOIN content_narratives cn ON cd.campaign_id = cn.campaign_id
+                WHERE cd.campaign_id = %s
+                ORDER BY cd.narrative_order, cd.created_at;
+                """
+                
+                cursor.execute(query, (campaign_id,))
+                deliverables = [dict(row) for row in cursor.fetchall()]
+                
+                logger.info(f"📋 Retrieved {len(deliverables)} deliverables for campaign {campaign_id}")
+                return deliverables
+                
+        except Exception as e:
+            error_msg = f"Failed to get campaign deliverables: {str(e)}"
+            logger.error(error_msg)
+            raise DatabaseQueryError(error_msg)
+    
+    def update_deliverable_status(self, deliverable_id: str, status: str, notes: str = None) -> bool:
+        """Update the status of a content deliverable"""
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                query = """
+                UPDATE content_deliverables 
+                SET status = %s, updated_at = NOW()
+                WHERE id = %s;
+                """
+                
+                cursor.execute(query, (status, deliverable_id))
+                
+                # Create revision record if there are notes
+                if notes:
+                    revision_query = """
+                    INSERT INTO content_revisions (
+                        deliverable_id, version, title, content, summary,
+                        change_type, change_reason, changed_by
+                    )
+                    SELECT id, version, title, content, summary, 'content_update', %s, 'system'
+                    FROM content_deliverables WHERE id = %s;
+                    """
+                    cursor.execute(revision_query, (notes, deliverable_id))
+                
+                conn.commit()
+                logger.info(f"✅ Updated deliverable {deliverable_id} status to {status}")
+                return True
+                
+        except Exception as e:
+            error_msg = f"Failed to update deliverable status: {str(e)}"
+            logger.error(error_msg)
+            raise DatabaseQueryError(error_msg)
+    
+    def link_task_to_deliverable(self, task_id: str, deliverable_id: str) -> bool:
+        """Link a campaign task to a content deliverable"""
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                query = """
+                UPDATE campaign_tasks 
+                SET deliverable_id = %s 
+                WHERE id = %s;
+                """
+                
+                cursor.execute(query, (deliverable_id, task_id))
+                conn.commit()
+                
+                logger.info(f"🔗 Linked task {task_id} to deliverable {deliverable_id}")
+                return True
+                
+        except Exception as e:
+            error_msg = f"Failed to link task to deliverable: {str(e)}"
+            logger.error(error_msg)
+            raise DatabaseQueryError(error_msg)
+    
+    def get_content_deliverable(self, deliverable_id: str) -> Optional[Dict[str, Any]]:
+        """Get a single content deliverable by ID"""
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+                
+                query = """
+                SELECT cd.*, cn.narrative_theme
+                FROM content_deliverables cd
+                LEFT JOIN content_narratives cn ON cd.campaign_id = cn.campaign_id
+                WHERE cd.id = %s;
+                """
+                
+                cursor.execute(query, (deliverable_id,))
+                result = cursor.fetchone()
+                
+                if result:
+                    return dict(result)
+                return None
+                
+        except Exception as e:
+            error_msg = f"Failed to get content deliverable: {str(e)}"
+            logger.error(error_msg)
+            raise DatabaseQueryError(error_msg)
+    
+    def update_content_deliverable(self, deliverable_id: str, updates: Dict[str, Any]) -> bool:
+        """Update a content deliverable"""
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Build dynamic update query
+                update_fields = []
+                values = []
+                
+                for field, value in updates.items():
+                    if value is not None:
+                        update_fields.append(f"{field} = %s")
+                        values.append(value)
+                
+                if not update_fields:
+                    return True  # No updates to make
+                
+                values.append(deliverable_id)
+                
+                query = f"""
+                UPDATE content_deliverables 
+                SET {', '.join(update_fields)}, updated_at = NOW()
+                WHERE id = %s;
+                """
+                
+                cursor.execute(query, values)
+                conn.commit()
+                
+                return cursor.rowcount > 0
+                
+        except Exception as e:
+            error_msg = f"Failed to update content deliverable: {str(e)}"
+            logger.error(error_msg)
+            raise DatabaseQueryError(error_msg)
+    
+    def get_campaign_narrative(self, campaign_id: str) -> Optional[Dict[str, Any]]:
+        """Get the content narrative for a campaign"""
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+                
+                query = """
+                SELECT * FROM content_narratives WHERE campaign_id = %s;
+                """
+                
+                cursor.execute(query, (campaign_id,))
+                result = cursor.fetchone()
+                
+                if result:
+                    return dict(result)
+                return None
+                
+        except Exception as e:
+            error_msg = f"Failed to get campaign narrative: {str(e)}"
+            logger.error(error_msg)
+            raise DatabaseQueryError(error_msg)
+    
+    def delete_content_deliverable(self, deliverable_id: str) -> bool:
+        """Delete a content deliverable"""
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                # First delete revisions (due to foreign key)
+                cursor.execute("DELETE FROM content_revisions WHERE deliverable_id = %s;", (deliverable_id,))
+                
+                # Then delete the deliverable
+                cursor.execute("DELETE FROM content_deliverables WHERE id = %s;", (deliverable_id,))
+                
+                conn.commit()
+                return cursor.rowcount > 0
+                
+        except Exception as e:
+            error_msg = f"Failed to delete content deliverable: {str(e)}"
+            logger.error(error_msg)
+            raise DatabaseQueryError(error_msg)
+    
+    def create_campaign(self, campaign_data: Dict[str, Any]) -> str:
+        """Create a new campaign"""
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                query = """
+                INSERT INTO campaigns (name, status)
+                VALUES (%(name)s, %(status)s)
+                RETURNING id;
+                """
+                
+                cursor.execute(query, campaign_data)
+                campaign_id = cursor.fetchone()[0]
+                conn.commit()
+                
+                logger.info(f"✅ Created campaign: {campaign_id}")
+                return str(campaign_id)
+                
+        except Exception as e:
+            error_msg = f"Failed to create campaign: {str(e)}"
+            logger.error(error_msg)
+            raise DatabaseQueryError(error_msg)
+    
+    def search_campaigns(self, search_term: str) -> List[Dict[str, Any]]:
+        """Search campaigns by name"""
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+                
+                query = """
+                SELECT * FROM campaigns 
+                WHERE name ILIKE %s 
+                ORDER BY created_at DESC
+                LIMIT 10;
+                """
+                
+                cursor.execute(query, (f"%{search_term}%",))
+                campaigns = [dict(row) for row in cursor.fetchall()]
+                
+                return campaigns
+                
+        except Exception as e:
+            error_msg = f"Failed to search campaigns: {str(e)}"
+            logger.error(error_msg)
+            raise DatabaseQueryError(error_msg)
 
 # Global database service instance (lazy initialization)
 def get_db_service():

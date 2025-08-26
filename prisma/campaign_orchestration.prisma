@@ -1,0 +1,838 @@
+// ================================================================================
+// CAMPAIGN ORCHESTRATION PRISMA SCHEMA - PHASE 1: FOUNDATION ARCHITECTURE
+// ================================================================================
+// This schema transforms the current content-centric architecture to campaign-centric
+// Campaign becomes the primary entity with orchestrated workflows
+// Generated: 2024-12-18 | Version: 1.0 | Phase: Foundation
+// ================================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DATABASE_URL_DIRECT")
+  extensions = [uuid_ossp(map: "uuid-ossp", schema: "extensions")]
+}
+
+// ################################################################################
+// ENUMS FOR CAMPAIGN ORCHESTRATION
+// ################################################################################
+
+enum OrchestratorType {
+  content_creation          @map("content_creation")
+  multi_channel_distribution @map("multi_channel_distribution")
+  performance_optimization  @map("performance_optimization")
+  audience_engagement       @map("audience_engagement")
+  competitive_intelligence  @map("competitive_intelligence")
+  custom_workflow          @map("custom_workflow")
+}
+
+enum WorkflowStatus {
+  pending   
+  running   
+  paused    
+  completed 
+  failed    
+  cancelled 
+  timeout   
+}
+
+enum StepStatus {
+  pending   
+  running   
+  completed 
+  failed    
+  skipped   
+  retry     
+}
+
+enum StepType {
+  content_planning      @map("content_planning")
+  content_generation    @map("content_generation")
+  content_optimization  @map("content_optimization")
+  content_review        @map("content_review")
+  content_publishing    @map("content_publishing")
+  performance_analysis  @map("performance_analysis")
+  audience_analysis     @map("audience_analysis")
+  competitive_analysis  @map("competitive_analysis")
+  custom_task          @map("custom_task")
+}
+
+enum StrategyType {
+  thought_leadership      @map("thought_leadership")
+  product_marketing       @map("product_marketing")
+  brand_awareness         @map("brand_awareness")
+  lead_generation         @map("lead_generation")
+  customer_retention      @map("customer_retention")
+  competitive_positioning @map("competitive_positioning")
+  market_education        @map("market_education")
+  community_building      @map("community_building")
+}
+
+enum CampaignPriority {
+  low      
+  medium   
+  high     
+  critical 
+  urgent   
+}
+
+enum ContentStatus {
+  draft      
+  in_review  @map("in_review")
+  approved   
+  published  
+  archived   
+  deprecated 
+}
+
+// ################################################################################
+// CORE CAMPAIGN ORCHESTRATION MODELS
+// ################################################################################
+
+model CampaignOrchestrator {
+  id                String           @id @default(uuid()) @db.Uuid
+  name              String           @db.VarChar(255)
+  description       String?          @db.Text
+  orchestratorType  OrchestratorType @map("orchestrator_type")
+
+  // Workflow Configuration
+  workflowDefinition Json @map("workflow_definition") // Complete workflow structure
+  agentMappings     Json @default("{}") @map("agent_mappings") // Agent name to class mappings  
+  configuration     Json @default("{}") // Runtime configuration
+
+  // Execution Settings
+  priority                  Int @default(5) @db.SmallInt // 1-10 scale
+  maxConcurrentExecutions  Int @default(5) @map("max_concurrent_executions")
+  timeoutSeconds           Int @default(3600) @map("timeout_seconds")
+  retryPolicy              Json @default("{\"max_retries\": 3, \"backoff_multiplier\": 2}") @map("retry_policy")
+
+  // Status and Metrics
+  status                    String @default("active") @db.VarChar(50) // active, inactive, deprecated
+  version                   String @default("1.0") @db.VarChar(20)
+  totalExecutions          Int    @default(0) @map("total_executions")
+  successfulExecutions     Int    @default(0) @map("successful_executions")
+  averageExecutionTimeMs   Int    @default(0) @map("average_execution_time_ms")
+
+  // Audit Fields
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy String?  @map("created_by") @db.Uuid // Reference to user who created this
+  metadata  Json     @default("{}")
+
+  // Relations
+  campaigns          Campaign[]
+  workflowExecutions CampaignWorkflow[]
+
+  @@index([orchestratorType])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([orchestratorType, status])
+  @@map("campaign_orchestrators")
+}
+
+model CampaignStrategy {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String       @db.VarChar(255)
+  description String?      @db.Text
+  strategyType StrategyType @map("strategy_type")
+
+  // Strategic Configuration
+  targetChannels     String[] @default([]) @map("target_channels") // Distribution channels
+  contentPillars     Json     @default("[]") @map("content_pillars") // Core content themes
+  messagingFramework Json     @default("{}") @map("messaging_framework") // Brand voice and messaging
+  timelineTemplate   Json     @default("{}") @map("timeline_template") // Template for campaign timeline
+
+  // KPI and Performance Targets  
+  kpiTargets       Json  @default("{}") @map("kpi_targets") // Target metrics
+  budgetAllocation Json? @map("budget_allocation") // Budget breakdown by channel/activity
+  successMetrics   Json  @default("{}") @map("success_metrics") // Success measurement criteria
+
+  // Template Configuration
+  isTemplate       Boolean @default(false) @map("is_template")
+  templateCategory String? @db.VarChar(100) @map("template_category")
+  usageCount       Int     @default(0) @map("usage_count")
+
+  // Audit Fields
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  metadata  Json     @default("{}")
+
+  // Relations
+  campaigns Campaign[]
+
+  @@index([strategyType])
+  @@index([isTemplate])
+  @@index([templateCategory])
+  @@index([usageCount])
+  @@map("campaign_strategies")
+}
+
+// PRIMARY CAMPAIGN MODEL - Central entity for all content workflows
+model Campaign {
+  id          String @id @default(uuid()) @db.Uuid
+  name        String @db.VarChar(255)
+  description String? @db.Text
+
+  // Strategic Association
+  strategyId     String?             @map("strategy_id") @db.Uuid
+  orchestratorId String?             @map("orchestrator_id") @db.Uuid
+  strategy       CampaignStrategy?   @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  orchestrator   CampaignOrchestrator? @relation(fields: [orchestratorId], references: [id], onDelete: SetNull)
+
+  // Campaign Configuration
+  campaignData     Json             @default("{}") @map("campaign_data") // Campaign-specific data
+  executionContext Json             @default("{}") @map("execution_context") // Runtime execution context
+  priority         CampaignPriority @default(medium)
+
+  // Scheduling and Timeline
+  scheduledStart      DateTime? @map("scheduled_start") @db.Timestamptz(6)
+  actualStart         DateTime? @map("actual_start") @db.Timestamptz(6)
+  deadline            DateTime? @db.Timestamptz(6)
+  estimatedCompletion DateTime? @map("estimated_completion") @db.Timestamptz(6)
+  actualCompletion    DateTime? @map("actual_completion") @db.Timestamptz(6)
+
+  // Status Tracking
+  status             String  @default("draft") @db.VarChar(50) // draft, scheduled, active, paused, completed, cancelled
+  progressPercentage Decimal @default(0.00) @map("progress_percentage") @db.Decimal(5, 2)
+  currentPhase       String? @map("current_phase") @db.VarChar(100)
+
+  // Performance and Analytics
+  performanceMetrics Json     @default("{}") @map("performance_metrics")
+  kpiActual         Json     @default("{}") @map("kpi_actual")
+  budgetSpent       Json     @default("{}") @map("budget_spent")
+  roiCalculated     Decimal? @map("roi_calculated") @db.Decimal(10, 4)
+
+  // Audit Fields
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy String?  @map("created_by") @db.Uuid // Reference to user
+  tags      String[] @default([])
+  metadata  Json     @default("{}")
+
+  // Relations (CAMPAIGN-FIRST RELATIONSHIPS)
+  workflows     CampaignWorkflow[] // Multiple workflows per campaign
+  content       CampaignContent[] // All content generated for this campaign
+  calendarEvents CampaignCalendar[] // Calendar events for this campaign
+  analytics     CampaignAnalytics[] // Performance analytics
+  
+  // Legacy relationship for migration compatibility
+  legacyBlogPost BlogPost? // Single blog post for backward compatibility
+
+  @@index([status])
+  @@index([priority])
+  @@index([scheduledStart])
+  @@index([deadline])
+  @@index([createdAt])
+  @@index([orchestratorId])
+  @@index([strategyId])
+  @@index([status, priority])
+  @@index([status, deadline])
+  @@index([progressPercentage])
+  @@index([tags])
+  @@map("campaigns")
+}
+
+// ################################################################################
+// WORKFLOW EXECUTION MODELS
+// ################################################################################
+
+model CampaignWorkflow {
+  id                  String         @id @default(uuid()) @db.Uuid
+  
+  // References
+  campaignId         String @map("campaign_id") @db.Uuid
+  orchestratorId     String @map("orchestrator_id") @db.Uuid
+  workflowInstanceId String @map("workflow_instance_id") @db.Uuid // Unique identifier for this workflow execution
+  
+  campaign      Campaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  orchestrator  CampaignOrchestrator @relation(fields: [orchestratorId], references: [id], onDelete: Restrict)
+
+  // Execution State
+  currentStep       String? @map("current_step") @db.VarChar(255)
+  stepSequence      Json    @default("[]") @map("step_sequence") // Ordered list of step execution
+  executionContext  Json    @default("{}") @map("execution_context") // Runtime context and variables
+  status            WorkflowStatus @default(pending)
+
+  // Timing and Performance
+  startedAt           DateTime? @map("started_at") @db.Timestamptz(6)
+  completedAt         DateTime? @map("completed_at") @db.Timestamptz(6)
+  estimatedDurationMs Int?      @map("estimated_duration_ms")
+  actualDurationMs    Int?      @map("actual_duration_ms")
+
+  // Error Handling and Recovery
+  errorDetails   Json?   @map("error_details")
+  retryCount     Int     @default(0) @map("retry_count")
+  maxRetries     Int     @default(3) @map("max_retries")
+  recoveryPoint  String? @map("recovery_point") @db.VarChar(255) // Last successful checkpoint
+
+  // Performance Metrics
+  stepsTotal     Int  @default(0) @map("steps_total")
+  stepsCompleted Int  @default(0) @map("steps_completed")
+  stepsFailed    Int  @default(0) @map("steps_failed")
+  agentExecutions Json @default("{}") @map("agent_executions") // Per-agent execution stats
+  resourceUsage  Json @default("{}") @map("resource_usage") // Memory, CPU, etc.
+
+  // Audit Fields
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  steps                      CampaignWorkflowStep[]
+  agentPerformanceRecords   AgentOrchestrationPerformance[]
+  calendarEvents            CampaignCalendar[]
+
+  @@index([campaignId])
+  @@index([orchestratorId])
+  @@index([status])
+  @@index([startedAt])
+  @@index([completedAt])
+  @@index([workflowInstanceId])
+  @@index([status, startedAt])
+  @@index([actualDurationMs])
+  @@map("campaign_workflows")
+}
+
+model CampaignWorkflowStep {
+  id       String @id @default(uuid()) @db.Uuid
+  
+  // References
+  workflowId String           @map("workflow_id") @db.Uuid
+  workflow   CampaignWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  
+  stepName  String   @map("step_name") @db.VarChar(255)
+  stepType  StepType @map("step_type")
+  agentName String   @map("agent_name") @db.VarChar(255)
+
+  // Step Configuration
+  stepOrder     Int    @map("step_order")
+  inputData     Json   @default("{}") @map("input_data")
+  outputData    Json   @default("{}") @map("output_data")
+  configuration Json   @default("{}") 
+  dependencies  Json   @default("[]") // List of dependent step names
+
+  // Execution State
+  status      StepStatus @default(pending)
+  startedAt   DateTime?  @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime?  @map("completed_at") @db.Timestamptz(6)
+  executionTimeMs Int?   @map("execution_time_ms")
+
+  // Error Handling
+  errorMessage String? @map("error_message") @db.Text
+  errorCode    String? @map("error_code") @db.VarChar(100)
+  retryCount   Int     @default(0) @map("retry_count")
+  maxRetries   Int     @default(3) @map("max_retries")
+
+  // Performance and Context
+  executionMetadata   Json   @default("{}") @map("execution_metadata")
+  resourceConsumption Json   @default("{}") @map("resource_consumption")
+  agentVersion        String? @map("agent_version") @db.VarChar(50)
+
+  // Audit Fields
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  agentPerformance AgentOrchestrationPerformance[]
+
+  @@index([workflowId])
+  @@index([status])
+  @@index([stepType])
+  @@index([agentName])
+  @@index([workflowId, stepOrder])
+  @@index([executionTimeMs])
+  @@index([startedAt])
+  @@index([completedAt])
+  @@map("campaign_workflow_steps")
+}
+
+// ################################################################################
+// CONTENT MANAGEMENT MODELS (CAMPAIGN-CENTRIC)
+// ################################################################################
+
+model CampaignContent {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Campaign Association (PRIMARY RELATIONSHIP)
+  campaignId String           @map("campaign_id") @db.Uuid
+  workflowId String?          @map("workflow_id") @db.Uuid
+  campaign   Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  workflow   CampaignWorkflow? @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+
+  // Content Identity
+  title       String  @db.VarChar(500)
+  contentType String  @map("content_type") @db.VarChar(100) // blog_post, social_post, email, video_script, etc.
+  platform    String? @db.VarChar(100) // target platform (website, linkedin, twitter, etc.)
+
+  // Content Data
+  contentMarkdown String? @map("content_markdown") @db.Text
+  contentHtml     String? @map("content_html") @db.Text
+  contentSummary  String? @map("content_summary") @db.Text
+  contentMetadata Json    @default("{}") @map("content_metadata")
+
+  // Generation Context
+  generationPrompt  Json?   @map("generation_prompt") // Original prompt/context used
+  generationModel   String? @map("generation_model") @db.VarChar(100) // AI model used
+  generationVersion String? @map("generation_version") @db.VarChar(20) // Content version
+  parentContentId   String? @map("parent_content_id") @db.Uuid // For derived content
+  parentContent     CampaignContent? @relation("ContentDerivation", fields: [parentContentId], references: [id])
+  derivedContent    CampaignContent[] @relation("ContentDerivation")
+
+  // Status and Quality
+  status            ContentStatus @default(draft)
+  qualityScore      Decimal?      @map("quality_score") @db.Decimal(4, 2) // 0-100 quality rating
+  seoScore          Decimal?      @map("seo_score") @db.Decimal(4, 2) // SEO optimization score
+  readabilityScore  Decimal?      @map("readability_score") @db.Decimal(4, 2) // Content readability
+  sentimentScore    Decimal?      @map("sentiment_score") @db.Decimal(4, 2) // Content sentiment
+
+  // Publishing and Distribution
+  publishedAt           DateTime? @map("published_at") @db.Timestamptz(6)
+  scheduledPublishAt    DateTime? @map("scheduled_publish_at") @db.Timestamptz(6)
+  distributionChannels  String[]  @default([]) @map("distribution_channels")
+  publicationUrls       Json      @default("{}") @map("publication_urls") // URLs where content is published
+
+  // Performance Tracking
+  viewCount         Int @default(0) @map("view_count")
+  engagementMetrics Json @default("{}") @map("engagement_metrics")
+  conversionMetrics Json @default("{}") @map("conversion_metrics")
+  shareCount        Int @default(0) @map("share_count")
+
+  // Content Specifications
+  wordCount             Int?     @map("word_count")
+  characterCount        Int?     @map("character_count")
+  readingTimeMinutes    Int?     @map("reading_time_minutes")
+  language              String   @default("en") @db.VarChar(10)
+  targetKeywords        String[] @default([]) @map("target_keywords")
+
+  // Audit Fields
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy String?  @map("created_by") @db.Uuid // Agent or user ID
+  version   Int      @default(1)
+  isActive  Boolean  @default(true) @map("is_active")
+  metadata  Json     @default("{}")
+
+  // Relations
+  sourceRelationships CampaignContentRelationship[] @relation("SourceContent")
+  targetRelationships CampaignContentRelationship[] @relation("TargetContent")
+  calendarEvents     CampaignCalendar[]
+  analytics          CampaignAnalytics[]
+
+  @@index([campaignId])
+  @@index([workflowId])
+  @@index([contentType])
+  @@index([platform])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([scheduledPublishAt])
+  @@index([qualityScore])
+  @@index([parentContentId])
+  @@index([targetKeywords])
+  @@index([distributionChannels])
+  @@index([campaignId, isActive])
+  @@map("campaign_content")
+}
+
+model CampaignContentRelationship {
+  id               String          @id @default(uuid()) @db.Uuid
+  sourceContentId  String          @map("source_content_id") @db.Uuid
+  targetContentId  String          @map("target_content_id") @db.Uuid
+  relationshipType String          @map("relationship_type") @db.VarChar(100) // derived_from, references, complements, supersedes
+  strength         Decimal         @default(1.00) @db.Decimal(3, 2) // Relationship strength (0.00-1.00)
+  metadata         Json            @default("{}")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  
+  sourceContent    CampaignContent @relation("SourceContent", fields: [sourceContentId], references: [id], onDelete: Cascade)
+  targetContent    CampaignContent @relation("TargetContent", fields: [targetContentId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceContentId, targetContentId, relationshipType])
+  @@index([sourceContentId])
+  @@index([targetContentId])
+  @@index([relationshipType])
+  @@map("campaign_content_relationships")
+}
+
+// ################################################################################
+// CALENDAR AND SCHEDULING MODELS
+// ################################################################################
+
+model CampaignCalendar {
+  id String @id @default(uuid()) @db.Uuid
+
+  // References
+  campaignId String            @map("campaign_id") @db.Uuid
+  contentId  String?           @map("content_id") @db.Uuid
+  workflowId String?           @map("workflow_id") @db.Uuid
+  campaign   Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  content    CampaignContent?  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  workflow   CampaignWorkflow? @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+
+  // Event Details
+  eventType   String  @map("event_type") @db.VarChar(100) // content_publish, workflow_milestone, campaign_deadline, review_due
+  title       String  @db.VarChar(255)
+  description String? @db.Text
+
+  // Scheduling
+  scheduledDatetime DateTime @map("scheduled_datetime") @db.Timestamptz(6)
+  durationMinutes   Int?     @map("duration_minutes")
+  timezone          String   @default("UTC") @db.VarChar(50)
+  allDay            Boolean  @default(false) @map("all_day")
+
+  // Status and Tracking
+  status                     String    @default("scheduled") @db.VarChar(50) // scheduled, in_progress, completed, cancelled, postponed
+  completionPercentage       Decimal   @default(0.00) @map("completion_percentage") @db.Decimal(5, 2)
+  actualCompletionDatetime   DateTime? @map("actual_completion_datetime") @db.Timestamptz(6)
+
+  // Recurring Events
+  recurrenceRule       String?           @map("recurrence_rule") @db.Text // RRULE format for recurring events
+  recurrenceExceptions Json              @default("[]") @map("recurrence_exceptions") // Specific dates to skip
+  parentEventId        String?           @map("parent_event_id") @db.Uuid
+  parentEvent          CampaignCalendar? @relation("RecurringEvents", fields: [parentEventId], references: [id])
+  childEvents          CampaignCalendar[] @relation("RecurringEvents")
+
+  // Notifications and Reminders
+  reminderIntervals  Int[] @default([1440, 60, 15]) @map("reminder_intervals") // Minutes before event
+  notificationSent   Json  @default("{}") @map("notification_sent") // Track which notifications sent
+
+  // Platform and Channel
+  platform   String?  @db.VarChar(100)
+  channels   String[] @default([])
+  assigneeId String?  @map("assignee_id") @db.Uuid // Who is responsible for this event
+
+  // Audit Fields
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  metadata  Json     @default("{}")
+
+  @@index([campaignId])
+  @@index([contentId])
+  @@index([scheduledDatetime])
+  @@index([eventType])
+  @@index([status])
+  @@index([assigneeId])
+  @@index([platform])
+  @@index([scheduledDatetime, status])
+  @@index([channels])
+  @@index([parentEventId])
+  @@map("campaign_calendar")
+}
+
+// ################################################################################
+// ANALYTICS AND PERFORMANCE MODELS
+// ################################################################################
+
+model CampaignAnalytics {
+  id String @id @default(uuid()) @db.Uuid
+
+  // References
+  campaignId String           @map("campaign_id") @db.Uuid
+  contentId  String?          @map("content_id") @db.Uuid
+  campaign   Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  content    CampaignContent? @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  // Time Period
+  measurementDate   DateTime @map("measurement_date") @db.Date
+  measurementPeriod String   @default("daily") @map("measurement_period") @db.VarChar(20) // daily, weekly, monthly
+
+  // Engagement Metrics
+  views           Int     @default(0)
+  uniqueViews     Int     @default(0) @map("unique_views")
+  clicks          Int     @default(0)
+  clickThroughRate Decimal? @map("click_through_rate") @db.Decimal(5, 4)
+
+  // Social Media Metrics
+  likes          Int     @default(0)
+  shares         Int     @default(0)
+  comments       Int     @default(0)
+  engagementRate Decimal? @map("engagement_rate") @db.Decimal(5, 4)
+  reach          Int     @default(0)
+  impressions    Int     @default(0)
+
+  // Conversion Metrics
+  conversions        Int     @default(0)
+  conversionRate     Decimal? @map("conversion_rate") @db.Decimal(5, 4)
+  revenueGenerated   Decimal? @map("revenue_generated") @db.Decimal(10, 2)
+  costPerConversion  Decimal? @map("cost_per_conversion") @db.Decimal(8, 2)
+
+  // SEO and Search Metrics
+  organicTraffic        Int     @default(0) @map("organic_traffic")
+  keywordRankings       Json    @default("{}") @map("keyword_rankings")
+  backlinksGained       Int     @default(0) @map("backlinks_gained")
+  domainAuthorityImpact Decimal? @map("domain_authority_impact") @db.Decimal(4, 2)
+
+  // Platform-Specific Metrics
+  platform        String? @db.VarChar(100)
+  platformMetrics Json    @default("{}") @map("platform_metrics") // Platform-specific custom metrics
+
+  // Attribution and Source Tracking
+  trafficSources   Json @default("{}") @map("traffic_sources")
+  attributionData  Json @default("{}") @map("attribution_data")
+  referrerData     Json @default("{}") @map("referrer_data")
+
+  // Campaign ROI
+  costData         Json    @default("{}") @map("cost_data")
+  roiCalculated    Decimal? @map("roi_calculated") @db.Decimal(8, 4)
+  attributionValue Decimal? @map("attribution_value") @db.Decimal(10, 2)
+
+  // Audit Fields
+  collectedAt      DateTime @default(now()) @map("collected_at") @db.Timestamptz(6)
+  dataSource       String?  @map("data_source") @db.VarChar(100) // google_analytics, social_platform, manual, etc.
+  dataQualityScore Decimal? @map("data_quality_score") @db.Decimal(3, 2) // Data reliability score
+  metadata         Json     @default("{}")
+
+  @@index([campaignId])
+  @@index([contentId])
+  @@index([measurementDate])
+  @@index([platform])
+  @@index([measurementPeriod])
+  @@index([campaignId, measurementDate])
+  @@index([conversions])
+  @@index([revenueGenerated])
+  @@index([collectedAt])
+  @@map("campaign_analytics")
+}
+
+// ################################################################################
+// ENHANCED AGENT PERFORMANCE TRACKING
+// ################################################################################
+
+model AgentOrchestrationPerformance {
+  id String @id @default(uuid()) @db.Uuid
+
+  // References
+  workflowId String               @map("workflow_id") @db.Uuid
+  stepId     String               @map("step_id") @db.Uuid
+  workflow   CampaignWorkflow     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  step       CampaignWorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  agentName    String  @map("agent_name") @db.VarChar(255)
+  agentType    String  @map("agent_type") @db.VarChar(100)
+  agentVersion String? @map("agent_version") @db.VarChar(50)
+
+  // Execution Tracking
+  executionId String    @unique @map("execution_id") @db.VarChar(255) // Unique execution identifier
+  startedAt   DateTime  @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  durationMs  Int?      @map("duration_ms")
+
+  // Resource Usage
+  memoryUsedMb Int? @map("memory_used_mb")
+  cpuTimeMs    Int? @map("cpu_time_ms")
+  apiCallsMade Int  @default(0) @map("api_calls_made")
+  tokensInput  Int  @default(0) @map("tokens_input")
+  tokensOutput Int  @default(0) @map("tokens_output")
+  tokensTotal  Int  @default(0) @map("tokens_total")
+
+  // Cost Tracking
+  estimatedCostUsd Decimal? @map("estimated_cost_usd") @db.Decimal(10, 6)
+  costBreakdown    Json     @default("{}") @map("cost_breakdown")
+
+  // Quality and Performance Metrics
+  outputQualityScore   Decimal? @map("output_quality_score") @db.Decimal(4, 2)
+  taskCompletionRate   Decimal? @map("task_completion_rate") @db.Decimal(5, 4)
+  accuracyScore        Decimal? @map("accuracy_score") @db.Decimal(4, 2)
+  efficiencyScore      Decimal? @map("efficiency_score") @db.Decimal(4, 2)
+
+  // Error and Retry Tracking
+  errorCount   Int     @default(0) @map("error_count")
+  retryCount   Int     @default(0) @map("retry_count")
+  timeoutCount Int     @default(0) @map("timeout_count")
+  successRate  Decimal? @map("success_rate") @db.Decimal(5, 4)
+
+  // Context and Configuration
+  inputDataSizeBytes  Int?    @map("input_data_size_bytes")
+  outputDataSizeBytes Int?    @map("output_data_size_bytes")
+  configurationHash   String? @map("configuration_hash") @db.VarChar(64) // Hash of agent configuration
+  executionContext    Json    @default("{}") @map("execution_context")
+
+  // Performance Benchmarks
+  baselineDurationMs     Int?     @map("baseline_duration_ms") // Expected duration for this task type
+  performanceDeviation   Decimal? @map("performance_deviation") @db.Decimal(6, 4) // Actual vs baseline performance
+  percentileRank         Decimal? @map("percentile_rank") @db.Decimal(5, 2) // Performance rank among similar executions
+
+  // Audit Fields
+  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  metadata   Json     @default("{}")
+
+  @@index([workflowId])
+  @@index([stepId])
+  @@index([agentName])
+  @@index([agentType])
+  @@index([executionId])
+  @@index([startedAt])
+  @@index([durationMs])
+  @@index([estimatedCostUsd])
+  @@index([outputQualityScore])
+  @@index([agentName, startedAt])
+  @@map("agent_orchestration_performance")
+}
+
+// ################################################################################
+// LEGACY COMPATIBILITY MODELS (FOR MIGRATION)
+// ################################################################################
+
+// Updated BlogPost model for migration compatibility
+model BlogPost {
+  id              String    @id @default(uuid()) @db.Uuid
+  title           String    @db.VarChar(255)
+  contentMarkdown String    @map("content_markdown") @db.Text
+  initialPrompt   Json?     @map("initial_prompt")
+  status          PostStatus @default(draft)
+  geoMetadata     Json?     @map("geo_metadata")
+  geoOptimized    Boolean   @default(false) @map("geo_optimized")
+  geoScore        Int?      @map("geo_score") @db.SmallInt
+  seoScore        Float?    @map("seo_score")
+  wordCount       Int?      @map("word_count")
+  readingTime     Int?      @map("reading_time") // in minutes
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  publishedAt     DateTime? @map("published_at") @db.Timestamptz(6)
+
+  // Enhanced campaign relationship for migration
+  campaignId      String?   @unique @map("campaign_id") @db.Uuid
+  campaign        Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([publishedAt])
+  @@index([status, createdAt])
+  @@index([geoOptimized, geoScore])
+  @@index([status, publishedAt])
+  @@map("blog_posts")
+}
+
+// Keep existing enums for compatibility
+enum PostStatus {
+  draft
+  published
+  archived
+  deleted
+  edited
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  needs_review
+  approved
+  rejected
+  completed
+  error
+  cancelled
+  timeout
+}
+
+enum TaskType {
+  content_creation
+  content_editing
+  content_repurposing
+  image_generation
+  seo_optimization
+  social_media_adaptation
+  email_formatting
+  blog_to_linkedin
+  blog_to_twitter
+  blog_to_video_script
+  distribution
+}
+
+// Keep existing models for compatibility during migration
+model Briefing {
+  id                 String    @id @default(uuid()) @db.Uuid
+  campaignName       String    @map("campaign_name") @db.VarChar(255)
+  marketingObjective String    @map("marketing_objective") @db.Text
+  targetAudience     String    @map("target_audience") @db.VarChar(500)
+  channels           Json
+  desiredTone        String    @map("desired_tone") @db.VarChar(100)
+  language           String    @db.VarChar(50)
+  companyContext     String?   @map("company_context") @db.Text
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  campaignId         String?   @unique @map("campaign_id") @db.Uuid
+  
+  // Note: This will reference the enhanced Campaign model
+  // campaign           Campaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([createdAt])
+  @@map("briefings")
+}
+
+model ContentStrategy {
+  id                String    @id @default(uuid()) @db.Uuid
+  campaignName      String    @map("campaign_name") @db.VarChar(255)
+  narrativeApproach String    @map("narrative_approach") @db.Text
+  hooks             Json
+  themes            Json
+  toneByChannel     Json      @map("tone_by_channel")
+  keyPhrases        Json      @map("key_phrases")
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  campaignId        String?   @unique @map("campaign_id") @db.Uuid
+  
+  // Note: This will reference the enhanced Campaign model
+  // campaign          Campaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([createdAt])
+  @@map("content_strategies")
+}
+
+model CampaignTask {
+  id           String     @id @default(uuid()) @db.Uuid
+  campaignId   String     @map("campaign_id") @db.Uuid
+  taskType     TaskType   @map("task_type")
+  targetFormat String?    @map("target_format") @db.VarChar(100)
+  targetAsset  String?    @map("target_asset") @db.VarChar(200)
+  status       TaskStatus @default(pending)
+  result       String?    @db.Text
+  imageUrl     String?    @map("image_url") @db.VarChar(500)
+  error        String?    @db.Text
+  executionTime Int?      @map("execution_time") // milliseconds
+  priority     Int        @default(5) // 1-10 scale
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  startedAt    DateTime?  @map("started_at") @db.Timestamptz(6)
+  completedAt  DateTime?  @map("completed_at") @db.Timestamptz(6)
+  
+  // Note: This will reference the enhanced Campaign model
+  // campaign     Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([status])
+  @@index([taskType])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([status, priority])
+  @@map("campaign_tasks")
+}
+
+// Keep all existing models for compatibility (Document, DocumentChunk, CI models, etc.)
+// These will be preserved during the migration
+
+// ################################################################################
+// SCHEMA INFORMATION
+// ################################################################################
+
+// This Prisma schema provides:
+// 1. Complete campaign-centric architecture
+// 2. Orchestrated multi-agent workflows
+// 3. Comprehensive content management
+// 4. Advanced analytics and performance tracking
+// 5. Legacy compatibility for seamless migration
+// 6. Optimized indexes for campaign-first queries
+
+// Key Relationships:
+// Campaign -> CampaignWorkflow -> CampaignWorkflowStep -> AgentOrchestrationPerformance
+// Campaign -> CampaignContent -> CampaignAnalytics
+// Campaign -> CampaignCalendar
+// CampaignOrchestrator -> CampaignWorkflow
+// CampaignStrategy -> Campaign

@@ -222,7 +222,7 @@ export function EnhancedBlogEditor() {
     if (!blogId) return;
     try {
       const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-      const res = await fetch(`${base}/api/blogs/${blogId}/review/ai`, { method: 'POST' });
+      const res = await fetch(`${base}/api/v2/blogs/${blogId}/review/ai`, { method: 'POST' });
       if (!res.ok) throw new Error(await res.text());
       await fetchBlog();
       showSuccessNotification('AI review completed. New comments and suggestions added.');

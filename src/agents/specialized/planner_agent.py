@@ -164,24 +164,45 @@ class PlannerAgent(BaseAgent[Dict[str, Any]]):
     def _create_blog_outline_prompt(self, title: str, context: str) -> str:
         """Create prompt for blog post outline."""
         return f"""
-        Act as an expert Content Strategist and SEO specialist. Your task is to create a detailed and engaging outline for a blog post.
+        Act as an expert Content Strategist specializing in high-converting financial services content. Create an outline following proven B2B content structures that drive engagement and conversions.
 
         **Blog Title:** "{title}"
         **Company Context:** "{context}"
 
-        **Instructions:**
-        - Create 5-8 main sections for in-depth coverage.
-        - The section titles should be descriptive, engaging, and optimized for search engines (SEO-friendly).
-        - Ensure the sections flow logically from a compelling introduction to a strong conclusion with a clear call-to-action that aligns with the company context.
+        **PROVEN STRUCTURE REQUIREMENTS:**
+        
+        **Opening Section:**
+        - Start with compelling hook that includes an authority quote opportunity
+        - Frame the core problem/challenge that resonates with the target audience
+        
+        **Problem Definition Sections (2-3 sections):**
+        - Break down main challenges into numbered, specific sections
+        - Format as: "1. [Specific Challenge]", "2. [Another Challenge]" 
+        - Each should promise concrete pain points and real examples
+        
+        **Solution Sections (2-3 sections):**
+        - Present practical strategies/solutions
+        - Format as: "5 Practical Strategies to [Solve Problem]" or "How [Company] Solves [Specific Issue]"
+        - Include opportunity for customer success stories
+        
+        **Company Solution Section:**
+        - Dedicated section showcasing how the company addresses the challenges
+        - Should allow for comparison tables and specific benefits
+        
+        **Closing Section:**
+        - Strong call-to-action focused on urgency and next steps
+        - Format as: "Don't Let [Problem] Hold Back Your [Goal]" or "Take Action Today"
 
         **Negative Constraints:**
-        - **Do not** use generic, single-word titles like "Introduction", "Body", or "Conclusion". Make them specific, e.g., "Introduction: Why This Topic Matters Now".
-        - **Do not** include placeholders like "[Insert Detail Here]".
+        - **Do not** use generic titles like "Introduction", "Benefits", or "Conclusion"
+        - **Do not** create more than 8 sections (optimal is 6-7)
+        - **Avoid** theoretical sections - focus on practical, actionable content
+        - **Do not** include placeholders like "[Insert Detail Here]"
 
         **Output Format:**
         Return ONLY a Python list of strings inside <outline> tags. Example:
         <outline>
-        ["Introduction: Unpacking the Challenge", "Section 1: The Core Principles", "Section 2: A Practical Guide", "Conclusion: Your Next Steps"]
+        ["Opening Hook: The Hidden Challenge Behind Growing Sales", "1. Delayed Marketplace Payouts Create Cash Flow Gaps", "2. High Upfront Inventory Costs Strain Working Capital", "5 Practical Strategies to Improve Cash Flow", "How CrediLinq Solves eCommerce Cash Flow Gaps", "Why Traditional Loans Don't Work for eCommerce", "Don't Let Cash Flow Hold Back Your Growth"]
         </outline>
         """
     

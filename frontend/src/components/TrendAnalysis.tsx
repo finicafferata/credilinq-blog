@@ -117,7 +117,7 @@ export function TrendAnalysis() {
       }));
 
       // Apply filters
-      let filteredTrends = enhancedTrends.filter(trend => {
+      const filteredTrends = enhancedTrends.filter(trend => {
         if (trend.confidence < filter.minConfidence) return false;
         if (filter.strength && trend.strength !== filter.strength) return false;
         if (filter.searchQuery) {

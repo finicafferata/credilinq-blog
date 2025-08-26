@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+dist/
+build/
+
+# Service Worker (uses browser globals not recognized by default ESLint)
+public/sw.js
+
+# Test coverage
+coverage/
+
+# Vite config
+vite.config.ts.timestamp-*

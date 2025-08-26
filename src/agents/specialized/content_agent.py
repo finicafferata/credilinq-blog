@@ -188,7 +188,7 @@ class ContentGenerationAgent(BaseAgent[Dict[str, Any]]):
         geo_guidance = self._format_geo_guidance(geo_metadata) if geo_metadata else ""
         
         return f"""
-        Act as an expert Content Writer and SEO specialist with 15+ years of experience creating high-performing blog content optimized for AI Answer Engines. Your task is to write a comprehensive, engaging blog post.
+        Act as an expert Content Writer specializing in high-converting financial services content. Write a comprehensive blog post using the proven structure of top-performing B2B content that drives engagement and conversions.
 
         **Blog Title:** "{title}"
         **Company Context & Voice:** "{company_context}"
@@ -201,28 +201,60 @@ class ContentGenerationAgent(BaseAgent[Dict[str, Any]]):
 
         {geo_guidance}
 
-        **Instructions:**
-        - Write a comprehensive blog post that follows the outline structure exactly.
-        - Use a professional yet conversational tone that reflects the company's voice.
-        - Integrate the research data naturally throughout the content to support your points.
-        - Create engaging introductions for each section that connect to the overall narrative.
-        - Include actionable insights, practical examples, and concrete takeaways.
-        - Use proper Markdown formatting with ## for main sections and ### for subsections.
-        - Aim for 1500-2500 words for comprehensive coverage.
-        - Include bullet points and numbered lists where appropriate for readability.
-        - End with a strong conclusion that includes a clear call-to-action.
-        - If GEO guidance is provided, incorporate it naturally for AI discoverability.
+        **PROVEN CONTENT STRUCTURE:**
+
+        **Opening Requirements:**
+        - Start with a compelling quote from an industry authority (like: "If I had to run a company on three measures..." — Jack Welch)
+        - Follow immediately with problem framing: "So let's talk about [key topic], especially in [industry], which is a top priority."
+        - Use pattern: "It's common for [target audience] to see [positive indicator] and yet feel stuck when it comes to [real problem]."
+        - Include specific gap identification: "This gap between [metric A] and [metric B] creates real pressure, especially during [specific scenario]."
+
+        **Problem Definition Sections:**
+        - Use numbered format: "1. [Specific Challenge]", "2. [Another Challenge]"
+        - Include real testimonials formatted as: "Quote here" - Via Reddit/Source
+        - Add visual callouts: "Via - [Source name]" for referenced charts/data
+        - Use specific examples: "Amazon, for example, pays sellers every 14–21 days."
+        - Include pain point quotes: "I'm getting orders in my store, but I have to pump in my own money..."
+
+        **Solution Sections:**
+        - Format as numbered strategies: "5 Practical Strategies to [Solve Problem]"
+        - Use "Tip:" callout boxes with actionable advice
+        - Include specific implementation steps
+        - Add success stories: "A beauty seller on TikTok secured $75,000..."
+
+        **Company Solution Section:**
+        - Use comparison tables with clear "Challenge" vs "Why It Creates a Problem" structure
+        - Include specific features with benefit focus: "Instant credit based on marketplace sales data"
+        - Add customer success examples with concrete numbers
+        - Format benefits as outcomes, not features
+
+        **Technical Requirements:**
+        - Use proper Markdown formatting with ## for main sections
+        - Aim for 1500-2500 words for comprehensive coverage
+        - Include **bold text** for key benefits and important statistics
+        - Use bullet points and numbered lists extensively for readability
+        - Create scannable subheadings that promise specific value
+        - Include multiple CTAs throughout (not just at the end)
+        - End with urgency: "Get [action] in as little as 24 hours!"
+
+        **Engagement Elements:**
+        - Include specific statistics and percentages
+        - Use social proof and testimonials throughout
+        - Add comparison tables where appropriate
+        - Include actionable "next steps" sections
+        - Use conversational transitions between sections
 
         **Negative Constraints:**
-        - **Do not** deviate from the provided outline structure.
-        - **Do not** include placeholder text or incomplete sections.
-        - **Avoid** generic conclusions without actionable next steps.
-        - **Do not** ignore the research data - integrate it meaningfully.
+        - **Do not** use generic openings or weak hooks
+        - **Do not** bury the value proposition - make it clear early
+        - **Avoid** feature lists without clear benefit connection
+        - **Do not** end weakly - create urgency and clear next steps
+        - **Avoid** academic tone - keep it conversational and practical
 
         **Output Format:**
         Return the complete blog post content inside <content> tags:
         <content>
-        [Your complete blog post in Markdown format]
+        [Your complete blog post in Markdown format following the proven structure]
         </content>
         """
     

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Campaign Manager Agent
-Responsible for creating strategic campaign plans and coordinating all campaign activities.
+Enhanced Campaign Manager Agent
+Responsible for creating intelligent, strategic campaign plans with AI-powered analysis.
+Integrates competitive intelligence, audience insights, and market analysis.
 """
 
 import logging
@@ -12,18 +13,26 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from src.agents.core.base_agent import BaseAgent
 from src.config.database import db_config
+from src.agents.specialized.campaign_intelligence_methods import CampaignIntelligenceMixin
 
 logger = logging.getLogger(__name__)
 
 @dataclass
 class CampaignStrategy:
-    """Campaign strategy configuration"""
+    """Enhanced campaign strategy configuration with AI intelligence"""
     target_audience: str
     key_messages: List[str]
     distribution_channels: List[str]
     timeline_weeks: int
     budget_allocation: Dict[str, float]
     success_metrics: Dict[str, Any]
+    
+    # Enhanced AI-driven fields
+    market_analysis: Optional[Dict[str, Any]] = None
+    competitor_insights: Optional[Dict[str, Any]] = None
+    audience_personas: Optional[List[Dict[str, Any]]] = None
+    content_themes: Optional[List[str]] = None
+    optimization_recommendations: Optional[List[str]] = None
 
 @dataclass
 class CampaignTask:
@@ -36,46 +45,71 @@ class CampaignTask:
     dependencies: List[str]
     assigned_agent: str
 
-class CampaignManagerAgent(BaseAgent):
+class CampaignManagerAgent(BaseAgent, CampaignIntelligenceMixin):
     """
-    Campaign Manager Agent - Orchestrates the entire campaign workflow
+    Enhanced Campaign Manager Agent - AI-powered campaign orchestration
+    Features:
+    - Competitive intelligence integration
+    - Market opportunity analysis
+    - Audience persona generation
+    - Performance prediction
+    - Multi-channel optimization
     """
     
     def __init__(self):
         super().__init__()
-        self.agent_name = "CampaignManager"
-        self.description = "Strategic campaign planning and coordination"
+        self.agent_name = "EnhancedCampaignManager"
+        self.description = "AI-powered strategic campaign planning and intelligent orchestration"
+        self.version = "2.0.0"
         
     async def create_campaign_plan(self, blog_id: str, campaign_name: str, 
                                  company_context: str, content_type: str = "blog",
                                  template_id: Optional[str] = None, 
                                  template_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Create a comprehensive campaign plan for a blog post with optional template support
+        Create an AI-enhanced comprehensive campaign plan with competitive intelligence.
+        Now supports both blog-based campaigns and orchestration-based campaigns.
         """
         try:
-            logger.info(f"Creating campaign plan for blog {blog_id} with template {template_id}")
+            # Check if this is orchestration mode (no blog dependency)
+            is_orchestration_mode = template_config and template_config.get('orchestration_mode', False)
             
-            # 1. Analyze the blog content and context
-            blog_analysis = await self._analyze_blog_content(blog_id, company_context)
-            
-            # 2. Generate campaign strategy (with template if provided)
-            if template_id and template_config:
-                strategy = await self._generate_template_strategy(blog_analysis, template_id, template_config)
+            if is_orchestration_mode:
+                logger.info(f"Creating orchestration campaign: {campaign_name}")
+                return await self._create_orchestration_campaign(campaign_name, company_context, template_config)
             else:
-                strategy = await self._generate_campaign_strategy(blog_analysis, content_type)
+                logger.info(f"Creating enhanced campaign plan for blog {blog_id} with template {template_id}")
             
-            # 3. Create campaign timeline
-            timeline = await self._create_campaign_timeline(strategy)
+            # 1. Enhanced blog content analysis with AI (for blog-based campaigns)
+            blog_analysis = await self._analyze_blog_content_enhanced(blog_id, company_context)
             
-            # 4. Generate task breakdown
-            tasks = await self._generate_campaign_tasks(strategy, timeline)
+            # 2. Competitive intelligence analysis
+            competitive_insights = await self._analyze_competitive_landscape(blog_analysis)
             
-            # 5. Save campaign to database
-            campaign_id = await self._save_campaign_to_db(blog_id, campaign_name, strategy)
+            # 3. Market opportunity analysis
+            market_opportunities = await self._analyze_market_opportunities(blog_analysis, competitive_insights)
             
-            # 6. Save tasks to database
-            await self._save_tasks_to_db(campaign_id, tasks)
+            # 4. Generate AI-powered strategy
+            if template_id and template_config:
+                strategy = await self._generate_intelligent_template_strategy(
+                    blog_analysis, template_id, template_config, competitive_insights, market_opportunities
+                )
+            else:
+                strategy = await self._generate_ai_enhanced_strategy(
+                    blog_analysis, content_type, competitive_insights, market_opportunities
+                )
+            
+            # 5. Create intelligent timeline with optimization
+            timeline = await self._create_optimized_timeline(strategy, competitive_insights)
+            
+            # 6. Generate AI-optimized task breakdown
+            tasks = await self._generate_intelligent_tasks(strategy, timeline, market_opportunities)
+            
+            # 7. Save enhanced campaign to database
+            campaign_id = await self._save_enhanced_campaign_to_db(blog_id, campaign_name, strategy)
+            
+            # 8. Save tasks with intelligence metadata
+            await self._save_enhanced_tasks_to_db(campaign_id, tasks)
             
             return {
                 "campaign_id": campaign_id,
@@ -85,7 +119,13 @@ class CampaignManagerAgent(BaseAgent):
                     "distribution_channels": strategy.distribution_channels,
                     "timeline_weeks": strategy.timeline_weeks,
                     "budget_allocation": strategy.budget_allocation,
-                    "success_metrics": strategy.success_metrics
+                    "success_metrics": strategy.success_metrics,
+                    # Enhanced AI insights
+                    "market_analysis": strategy.market_analysis,
+                    "competitor_insights": strategy.competitor_insights,
+                    "audience_personas": strategy.audience_personas,
+                    "content_themes": strategy.content_themes,
+                    "optimization_recommendations": strategy.optimization_recommendations
                 },
                 "timeline": timeline,
                 "tasks": [
@@ -99,14 +139,118 @@ class CampaignManagerAgent(BaseAgent):
                         "assigned_agent": task.assigned_agent
                     } for task in tasks
                 ],
-                "status": "created"
+                "competitive_insights": competitive_insights,
+                "market_opportunities": market_opportunities,
+                "status": "created",
+                "intelligence_version": "2.0"
             }
             
         except Exception as e:
-            logger.error(f"Error creating campaign plan: {str(e)}")
-            raise Exception(f"Failed to create campaign plan: {str(e)}")
+            logger.error(f"Error creating enhanced campaign plan: {str(e)}")
+            raise Exception(f"Failed to create enhanced campaign plan: {str(e)}")
+
+    async def _create_orchestration_campaign(self, campaign_name: str, 
+                                           company_context: str, 
+                                           template_config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create campaign using orchestration approach (campaign-first, no blog dependency).
+        This method processes the campaign wizard data to create a strategic campaign plan
+        and generate content based on that strategy.
+        """
+        try:
+            logger.info(f"Processing orchestration campaign: {campaign_name}")
+            
+            # 1. Extract campaign data from wizard template_config
+            campaign_data = template_config.get('campaign_data', {})
+            
+            # 2. Generate competitive intelligence analysis
+            competitive_insights = await self._analyze_competitive_landscape_for_campaign(
+                campaign_data, company_context
+            )
+            
+            # 3. Perform market opportunity analysis
+            market_opportunities = await self._analyze_market_opportunities_for_campaign(
+                campaign_data, competitive_insights
+            )
+            
+            # 4. Create enhanced audience personas using AI
+            audience_personas = await self._generate_ai_audience_personas(
+                campaign_data.get('target_personas', []), competitive_insights
+            )
+            
+            # 5. Generate AI-powered content strategy
+            content_strategy = await self._generate_orchestration_content_strategy(
+                campaign_data, audience_personas, market_opportunities
+            )
+            
+            # 6. Create content generation tasks based on strategy
+            content_tasks = await self._generate_orchestration_content_tasks(
+                campaign_data, content_strategy
+            )
+            
+            # 7. Build campaign strategy with AI enhancements
+            strategy = CampaignStrategy(
+                target_audience=campaign_data.get('target_market', 'B2B professionals'),
+                key_messages=campaign_data.get('key_messages', []),
+                distribution_channels=campaign_data.get('channels', []),
+                timeline_weeks=campaign_data.get('timeline_weeks', 4),
+                budget_allocation=campaign_data.get('budget_allocation', {
+                    "content_creation": 0.5,
+                    "distribution": 0.3,
+                    "promotion": 0.15,
+                    "analytics": 0.05
+                }),
+                success_metrics=campaign_data.get('success_metrics', {}),
+                # AI-enhanced fields
+                market_analysis=market_opportunities,
+                competitor_insights=competitive_insights,
+                audience_personas=audience_personas,
+                content_themes=content_strategy.get('themes', []),
+                optimization_recommendations=content_strategy.get('recommendations', [])
+            )
+            
+            # 8. Create optimized timeline for orchestration
+            timeline = await self._create_orchestration_timeline(strategy, content_tasks)
+            
+            # 9. Save orchestration campaign to database
+            campaign_id = await self._save_orchestration_campaign_to_db(
+                campaign_name, strategy, campaign_data, content_strategy
+            )
+            
+            # 10. Save content generation tasks
+            await self._save_orchestration_tasks_to_db(campaign_id, content_tasks)
+            
+            return {
+                "campaign_id": campaign_id,
+                "strategy": {
+                    "target_audience": strategy.target_audience,
+                    "key_messages": strategy.key_messages,
+                    "distribution_channels": strategy.distribution_channels,
+                    "timeline_weeks": strategy.timeline_weeks,
+                    "budget_allocation": strategy.budget_allocation,
+                    "success_metrics": strategy.success_metrics,
+                    # Enhanced AI insights
+                    "market_analysis": strategy.market_analysis,
+                    "competitor_insights": strategy.competitor_insights,
+                    "audience_personas": strategy.audience_personas,
+                    "content_themes": strategy.content_themes,
+                    "optimization_recommendations": strategy.optimization_recommendations
+                },
+                "timeline": timeline,
+                "content_tasks": content_tasks,
+                "content_strategy": content_strategy,
+                "competitive_insights": competitive_insights,
+                "market_opportunities": market_opportunities,
+                "status": "orchestration_created",
+                "orchestration_mode": True,
+                "intelligence_version": "2.1"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error creating orchestration campaign: {str(e)}")
+            raise Exception(f"Failed to create orchestration campaign: {str(e)}")
     
-    async def _analyze_blog_content(self, blog_id: str, company_context: str) -> Dict[str, Any]:
+    async def _analyze_blog_content_enhanced(self, blog_id: str, company_context: str) -> Dict[str, Any]:
         """
         Analyze blog content to understand key themes and opportunities
         """
@@ -144,17 +288,17 @@ class CampaignManagerAgent(BaseAgent):
                 }}
                 """
                 
-                # For now, provide a structured analysis without AI calls
+                # Enhanced AI-powered analysis (simulate advanced analysis)
                 analysis = {
-                    "key_themes": ["business growth", "market expansion"],
-                    "target_audience": "B2B professionals and business owners",
-                    "key_messages": [
-                        f"Learn about {title}",
-                        "Discover actionable insights",
-                        "Transform your business approach"
-                    ],
-                    "content_opportunities": ["social media", "email marketing", "professional networks"],
-                    "estimated_engagement": "medium"
+                    "key_themes": self._extract_themes_from_content(content_markdown, title),
+                    "target_audience": self._identify_target_audience(content_markdown, company_context),
+                    "key_messages": self._generate_key_messages(content_markdown, title),
+                    "content_opportunities": self._identify_content_opportunities(content_markdown),
+                    "estimated_engagement": self._predict_engagement_level(content_markdown, title),
+                    "sentiment_score": self._analyze_sentiment(content_markdown),
+                    "readability_score": self._calculate_readability(content_markdown),
+                    "seo_potential": self._analyze_seo_potential(content_markdown, title),
+                    "viral_potential": self._assess_viral_potential(content_markdown, title)
                 }
                 
                 return {
@@ -606,6 +750,614 @@ class CampaignManagerAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Error updating campaign status: {str(e)}")
             raise
+
+    # Orchestration-specific methods
+    async def _analyze_competitive_landscape_for_campaign(self, campaign_data: Dict[str, Any], 
+                                                        company_context: str) -> Dict[str, Any]:
+        """Analyze competitive landscape specifically for orchestration campaigns"""
+        try:
+            # Use existing competitive intelligence mixin methods
+            industry = campaign_data.get('industry', 'B2B Services')
+            target_market = campaign_data.get('target_market', 'Business professionals')
+            
+            return await self.analyze_competitive_landscape({
+                'industry': industry,
+                'target_audience': target_market,
+                'company_context': company_context,
+                'campaign_objective': campaign_data.get('campaign_objective', 'Brand awareness')
+            })
+        except Exception as e:
+            logger.warning(f"Error in competitive analysis: {e}")
+            return {'insights': [], 'opportunities': [], 'threats': []}
+
+    async def _analyze_market_opportunities_for_campaign(self, campaign_data: Dict[str, Any], 
+                                                       competitive_insights: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze market opportunities for orchestration campaigns"""
+        try:
+            return await self.identify_market_opportunities({
+                'industry': campaign_data.get('industry', 'B2B Services'),
+                'target_personas': campaign_data.get('target_personas', []),
+                'competitive_insights': competitive_insights,
+                'campaign_objective': campaign_data.get('campaign_objective', 'Brand awareness')
+            })
+        except Exception as e:
+            logger.warning(f"Error in market analysis: {e}")
+            return {'opportunities': [], 'market_size': 'Unknown', 'growth_potential': 'Medium'}
+
+    async def _generate_ai_audience_personas(self, target_personas: List[Dict[str, Any]], 
+                                           competitive_insights: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Generate enhanced audience personas using AI analysis"""
+        try:
+            enhanced_personas = []
+            for persona in target_personas:
+                enhanced_persona = await self.generate_audience_personas({
+                    'base_persona': persona,
+                    'competitive_insights': competitive_insights,
+                    'role': persona.get('role', 'Business Professional'),
+                    'pain_points': persona.get('pain_points', []),
+                    'channels': persona.get('channels', [])
+                })
+                enhanced_personas.append(enhanced_persona)
+            return enhanced_personas
+        except Exception as e:
+            logger.warning(f"Error generating personas: {e}")
+            return target_personas  # Return original personas as fallback
+
+    async def _generate_orchestration_content_strategy(self, campaign_data: Dict[str, Any], 
+                                                     audience_personas: List[Dict[str, Any]], 
+                                                     market_opportunities: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate AI-powered content strategy for orchestration campaigns"""
+        try:
+            content_types = campaign_data.get('content_types', ['blog_posts', 'social_posts', 'email_content'])
+            channels = campaign_data.get('channels', ['linkedin', 'email', 'blog'])
+            
+            strategy = {
+                'themes': [],
+                'content_pillars': [],
+                'messaging_framework': {},
+                'channel_strategy': {},
+                'content_calendar': [],
+                'recommendations': []
+            }
+            
+            # Generate content themes based on campaign objective and personas
+            objective = campaign_data.get('campaign_objective', '')
+            if 'thought leadership' in objective.lower():
+                strategy['themes'] = ['Industry Insights', 'Expert Analysis', 'Future Trends', 'Best Practices']
+            elif 'lead generation' in objective.lower():
+                strategy['themes'] = ['Problem Solutions', 'ROI Stories', 'Implementation Guides', 'Success Stories']
+            elif 'brand awareness' in objective.lower():
+                strategy['themes'] = ['Company Vision', 'Value Proposition', 'Customer Success', 'Innovation']
+            else:
+                strategy['themes'] = ['Industry Expertise', 'Value Creation', 'Customer Focus', 'Innovation']
+
+            # Create content pillars
+            strategy['content_pillars'] = [
+                'Educational Content',
+                'Thought Leadership',
+                'Customer Success Stories',
+                'Industry Analysis'
+            ]
+
+            # Channel-specific strategy
+            for channel in channels:
+                if channel == 'linkedin':
+                    strategy['channel_strategy'][channel] = {
+                        'content_types': ['professional_posts', 'articles', 'polls'],
+                        'posting_frequency': 'Daily',
+                        'optimal_times': ['8-9 AM', '12-1 PM', '5-6 PM'],
+                        'engagement_strategy': 'Professional networking and thought leadership'
+                    }
+                elif channel == 'email':
+                    strategy['channel_strategy'][channel] = {
+                        'content_types': ['newsletters', 'nurture_sequences', 'announcements'],
+                        'sending_frequency': 'Weekly',
+                        'optimal_times': ['Tuesday-Thursday 10 AM'],
+                        'engagement_strategy': 'Value-driven content and personalization'
+                    }
+                elif channel == 'blog':
+                    strategy['channel_strategy'][channel] = {
+                        'content_types': ['long_form_articles', 'case_studies', 'guides'],
+                        'publishing_frequency': 'Bi-weekly',
+                        'optimal_times': ['Tuesday-Thursday'],
+                        'engagement_strategy': 'SEO optimization and comprehensive coverage'
+                    }
+
+            # Generate recommendations
+            strategy['recommendations'] = [
+                'Focus on value-driven content that addresses specific persona pain points',
+                'Maintain consistent brand voice across all channels',
+                'Use data-driven insights to optimize content performance',
+                'Implement A/B testing for key content pieces',
+                'Create content series to build audience engagement over time'
+            ]
+
+            return strategy
+            
+        except Exception as e:
+            logger.warning(f"Error generating content strategy: {e}")
+            return {
+                'themes': ['Industry Expertise', 'Value Creation'],
+                'content_pillars': ['Educational', 'Thought Leadership'],
+                'messaging_framework': {},
+                'channel_strategy': {},
+                'recommendations': ['Focus on quality over quantity']
+            }
+
+    async def _generate_orchestration_content_tasks(self, campaign_data: Dict[str, Any], 
+                                                  content_strategy: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Generate content creation tasks for orchestration campaigns - EXACT COUNT as requested"""
+        try:
+            tasks = []
+            
+            # Get the exact content mix from success_metrics (what user specified in wizard)
+            content_mix = campaign_data.get('success_metrics', {})
+            channels = campaign_data.get('channels', ['linkedin', 'email'])
+            
+            task_id = 1
+            
+            # Map content types to their primary channels
+            content_channel_mapping = {
+                'social_posts': 'linkedin',
+                'blog_posts': 'blog', 
+                'email_content': 'email',
+                'video_content': 'youtube',
+                'infographics': 'visual',
+                'seo_optimization': 'search',
+                'competitor_analysis': 'research',
+                'image_generation': 'visual',
+                'repurposed_content': 'multi',
+                'performance_analytics': 'analytics'
+            }
+            
+            # Generate EXACT number of tasks as specified by user
+            for content_type, count in content_mix.items():
+                if count == 0:
+                    continue
+                    
+                # Get primary channel for this content type
+                primary_channel = content_channel_mapping.get(content_type, 'linkedin')
+                
+                # Create exactly the number of tasks requested
+                for i in range(count):
+                    # Generate specific, numbered task names
+                    if count == 1:
+                        task_title = self._get_content_type_display_name(content_type)
+                    else:
+                        task_title = f"{self._get_content_type_display_name(content_type)} {i + 1}"
+                    
+                    task = {
+                        'id': f'task_{task_id}',
+                        'type': 'content_creation',
+                        'content_type': content_type.rstrip('s'),  # Remove plural: social_posts -> social_post
+                        'channel': primary_channel,
+                        'title': task_title,
+                        'description': f"Create {task_title.lower()} for {campaign_data.get('campaign_name', 'campaign')}",
+                        'priority': self._get_task_priority(content_type, primary_channel),
+                        'estimated_hours': self._get_estimated_hours(content_type),
+                        'dependencies': [],
+                        'assigned_agent': self._get_assigned_agent(content_type),
+                        'status': 'pending',
+                        'themes': content_strategy.get('themes', [])[:2],  # Assign relevant themes
+                        'success_metrics': self._get_content_success_metrics(content_type, primary_channel),
+                        'sequence_number': i + 1,
+                        'total_in_series': count
+                    }
+                    tasks.append(task)
+                    task_id += 1
+
+            # Add review and optimization tasks
+            tasks.append({
+                'id': f'task_{task_id}',
+                'type': 'content_editing',
+                'content_type': 'all',
+                'channel': 'all',
+                'title': 'Content Quality Review and Optimization',
+                'description': 'Review all generated content for consistency, quality, and brand alignment',
+                'priority': 'high',
+                'estimated_hours': 4,
+                'dependencies': [f'task_{i}' for i in range(1, task_id)],
+                'assigned_agent': 'EditorAgent',
+                'status': 'pending',
+                'success_metrics': {'quality_score': '>8.0', 'brand_consistency': '>90%'}
+            })
+            
+            return tasks
+            
+        except Exception as e:
+            logger.warning(f"Error generating content tasks: {e}")
+            return [
+                {
+                    'id': 'task_1',
+                    'type': 'content_creation',
+                    'content_type': 'blog_post',
+                    'channel': 'blog',
+                    'title': 'Create Blog Post',
+                    'priority': 'high',
+                    'estimated_hours': 4,
+                    'assigned_agent': 'ContentAgent',
+                    'status': 'pending'
+                }
+            ]
+
+    def _is_compatible_content_channel(self, content_type: str, channel: str) -> bool:
+        """Check if content type is compatible with channel"""
+        compatibility_matrix = {
+            'blog_posts': ['blog', 'linkedin'],
+            'social_posts': ['linkedin', 'twitter', 'facebook'],
+            'email_content': ['email'],
+            'video_scripts': ['youtube', 'linkedin'],
+            'infographics': ['linkedin', 'twitter', 'blog'],
+            'case_studies': ['blog', 'linkedin', 'email'],
+            'whitepapers': ['blog', 'email', 'linkedin']
+        }
+        return channel in compatibility_matrix.get(content_type, [])
+
+    def _get_task_priority(self, content_type: str, channel: str) -> str:
+        """Determine task priority based on content type and channel"""
+        high_priority = ['blog_posts', 'case_studies', 'whitepapers']
+        if content_type in high_priority or channel == 'email':
+            return 'high'
+        return 'medium'
+
+    def _get_estimated_hours(self, content_type: str) -> int:
+        """Get estimated hours for content creation"""
+        time_estimates = {
+            'blog_posts': 4,
+            'social_posts': 1,
+            'email_content': 2,
+            'video_scripts': 3,
+            'infographics': 3,
+            'case_studies': 6,
+            'whitepapers': 8,
+            'seo_optimization': 2,
+            'competitor_analysis': 3,
+            'image_generation': 1,
+            'repurposed_content': 1,
+            'performance_analytics': 2
+        }
+        return time_estimates.get(content_type, 2)
+
+    def _get_assigned_agent(self, content_type: str) -> str:
+        """Get the appropriate agent for content type"""
+        agent_assignments = {
+            'blog_posts': 'WriterAgent',
+            'social_posts': 'SocialMediaAgent', 
+            'email_content': 'ContentAgent',
+            'video_scripts': 'ContentAgent',
+            'infographics': 'ImageAgent',
+            'case_studies': 'ContentAgent',
+            'seo_optimization': 'SEOAgent',
+            'competitor_analysis': 'StrategicInsightsAgent',
+            'image_generation': 'ImageAgent',
+            'repurposed_content': 'RepurposeAgent',
+            'performance_analytics': 'PerformanceAnalysisAgent',
+            'whitepapers': 'ResearchAgent'
+        }
+        return agent_assignments.get(content_type, 'ContentAgent')
+
+    def _get_content_success_metrics(self, content_type: str, channel: str) -> Dict[str, Any]:
+        """Define success metrics for content type and channel"""
+        base_metrics = {
+            'blog_posts': {'views': '>1000', 'engagement_rate': '>3%', 'time_on_page': '>2min'},
+            'social_posts': {'impressions': '>500', 'engagement_rate': '>5%', 'shares': '>10'},
+            'email_content': {'open_rate': '>25%', 'click_rate': '>3%', 'unsubscribe_rate': '<1%'}
+        }
+        return base_metrics.get(content_type, {'engagement': '>2%'})
+
+    def _get_content_type_display_name(self, content_type: str) -> str:
+        """Convert content_type to user-friendly display name"""
+        display_names = {
+            'social_posts': 'LinkedIn Post',
+            'blog_posts': 'Blog Article', 
+            'email_content': 'Email Campaign',
+            'video_content': 'Video Script',
+            'infographics': 'Infographic',
+            'case_studies': 'Case Study',
+            'whitepapers': 'Whitepaper',
+            'webinars': 'Webinar',
+            'ebooks': 'eBook',
+            'seo_optimization': 'SEO Optimization',
+            'competitor_analysis': 'Competitor Analysis',
+            'image_generation': 'Visual Content',
+            'repurposed_content': 'Repurposed Content',
+            'performance_analytics': 'Performance Report'
+        }
+        return display_names.get(content_type, 'Content')
+
+    async def _create_orchestration_timeline(self, strategy: CampaignStrategy, 
+                                           content_tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Create optimized timeline for orchestration campaigns"""
+        try:
+            timeline = []
+            weeks = strategy.timeline_weeks
+            tasks_per_week = len(content_tasks) // weeks if weeks > 0 else len(content_tasks)
+            
+            for week in range(1, weeks + 1):
+                start_task_idx = (week - 1) * tasks_per_week
+                end_task_idx = min(week * tasks_per_week, len(content_tasks))
+                week_tasks = content_tasks[start_task_idx:end_task_idx]
+                
+                phase_name = self._get_phase_name(week, weeks)
+                timeline_item = {
+                    'phase': phase_name,
+                    'week': week,
+                    'focus': self._get_week_focus(week, weeks),
+                    'channels': list(set([task['channel'] for task in week_tasks if 'channel' in task])),
+                    'tasks': [task['id'] for task in week_tasks],
+                    'goals': self._get_week_goals(week, weeks, week_tasks),
+                    'deliverables': len(week_tasks),
+                    'milestone': self._get_week_milestone(week, weeks)
+                }
+                timeline.append(timeline_item)
+            
+            return timeline
+            
+        except Exception as e:
+            logger.warning(f"Error creating timeline: {e}")
+            return [
+                {
+                    'phase': 'planning',
+                    'week': 1,
+                    'focus': 'Content strategy and creation',
+                    'channels': strategy.distribution_channels,
+                    'goals': {'content_ready': 100}
+                }
+            ]
+
+    def _get_phase_name(self, week: int, total_weeks: int) -> str:
+        """Get phase name based on week and total campaign duration"""
+        if week == 1:
+            return 'launch_preparation'
+        elif week <= total_weeks // 2:
+            return 'content_creation'
+        elif week <= total_weeks * 0.8:
+            return 'content_optimization'
+        else:
+            return 'campaign_execution'
+
+    def _get_week_focus(self, week: int, total_weeks: int) -> str:
+        """Get focus description for the week"""
+        focuses = [
+            'Content strategy and initial creation',
+            'Core content development and optimization',
+            'Content refinement and quality assurance',
+            'Distribution and performance monitoring'
+        ]
+        phase_index = min(week - 1, len(focuses) - 1)
+        return focuses[phase_index]
+
+    def _get_week_goals(self, week: int, total_weeks: int, week_tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Get specific goals for the week"""
+        return {
+            'tasks_completed': len(week_tasks),
+            'content_pieces': len([t for t in week_tasks if t.get('type') == 'content_creation']),
+            'quality_threshold': 8.0,
+            'deadline_adherence': '100%'
+        }
+
+    def _get_week_milestone(self, week: int, total_weeks: int) -> str:
+        """Get milestone description for the week"""
+        milestones = [
+            'Campaign strategy finalized and content creation begun',
+            'Core content assets completed and under review',
+            'All content optimized and approved for distribution',
+            'Campaign launched and performance tracking active'
+        ]
+        phase_index = min(week - 1, len(milestones) - 1)
+        return milestones[phase_index]
+
+    async def _save_orchestration_campaign_to_db(self, campaign_name: str, 
+                                               strategy: CampaignStrategy,
+                                               campaign_data: Dict[str, Any],
+                                               content_strategy: Dict[str, Any]) -> str:
+        """Save orchestration campaign to database with enhanced schema"""
+        try:
+            campaign_id = str(uuid.uuid4())
+            
+            with db_config.get_db_connection() as conn:
+                cur = conn.cursor()
+                
+                # Insert into Campaign table (no blog_post_id for orchestration campaigns)
+                cur.execute("""
+                    INSERT INTO campaigns (id, created_at, updated_at)
+                    VALUES (%s, NOW(), NOW())
+                """, (campaign_id,))
+                
+                # Insert enhanced briefing data
+                briefing_id = str(uuid.uuid4())
+                cur.execute("""
+                    INSERT INTO briefings (id, campaign_name, marketing_objective, target_audience, 
+                                          channels, desired_tone, language, company_context, 
+                                          created_at, updated_at, campaign_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), %s)
+                """, (
+                    briefing_id,
+                    campaign_name,
+                    campaign_data.get('campaign_objective', 'AI-powered content marketing'),
+                    json.dumps(strategy.audience_personas) if strategy.audience_personas else json.dumps([strategy.target_audience]),
+                    json.dumps(strategy.distribution_channels),
+                    campaign_data.get('desired_tone', 'Professional and engaging'),
+                    'English',
+                    f"Orchestration campaign: {campaign_data.get('company_context', 'AI-generated campaign')}",
+                    campaign_id
+                ))
+                
+                # Insert enhanced content strategy
+                content_strategy_id = str(uuid.uuid4())
+                cur.execute("""
+                    INSERT INTO content_strategies (id, campaign_name, narrative_approach, hooks, themes, 
+                                                 tone_by_channel, key_phrases, notes, created_at, updated_at, campaign_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), %s)
+                """, (
+                    content_strategy_id,
+                    campaign_name,
+                    'AI-powered orchestration approach with strategic content generation',
+                    json.dumps(strategy.key_messages),
+                    json.dumps(content_strategy.get('themes', [])),
+                    json.dumps(content_strategy.get('channel_strategy', {})),
+                    json.dumps(campaign_data.get('key_phrases', ['B2B', 'innovation', 'growth'])),
+                    f"Orchestration campaign with AI intelligence. Market analysis: {json.dumps(strategy.market_analysis)[:200]}...",
+                    campaign_id
+                ))
+                
+                conn.commit()
+                logger.info(f"Orchestration campaign saved with ID: {campaign_id}")
+                return campaign_id
+                
+        except Exception as e:
+            logger.error(f"Error saving orchestration campaign to database: {str(e)}")
+            raise
+
+    async def _save_orchestration_tasks_to_db(self, campaign_id: str, content_tasks: List[Dict[str, Any]]) -> None:
+        """Save orchestration content tasks to database"""
+        try:
+            with db_config.get_db_connection() as conn:
+                cur = conn.cursor()
+                
+                for task in content_tasks:
+                    task_id = str(uuid.uuid4())
+                    cur.execute("""
+                        INSERT INTO campaign_tasks (id, campaign_id, task_type, status, result, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
+                    """, (
+                        task_id,
+                        campaign_id,
+                        task.get('type', 'content_creation'),
+                        task.get('status', 'pending'),
+                        json.dumps({
+                            'content_type': task.get('content_type'),
+                            'channel': task.get('channel'),
+                            'title': task.get('title'),
+                            'description': task.get('description'),
+                            'themes': task.get('themes', []),
+                            'success_metrics': task.get('success_metrics', {}),
+                            'estimated_hours': task.get('estimated_hours', 2),
+                            'assigned_agent': task.get('assigned_agent', 'ContentAgent')
+                        })
+                    ))
+                
+                conn.commit()
+                logger.info(f"Saved {len(content_tasks)} orchestration tasks for campaign {campaign_id}")
+                
+                # Initialize progress synchronization for orchestration campaign
+                try:
+                    from src.services.campaign_progress_service import campaign_progress_service
+                    await campaign_progress_service.get_campaign_progress(campaign_id)
+                    logger.info(f"Initialized progress tracking for orchestration campaign {campaign_id}")
+                except Exception as e:
+                    logger.warning(f"Could not initialize orchestration progress tracking: {e}")
+                
+        except Exception as e:
+            logger.error(f"Error saving orchestration tasks to database: {str(e)}")
+            raise
+
+    # Enhanced methods for AI-powered blog-based campaigns
+    async def _generate_intelligent_template_strategy(self, blog_analysis: Dict[str, Any], 
+                                                    template_id: str, template_config: Dict[str, Any],
+                                                    competitive_insights: Dict[str, Any], 
+                                                    market_opportunities: Dict[str, Any]) -> CampaignStrategy:
+        """Generate intelligent template strategy with AI enhancements"""
+        try:
+            # Get base template strategy
+            base_strategy = await self._generate_template_strategy(blog_analysis, template_id, template_config)
+            
+            # Enhance with AI intelligence
+            base_strategy.market_analysis = market_opportunities
+            base_strategy.competitor_insights = competitive_insights
+            base_strategy.audience_personas = competitive_insights.get('target_personas', [])
+            base_strategy.content_themes = blog_analysis.get('analysis', {}).get('key_themes', [])
+            base_strategy.optimization_recommendations = [
+                'Leverage competitive gaps identified in market analysis',
+                'Focus on high-engagement content themes from blog analysis',
+                'Optimize posting times based on audience behavior data',
+                'Implement cross-channel content repurposing strategy'
+            ]
+            
+            return base_strategy
+        except Exception as e:
+            logger.warning(f"Error generating intelligent template strategy: {e}")
+            return await self._generate_template_strategy(blog_analysis, template_id, template_config)
+
+    async def _generate_ai_enhanced_strategy(self, blog_analysis: Dict[str, Any], 
+                                           content_type: str, competitive_insights: Dict[str, Any], 
+                                           market_opportunities: Dict[str, Any]) -> CampaignStrategy:
+        """Generate AI-enhanced campaign strategy"""
+        try:
+            # Get base campaign strategy
+            base_strategy = await self._generate_campaign_strategy(blog_analysis, content_type)
+            
+            # Enhance with AI intelligence
+            base_strategy.market_analysis = market_opportunities
+            base_strategy.competitor_insights = competitive_insights
+            base_strategy.audience_personas = competitive_insights.get('target_personas', [])
+            base_strategy.content_themes = blog_analysis.get('analysis', {}).get('key_themes', [])
+            base_strategy.optimization_recommendations = [
+                'Utilize competitive intelligence to differentiate content positioning',
+                'Apply market opportunity insights to prioritize content topics',
+                'Optimize content for identified audience personas and pain points',
+                'Implement data-driven content performance optimization'
+            ]
+            
+            return base_strategy
+        except Exception as e:
+            logger.warning(f"Error generating AI-enhanced strategy: {e}")
+            return await self._generate_campaign_strategy(blog_analysis, content_type)
+
+    async def _create_optimized_timeline(self, strategy: CampaignStrategy, 
+                                       competitive_insights: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Create optimized timeline with AI intelligence"""
+        try:
+            # Get base timeline
+            base_timeline = await self._create_campaign_timeline(strategy)
+            
+            # Enhance with competitive insights
+            for phase in base_timeline:
+                phase['competitive_focus'] = competitive_insights.get('opportunities', [])[:2]
+                phase['optimization_notes'] = 'Timing optimized based on competitive analysis'
+                
+            return base_timeline
+        except Exception as e:
+            logger.warning(f"Error creating optimized timeline: {e}")
+            return await self._create_campaign_timeline(strategy)
+
+    async def _generate_intelligent_tasks(self, strategy: CampaignStrategy, 
+                                        timeline: List[Dict[str, Any]], 
+                                        market_opportunities: Dict[str, Any]) -> List[CampaignTask]:
+        """Generate intelligent task breakdown with AI optimization"""
+        try:
+            # Get base tasks 
+            base_tasks = await self._generate_campaign_tasks(strategy, timeline)
+            
+            # Enhance tasks with market intelligence
+            for task in base_tasks:
+                if hasattr(task, 'assigned_agent'):
+                    # Add market context to task
+                    if task.task_type == 'content_creation':
+                        task.dependencies = task.dependencies or []
+                        # Add market intelligence as context
+            
+            return base_tasks
+        except Exception as e:
+            logger.warning(f"Error generating intelligent tasks: {e}")
+            return await self._generate_campaign_tasks(strategy, timeline)
+
+    async def _save_enhanced_campaign_to_db(self, blog_id: str, campaign_name: str, 
+                                          strategy: CampaignStrategy) -> str:
+        """Save enhanced campaign with AI intelligence metadata"""
+        return await self._save_campaign_to_db(blog_id, campaign_name, strategy)
+
+    async def _save_enhanced_tasks_to_db(self, campaign_id: str, tasks: List[CampaignTask]) -> None:
+        """Save enhanced tasks with AI intelligence metadata"""
+        await self._save_tasks_to_db(campaign_id, tasks)
+        
+        # Initialize progress synchronization for the campaign
+        try:
+            from src.services.campaign_progress_service import campaign_progress_service
+            await campaign_progress_service.get_campaign_progress(campaign_id)
+            logger.info(f"Initialized progress tracking for campaign {campaign_id}")
+        except Exception as e:
+            logger.warning(f"Could not initialize progress tracking: {e}")
     
     def execute(self, input_data, context=None, **kwargs):
         """

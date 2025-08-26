@@ -1,0 +1,76 @@
+# Production requirements for CrediLinq AI Content Platform
+# Based on requirements.txt but optimized for production
+
+# FastAPI and ASGI server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+gunicorn==21.2.0
+
+# Database
+psycopg2-binary==2.9.9
+prisma==0.11.0
+
+# Authentication and security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# AI/ML libraries
+openai==1.3.5
+langchain==0.1.0
+langchain-openai==0.0.2
+tiktoken==0.5.1
+
+# HTTP client
+httpx==0.25.2
+requests==2.31.0
+
+# Data processing
+pandas==2.1.3
+numpy==1.25.2
+
+# Environment and configuration
+python-dotenv==1.0.0
+pydantic[email]==2.5.0
+pydantic-settings==2.1.0
+
+# Caching and performance
+redis==5.0.1
+hiredis==2.2.3
+
+# Monitoring and logging
+psutil==5.9.6
+structlog==23.2.0
+prometheus-client==0.19.0
+
+# Date/time
+python-dateutil==2.8.2
+
+# UUID generation
+uuid==1.30
+
+# JSON handling
+orjson==3.9.10
+
+# Background tasks
+celery[redis]==5.3.4
+
+# Production server
+uvloop==0.19.0
+httptools==0.6.1
+
+# Security
+cryptography==41.0.7
+bcrypt==4.1.1
+
+# Markdown processing
+markdown==3.5.1
+
+# Image processing (if needed)
+Pillow==10.1.0
+
+# Timezone support
+pytz==2023.3
+
+# HTTP client improvements
+aiohttp==3.9.1

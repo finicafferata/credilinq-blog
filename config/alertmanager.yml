@@ -1,0 +1,186 @@
+# Alertmanager configuration for CrediLinq AI Content Platform
+global:
+  smtp_smarthost: '${SMTP_HOST:-localhost:587}'
+  smtp_from: '${ALERT_EMAIL_FROM:-alerts@credilinq.com}'
+  smtp_auth_username: '${SMTP_USER:-}'
+  smtp_auth_password: '${SMTP_PASSWORD:-}'
+
+# Templates for alert notifications
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route configuration
+route:
+  group_by: ['alertname', 'severity', 'team']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'default'
+  routes:
+    # Critical alerts go directly to on-call
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 10s
+      repeat_interval: 5m
+    
+    # Database alerts to database team
+    - match:
+        team: database
+      receiver: 'database-team'
+    
+    # Infrastructure alerts to ops team  
+    - match:
+        team: infrastructure
+      receiver: 'ops-team'
+    
+    # AI/ML alerts to engineering team
+    - match:
+        team: ai-engineering
+      receiver: 'ai-team'
+    
+    # Security alerts to security team
+    - match:
+        team: security
+      receiver: 'security-team'
+      group_wait: 10s
+      repeat_interval: 1h
+
+# Alert receivers
+receivers:
+  - name: 'default'
+    email_configs:
+      - to: '${ALERT_EMAIL_DEFAULT:-admin@credilinq.com}'
+        subject: '[CrediLinq] {{ .GroupLabels.alertname }} - {{ .GroupLabels.severity }}'
+        html: |
+          <h3>CrediLinq Alert</h3>
+          <p><strong>Alert:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Severity:</strong> {{ .GroupLabels.severity }}</p>
+          <p><strong>Time:</strong> {{ .CommonAnnotations.timestamp }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          
+          <h4>Affected Services:</h4>
+          <ul>
+          {{ range .Alerts }}
+            <li>{{ .Labels.instance }} - {{ .Annotations.summary }}</li>
+          {{ end }}
+          </ul>
+          
+          <p><a href="{{ .CommonAnnotations.runbook_url }}">View Runbook</a></p>
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: '${ALERT_EMAIL_CRITICAL:-oncall@credilinq.com}'
+        subject: '🚨 CRITICAL - {{ .GroupLabels.alertname }}'
+        html: |
+          <h2 style="color: red;">🚨 CRITICAL ALERT</h2>
+          <p><strong>Alert:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Time:</strong> {{ .CommonAnnotations.timestamp }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          
+          <h4>Immediate Action Required:</h4>
+          <ul>
+          {{ range .Alerts }}
+            <li><strong>{{ .Labels.instance }}</strong>: {{ .Annotations.summary }}</li>
+          {{ end }}
+          </ul>
+          
+          <p><strong>Runbook:</strong> <a href="{{ .CommonAnnotations.runbook_url }}">{{ .CommonAnnotations.runbook_url }}</a></p>
+    
+    # Slack integration (if configured)
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#alerts-critical'
+        color: 'danger'
+        title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Instance:* {{ .Labels.instance }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+
+  - name: 'database-team'
+    email_configs:
+      - to: '${ALERT_EMAIL_DATABASE:-dba@credilinq.com}'
+        subject: '[DB Alert] {{ .GroupLabels.alertname }}'
+        html: |
+          <h3>Database Alert</h3>
+          <p><strong>Alert:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Severity:</strong> {{ .GroupLabels.severity }}</p>
+          
+          {{ range .Alerts }}
+          <h4>{{ .Labels.instance }}</h4>
+          <p>{{ .Annotations.description }}</p>
+          {{ end }}
+
+  - name: 'ops-team'
+    email_configs:
+      - to: '${ALERT_EMAIL_OPS:-ops@credilinq.com}'
+        subject: '[Infrastructure] {{ .GroupLabels.alertname }}'
+        html: |
+          <h3>Infrastructure Alert</h3>
+          <p><strong>Alert:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Severity:</strong> {{ .GroupLabels.severity }}</p>
+          
+          {{ range .Alerts }}
+          <h4>{{ .Labels.instance }}</h4>
+          <p><strong>Summary:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Details:</strong> {{ .Annotations.description }}</p>
+          {{ end }}
+
+  - name: 'ai-team'
+    email_configs:
+      - to: '${ALERT_EMAIL_AI:-ai-team@credilinq.com}'
+        subject: '[AI/ML Alert] {{ .GroupLabels.alertname }}'
+        html: |
+          <h3>AI/ML System Alert</h3>
+          <p><strong>Alert:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Severity:</strong> {{ .GroupLabels.severity }}</p>
+          
+          {{ range .Alerts }}
+          <h4>Agent: {{ .Labels.agent_name }}</h4>
+          <p><strong>Issue:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Impact:</strong> {{ .Annotations.description }}</p>
+          {{ end }}
+
+  - name: 'security-team'
+    email_configs:
+      - to: '${ALERT_EMAIL_SECURITY:-security@credilinq.com}'
+        subject: '🔐 SECURITY ALERT - {{ .GroupLabels.alertname }}'
+        html: |
+          <h3 style="color: red;">🔐 Security Alert</h3>
+          <p><strong>Alert:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Time:</strong> {{ .CommonAnnotations.timestamp }}</p>
+          
+          {{ range .Alerts }}
+          <h4>Security Event</h4>
+          <p><strong>Type:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Details:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Source IP:</strong> {{ .Labels.client_ip }}</p>
+          {{ end }}
+          
+          <p><strong>Action Required:</strong> Review logs and investigate potential security incident.</p>
+
+# Inhibition rules to reduce noise
+inhibit_rules:
+  # If application is down, don't alert on high response times
+  - source_match:
+      alertname: ApplicationDown
+    target_match:
+      alertname: HighResponseTime
+    equal: ['instance']
+  
+  # If database is down, don't alert on connection issues
+  - source_match:
+      alertname: DatabaseDown
+    target_match:
+      alertname: DatabaseConnectionsHigh
+    equal: ['instance']
+  
+  # If disk is critically low, don't alert on just low disk space
+  - source_match:
+      alertname: DiskSpaceCritical
+    target_match:
+      alertname: DiskSpaceLow
+    equal: ['instance', 'mountpoint']

@@ -13,7 +13,7 @@ import json
 from itertools import combinations
 
 from langchain.schema import BaseMessage, HumanMessage, SystemMessage
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 

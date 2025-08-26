@@ -130,16 +130,28 @@ export function Analytics() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
-          <p className="text-gray-600 mt-1">Monitor your AI agents and content performance</p>
-          <div className="flex items-center mt-2 text-sm text-gray-500">
-            <RefreshCw className="w-4 h-4 mr-1" />
-            Last updated: {lastRefresh.toLocaleTimeString()}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
+              <p className="mt-2 text-gray-600">Monitor your AI agents and content performance</p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center text-sm text-gray-500">
+                <RefreshCw className="w-4 h-4 mr-1" />
+                Last updated: {lastRefresh.toLocaleTimeString()}
+              </div>
+            </div>
           </div>
         </div>
+      </div>
+
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div></div>
         
         <div className="flex items-center space-x-4">
           {/* Auto-refresh toggle */}
@@ -881,15 +893,16 @@ Data is collected through web scraping, social media monitoring, and content ana
         </div>
       )}
 
-      {/* Export and Actions */}
-      <div className="flex justify-end mt-8">
-        <div className="flex space-x-3">
-          <button className="px-4 py-2 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
-            Export CSV
-          </button>
-          <button className="px-4 py-2 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors">
-            Generate Report
-          </button>
+        {/* Export and Actions */}
+        <div className="flex justify-end mt-8">
+          <div className="flex space-x-3">
+            <button className="px-4 py-2 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
+              Export CSV
+            </button>
+            <button className="px-4 py-2 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors">
+              Generate Report
+            </button>
+          </div>
         </div>
       </div>
     </div>

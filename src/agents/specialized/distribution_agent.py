@@ -145,40 +145,13 @@ class DistributionAgent(BaseAgent):
         Get posts that are due for publication
         """
         try:
-            with db_config.get_db_connection() as conn:
-                cur = conn.cursor()
-                
-                # Get posts scheduled for the past hour (with some buffer)
-                one_hour_ago = datetime.now() - timedelta(hours=1)
-                
-                cur.execute("""
-                    SELECT id, platform, content, scheduled_at, metadata
-                    FROM scheduled_post
-                    WHERE status = 'scheduled' 
-                    AND scheduled_at <= %s
-                    ORDER BY scheduled_at
-                """, (one_hour_ago,))
-                
-                rows = cur.fetchall()
-                posts = []
-                
-                for row in rows:
-                    post_id, platform, content, scheduled_at, metadata_json = row
-                    metadata = json.loads(metadata_json) if metadata_json else {}
-                    
-                    posts.append({
-                        "id": post_id,
-                        "platform": platform,
-                        "content": content,
-                        "scheduled_at": scheduled_at,
-                        "metadata": metadata
-                    })
-                
-                return posts
-                
+            # TODO: scheduled_post table not implemented yet - return empty list
+            logger.warning("scheduled_post table not implemented - returning empty list")
+            return []
+            
         except Exception as e:
             logger.error(f"Error getting due posts: {str(e)}")
-            raise
+            return []
     
     async def _publish_single_post(self, post: Dict[str, Any]) -> Optional[PublishedPost]:
         """

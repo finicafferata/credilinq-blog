@@ -45,6 +45,7 @@ class AgentType(Enum):
     EDITOR = "editor"
     CAMPAIGN_MANAGER = "campaign_manager"
     CONTENT_REPURPOSER = "content_repurposer"
+    CONTENT_BRIEF = "content_brief"
     IMAGE_PROMPT_GENERATOR = "image_prompt_generator"
     IMAGE = "image"
     SEO = "seo"
@@ -53,6 +54,7 @@ class AgentType(Enum):
     SEARCH = "search"
     WORKFLOW_ORCHESTRATOR = "workflow_orchestrator"
     CONTENT_GENERATOR = "content_generator"
+    AI_CONTENT_GENERATOR = "ai_content_generator"
     CONTENT_OPTIMIZER = "content_optimizer"
 
 @dataclass
