@@ -55,6 +55,9 @@ COPY --from=builder --chown=credilinq:credilinq /root/.local /home/credilinq/.lo
 # Copy application code
 COPY --chown=credilinq:credilinq . .
 
+# Make startup script executable
+RUN chmod +x /app/scripts/start.py
+
 # Copy Prisma schema and generate client
 COPY --chown=credilinq:credilinq prisma ./prisma
 RUN /home/credilinq/.local/bin/prisma generate || true
@@ -64,7 +67,6 @@ ENV PYTHONPATH=/app \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH=/home/credilinq/.local/bin:$PATH \
-    PORT=8000 \
     WORKERS=4
 
 # Create necessary directories
@@ -76,10 +78,10 @@ USER credilinq
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:${PORT}/health/live || exit 1
+    CMD curl -f http://localhost:${PORT:-8000}/health/live || exit 1
 
-# Expose port
+# Expose port (Railway will override this with the actual PORT)
 EXPOSE 8000
 
-# Run the application with gunicorn for production
-CMD ["sh", "-c", "gunicorn src.main:app --workers ${WORKERS} --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT} --timeout 120 --keep-alive 5 --max-requests 1000 --max-requests-jitter 50 --access-logfile - --error-logfile -"]
+# Run the application using our Railway-optimized startup script
+CMD ["python", "/app/scripts/start.py"]
