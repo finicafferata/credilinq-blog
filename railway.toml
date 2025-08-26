@@ -1,5 +1,25 @@
 [build]
-command = "pip install -r requirements.txt"
+builder = "dockerfile"
+dockerfile = "Dockerfile"
 
 [deploy]
-startCommand = "python scripts/start.py" 
+healthcheckPath = "/health/live"
+healthcheckTimeout = 60
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+# Memory and resource limits
+memoryLimit = "1GB"
+cpuLimit = "1000m"
+
+# Startup configuration
+startCommand = "python /app/scripts/start.py"
+
+# Environment-specific overrides
+[environments.production]
+memoryLimit = "2GB"
+cpuLimit = "2000m"
+
+[environments.staging]
+memoryLimit = "1GB"
+cpuLimit = "1000m"

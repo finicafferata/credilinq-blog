@@ -1,0 +1,43 @@
+# Railway-optimized Dockerfile for CrediLinq AI Content Platform
+FROM python:3.11-slim
+
+# Set environment variables for Railway
+ENV PYTHONPATH=/app \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies (minimal set)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    libpq-dev \
+    curl \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create working directory
+WORKDIR /app
+
+# Copy requirements and install Python dependencies
+COPY requirements-railway.txt .
+RUN pip install --no-cache-dir -r requirements-railway.txt
+
+# Copy application code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/uploads /app/cache
+
+# Make scripts executable
+RUN chmod +x /app/scripts/start.py
+
+# Health check optimized for Railway
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8000}/health/live || exit 1
+
+# Expose port (Railway will set the actual PORT)
+EXPOSE ${PORT:-8000}
+
+# Use Railway-optimized startup script
+CMD ["python", "/app/scripts/start.py"]
