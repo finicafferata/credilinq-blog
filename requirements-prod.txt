@@ -8,69 +8,66 @@ gunicorn==21.2.0
 
 # Database
 psycopg2-binary==2.9.9
-prisma==0.11.0
+pgvector==0.2.4
 
-# Authentication and security
+# Authentication and security  
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
+PyJWT>=2.8.0
 
 # AI/ML libraries
-openai==1.3.5
-langchain==0.1.0
-langchain-openai==0.0.2
-tiktoken==0.5.1
+openai>=1.10.0,<2.0.0
+langchain>=0.1.0
+langgraph==0.0.20
+langchain_openai>=0.0.5
+langchain-google-genai==0.0.6
+langchain_community>=0.0.10
+tiktoken>=0.5.0
 
 # HTTP client
-httpx==0.25.2
-requests==2.31.0
+requests>=2.31.0
+aiohttp>=3.9.0
 
 # Data processing
-pandas==2.1.3
-numpy==1.25.2
+pandas>=2.0.0
+numpy>=1.24.0
+faiss-cpu==1.7.4
 
 # Environment and configuration
 python-dotenv==1.0.0
-pydantic[email]==2.5.0
-pydantic-settings==2.1.0
+pydantic==2.5.0
+pydantic-settings>=2.0.0
 
 # Caching and performance
-redis==5.0.1
-hiredis==2.2.3
+redis>=5.0.0
+celery>=5.3.0
 
 # Monitoring and logging
-psutil==5.9.6
-structlog==23.2.0
-prometheus-client==0.19.0
+psutil>=5.9.0
 
 # Date/time
-python-dateutil==2.8.2
-
-# UUID generation
-uuid==1.30
-
-# JSON handling
-orjson==3.9.10
-
-# Background tasks
-celery[redis]==5.3.4
-
-# Production server
-uvloop==0.19.0
-httptools==0.6.1
+python-dateutil>=2.8.0
 
 # Security
-cryptography==41.0.7
-bcrypt==4.1.1
+bcrypt>=4.0.0
+cryptography>=41.0.0
 
-# Markdown processing
-markdown==3.5.1
+# Image processing
+Pillow>=10.0.0
 
-# Image processing (if needed)
-Pillow==10.1.0
-
-# Timezone support
-pytz==2023.3
-
-# HTTP client improvements
-aiohttp==3.9.1
+# Additional dependencies from main requirements
+unstructured==0.11.0
+supabase==2.0.2
+feedparser>=6.0.10
+beautifulsoup4>=4.12.0
+nltk>=3.8.1
+scikit-learn>=1.3.0
+textblob>=0.17.1
+lxml>=4.9.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+selenium>=4.15.0
+reportlab>=4.0.0
+openpyxl>=3.1.0
+aiosmtplib>=3.0.0
