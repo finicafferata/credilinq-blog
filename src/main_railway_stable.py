@@ -100,30 +100,17 @@ def create_stable_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # CORS middleware with proper origins
-    cors_origins_env = os.getenv('CORS_ORIGINS', '').strip()
-    if cors_origins_env:
-        cors_origins = [origin.strip() for origin in cors_origins_env.split(',')]
-    else:
-        # Default origins including Vercel deployment
-        cors_origins = [
-            "https://credilinq-blog.vercel.app",
-            "https://credilinq-blog-*.vercel.app",  # Preview deployments
-            "http://localhost:3000",
-            "http://localhost:5173",
-            "http://localhost:5174"
-        ]
-    
-    logger.info(f"CORS origins configured: {cors_origins}")
-    
+    # CORS middleware - allow all origins for now to fix the issue
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_origins,
-        allow_credentials=True,
+        allow_origins=["*"],  # Allow all origins temporarily
+        allow_credentials=False,  # Must be False when using wildcard
         allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
         allow_headers=["*"],
         expose_headers=["*"],
     )
+    
+    logger.info("CORS configured: allowing all origins (*)")
 
     @app.get("/")
     async def root():
