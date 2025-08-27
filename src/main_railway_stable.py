@@ -6,7 +6,7 @@ No agents, but includes real functionality for blogs and campaigns.
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from datetime import datetime
 import logging
@@ -273,6 +273,33 @@ def create_stable_app() -> FastAPI:
             "limit": limit,
             "status": "success" if db_pool else "no database"
         }
+
+    @app.get("/api/settings/company-profile")
+    async def get_company_profile():
+        """Get company profile settings."""
+        # Return mock/default settings for stable mode
+        return {
+            "companyName": "Your Company",
+            "companyContext": "",
+            "brandVoice": "",
+            "valueProposition": "",
+            "industries": [],
+            "targetAudiences": [],
+            "tonePresets": ["Professional", "Casual", "Formal"],
+            "keywords": [],
+            "styleGuidelines": "",
+            "prohibitedTopics": [],
+            "complianceNotes": "",
+            "links": [],
+            "defaultCTA": "",
+            "updatedAt": datetime.now().isoformat()
+        }
+    
+    @app.put("/api/settings/company-profile")
+    async def update_company_profile(profile: dict):
+        """Update company profile settings."""
+        # In stable mode, just return success without persisting
+        return {"message": "Settings updated (not persisted in stable mode)", "status": "success"}
 
     @app.post("/api/v2/blogs")
     async def create_blog(title: str, content: str = ""):

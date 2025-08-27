@@ -123,17 +123,17 @@ def main():
     railway_minimal = os.environ.get('RAILWAY_MINIMAL', '').lower() == 'true'
     
     if is_railway:
-        # Default to full mode on Railway now that we're ready for production
+        # Default to stable mode for now (full mode has startup issues)
         if railway_minimal:
             app_module = 'src.main_railway_minimal:app'
             logger.info("🚂 Using Railway ultra-minimal mode (health checks only)")
-        elif railway_stable:
-            app_module = 'src.main_railway_stable:app'
-            logger.info("🚂 Using Railway stable mode (database + API, no agents)")
-        else:
-            # DEFAULT: Use full mode
+        elif railway_full:
             app_module = 'src.main:app'
             logger.info("🚂 Using Railway FULL mode (all features, agents, settings)")
+        else:
+            # DEFAULT: Use stable mode for reliability
+            app_module = 'src.main_railway_stable:app'
+            logger.info("🚂 Using Railway stable mode (database + API, no agents)")
     else:
         app_module = 'src.main:app'
         logger.info("💻 Using full development mode")
