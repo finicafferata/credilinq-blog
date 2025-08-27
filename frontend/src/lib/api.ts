@@ -15,8 +15,9 @@ const isDev = import.meta.env.DEV;
 const isProduction = import.meta.env.PROD;
 
 // Use VITE_API_BASE_URL environment variable if available, otherwise determine based on environment
+// In production, use relative URLs for Vercel proxy; in dev, use direct backend
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 
-  (isDev ? 'http://localhost:8000' : 'https://credilinq-blog-production.up.railway.app');
+  (isDev ? 'http://localhost:8000' : '');
 
 // Note: avoid noisy console logs in production; use network tab if needed
 
