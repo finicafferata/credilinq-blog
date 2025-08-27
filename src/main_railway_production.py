@@ -302,6 +302,100 @@ def create_production_app() -> FastAPI:
                 "status": "success" if db_pool else "no database"
             }
         
+        @app.get("/api/v2/campaigns/{campaign_id}")
+        async def get_campaign(campaign_id: str):
+            """Get a specific campaign by ID."""
+            if not db_pool:
+                raise HTTPException(status_code=503, detail="Database not connected")
+            
+            try:
+                async with db_pool.acquire() as conn:
+                    row = await conn.fetchrow("""
+                        SELECT id, name, status, strategy, created_at, updated_at
+                        FROM campaigns
+                        WHERE id = $1
+                    """, campaign_id)
+                    
+                    if not row:
+                        raise HTTPException(status_code=404, detail="Campaign not found")
+                    
+                    # Parse strategy JSON
+                    strategy = json.loads(row["strategy"]) if row["strategy"] else {}
+                    
+                    return {
+                        "id": row["id"],
+                        "name": row["name"],
+                        "status": row["status"],
+                        "strategy": strategy,
+                        "timeline": [],  # Placeholder
+                        "tasks": [],  # Placeholder
+                        "scheduled_posts": [],  # Placeholder
+                        "performance": {
+                            "views": 0,
+                            "engagement": 0,
+                            "conversions": 0
+                        },
+                        "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+                        "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None
+                    }
+                    
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error fetching campaign: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @app.post("/api/v2/campaigns/")
+        async def create_campaign(campaign: dict):
+            """Create a new campaign."""
+            if not db_pool:
+                raise HTTPException(status_code=503, detail="Database not connected")
+            
+            try:
+                async with db_pool.acquire() as conn:
+                    # Generate UUID for the campaign
+                    import uuid
+                    campaign_id = str(uuid.uuid4())
+                    
+                    # Create the campaign
+                    result = await conn.fetchrow("""
+                        INSERT INTO campaigns (
+                            id, name, status, strategy, created_at, updated_at
+                        ) VALUES (
+                            $1, $2, $3, $4, NOW(), NOW()
+                        )
+                        RETURNING id, name, status, created_at, updated_at
+                    """, 
+                        campaign_id,
+                        campaign.get("campaign_name", "Untitled Campaign"),
+                        "draft",
+                        json.dumps({
+                            "company_context": campaign.get("company_context", ""),
+                            "description": campaign.get("description", ""),
+                            "strategy_type": campaign.get("strategy_type", ""),
+                            "priority": campaign.get("priority", "medium"),
+                            "target_audience": campaign.get("target_audience", ""),
+                            "distribution_channels": campaign.get("distribution_channels", []),
+                            "timeline_weeks": campaign.get("timeline_weeks", 4),
+                            "success_metrics": campaign.get("success_metrics", {}),
+                            "budget_allocation": campaign.get("budget_allocation", {}),
+                            "content_type": campaign.get("content_type", "orchestration")
+                        })
+                    )
+                    
+                    return {
+                        "id": result["id"],
+                        "name": result["name"],
+                        "status": result["status"],
+                        "created_at": result["created_at"].isoformat() if result["created_at"] else None,
+                        "updated_at": result["updated_at"].isoformat() if result["updated_at"] else None,
+                        "message": "Campaign created successfully"
+                    }
+                    
+            except Exception as e:
+                logger.error(f"Error creating campaign: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+        
         @app.get("/api/settings/company-profile")
         async def get_company_profile():
             """Get company profile settings from database."""
