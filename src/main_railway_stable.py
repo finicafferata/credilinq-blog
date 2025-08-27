@@ -101,13 +101,28 @@ def create_stable_app() -> FastAPI:
     )
 
     # CORS middleware with proper origins
-    cors_origins = os.getenv('CORS_ORIGINS', '*').split(',')
+    cors_origins_env = os.getenv('CORS_ORIGINS', '').strip()
+    if cors_origins_env:
+        cors_origins = [origin.strip() for origin in cors_origins_env.split(',')]
+    else:
+        # Default origins including Vercel deployment
+        cors_origins = [
+            "https://credilinq-blog.vercel.app",
+            "https://credilinq-blog-*.vercel.app",  # Preview deployments
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://localhost:5174"
+        ]
+    
+    logger.info(f"CORS origins configured: {cors_origins}")
+    
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
         allow_headers=["*"],
+        expose_headers=["*"],
     )
 
     @app.get("/")
