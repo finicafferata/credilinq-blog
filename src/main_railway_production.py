@@ -303,28 +303,154 @@ def create_production_app() -> FastAPI:
         
         @app.get("/api/settings/company-profile")
         async def get_company_profile():
-            """Get company profile settings."""
-            return {
-                "companyName": "Your Company",
-                "companyContext": "",
-                "brandVoice": "",
-                "valueProposition": "",
-                "industries": [],
-                "targetAudiences": [],
-                "tonePresets": ["Professional", "Casual", "Formal"],
-                "keywords": [],
-                "styleGuidelines": "",
-                "prohibitedTopics": [],
-                "complianceNotes": "",
-                "links": [],
-                "defaultCTA": "",
-                "updatedAt": datetime.now().isoformat()
-            }
+            """Get company profile settings from database."""
+            if not db_pool:
+                # Return defaults if no database
+                return {
+                    "companyName": "Your Company",
+                    "companyContext": "",
+                    "brandVoice": "",
+                    "valueProposition": "",
+                    "industries": [],
+                    "targetAudiences": [],
+                    "tonePresets": ["Professional", "Casual", "Formal"],
+                    "keywords": [],
+                    "styleGuidelines": "",
+                    "prohibitedTopics": [],
+                    "complianceNotes": "",
+                    "links": [],
+                    "defaultCTA": "",
+                    "updatedAt": datetime.now().isoformat()
+                }
+            
+            try:
+                async with db_pool.acquire() as conn:
+                    # Get settings (should only be one row)
+                    row = await conn.fetchrow("""
+                        SELECT * FROM company_settings 
+                        WHERE id = '00000000-0000-0000-0000-000000000001'
+                    """)
+                    
+                    if row:
+                        return {
+                            "companyName": row["company_name"] or "",
+                            "companyContext": row["company_context"] or "",
+                            "brandVoice": row["brand_voice"] or "",
+                            "valueProposition": row["value_proposition"] or "",
+                            "industries": row["industries"] or [],
+                            "targetAudiences": row["target_audiences"] or [],
+                            "tonePresets": row["tone_presets"] or ["Professional", "Casual", "Formal"],
+                            "keywords": row["keywords"] or [],
+                            "styleGuidelines": row["style_guidelines"] or "",
+                            "prohibitedTopics": row["prohibited_topics"] or [],
+                            "complianceNotes": row["compliance_notes"] or "",
+                            "links": row["links"] or [],
+                            "defaultCTA": row["default_cta"] or "",
+                            "updatedAt": row["updated_at"].isoformat() if row["updated_at"] else datetime.now().isoformat()
+                        }
+                    else:
+                        # Create default row
+                        await conn.execute("""
+                            INSERT INTO company_settings (id, company_name, company_context)
+                            VALUES ('00000000-0000-0000-0000-000000000001', 'Your Company', '')
+                        """)
+                        return {
+                            "companyName": "Your Company",
+                            "companyContext": "",
+                            "brandVoice": "",
+                            "valueProposition": "",
+                            "industries": [],
+                            "targetAudiences": [],
+                            "tonePresets": ["Professional", "Casual", "Formal"],
+                            "keywords": [],
+                            "styleGuidelines": "",
+                            "prohibitedTopics": [],
+                            "complianceNotes": "",
+                            "links": [],
+                            "defaultCTA": "",
+                            "updatedAt": datetime.now().isoformat()
+                        }
+                        
+            except Exception as e:
+                logger.error(f"Error fetching settings: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
         
         @app.put("/api/settings/company-profile")
         async def update_company_profile(profile: dict):
-            """Update company profile settings."""
-            return {"message": "Settings updated", "status": "success"}
+            """Update company profile settings in database."""
+            if not db_pool:
+                raise HTTPException(status_code=503, detail="Database not connected")
+            
+            try:
+                async with db_pool.acquire() as conn:
+                    # Parse arrays from comma-separated strings if needed
+                    industries = profile.get("industries", [])
+                    if isinstance(industries, str):
+                        industries = [i.strip() for i in industries.split(",") if i.strip()]
+                    
+                    target_audiences = profile.get("targetAudiences", [])
+                    if isinstance(target_audiences, str):
+                        target_audiences = [t.strip() for t in target_audiences.split(",") if t.strip()]
+                    
+                    tone_presets = profile.get("tonePresets", [])
+                    if isinstance(tone_presets, str):
+                        tone_presets = [t.strip() for t in tone_presets.split(",") if t.strip()]
+                    
+                    keywords = profile.get("keywords", [])
+                    if isinstance(keywords, str):
+                        keywords = [k.strip() for k in keywords.split(",") if k.strip()]
+                    
+                    prohibited_topics = profile.get("prohibitedTopics", [])
+                    if isinstance(prohibited_topics, str):
+                        prohibited_topics = [p.strip() for p in prohibited_topics.split(",") if p.strip()]
+                    
+                    # Update or insert settings
+                    await conn.execute("""
+                        INSERT INTO company_settings (
+                            id, company_name, company_context, brand_voice, 
+                            value_proposition, industries, target_audiences,
+                            tone_presets, keywords, style_guidelines,
+                            prohibited_topics, compliance_notes, links, default_cta
+                        ) VALUES (
+                            '00000000-0000-0000-0000-000000000001', $1, $2, $3, 
+                            $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+                        )
+                        ON CONFLICT (id) DO UPDATE SET
+                            company_name = EXCLUDED.company_name,
+                            company_context = EXCLUDED.company_context,
+                            brand_voice = EXCLUDED.brand_voice,
+                            value_proposition = EXCLUDED.value_proposition,
+                            industries = EXCLUDED.industries,
+                            target_audiences = EXCLUDED.target_audiences,
+                            tone_presets = EXCLUDED.tone_presets,
+                            keywords = EXCLUDED.keywords,
+                            style_guidelines = EXCLUDED.style_guidelines,
+                            prohibited_topics = EXCLUDED.prohibited_topics,
+                            compliance_notes = EXCLUDED.compliance_notes,
+                            links = EXCLUDED.links,
+                            default_cta = EXCLUDED.default_cta,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, 
+                        profile.get("companyName", ""),
+                        profile.get("companyContext", ""),
+                        profile.get("brandVoice", ""),
+                        profile.get("valueProposition", ""),
+                        industries,
+                        target_audiences,
+                        tone_presets,
+                        keywords,
+                        profile.get("styleGuidelines", ""),
+                        prohibited_topics,
+                        profile.get("complianceNotes", ""),
+                        profile.get("links", []),
+                        profile.get("defaultCTA", "")
+                    )
+                    
+                return {"message": "Settings updated successfully", "status": "success"}
+                    
+            except Exception as e:
+                logger.error(f"Error updating settings: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
 
     # Add a special endpoint to trigger agent initialization
     @app.post("/api/admin/initialize-agents")
