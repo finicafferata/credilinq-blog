@@ -144,7 +144,7 @@ def create_stable_app() -> FastAPI:
             "database": "connected" if db_pool else "not connected"
         }
 
-    @app.get("/api/blogs")
+    @app.get("/api/v2/blogs")
     async def get_blogs(
         page: int = 1,
         limit: int = 10,
@@ -215,7 +215,7 @@ def create_stable_app() -> FastAPI:
             "status": "success" if db_pool else "no database"
         }
     
-    @app.get("/api/campaigns")
+    @app.get("/api/v2/campaigns/")
     async def get_campaigns(
         page: int = 1,
         limit: int = 10
@@ -272,7 +272,7 @@ def create_stable_app() -> FastAPI:
             "status": "success" if db_pool else "no database"
         }
 
-    @app.post("/api/blogs")
+    @app.post("/api/v2/blogs")
     async def create_blog(title: str, content: str = ""):
         """Create a new blog post."""
         if not db_pool:

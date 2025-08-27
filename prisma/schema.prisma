@@ -7,7 +7,7 @@ datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
   directUrl  = env("DATABASE_URL_DIRECT")
-  extensions = [uuid_ossp(map: "uuid-ossp", schema: "extensions")]
+  // extensions = [uuid_ossp(map: "uuid-ossp", schema: "extensions")]
 }
 
 model BlogPost {
