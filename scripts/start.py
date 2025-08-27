@@ -117,23 +117,26 @@ def main():
     logger.info(f"  Dry Run Mode: {dry_run}")
     
     # Choose application module based on environment
-    # Progressive Railway modes: ultra-minimal -> stable -> full
+    # Progressive Railway modes: minimal -> stable -> production -> full
     railway_full = os.environ.get('RAILWAY_FULL', '').lower() == 'true'
+    railway_production = os.environ.get('RAILWAY_PRODUCTION', '').lower() == 'true'
     railway_stable = os.environ.get('RAILWAY_STABLE', '').lower() == 'true'
     railway_minimal = os.environ.get('RAILWAY_MINIMAL', '').lower() == 'true'
     
     if is_railway:
-        # Default to stable mode for now (full mode has startup issues)
         if railway_minimal:
             app_module = 'src.main_railway_minimal:app'
             logger.info("🚂 Using Railway ultra-minimal mode (health checks only)")
+        elif railway_stable:
+            app_module = 'src.main_railway_stable:app'
+            logger.info("🚂 Using Railway stable mode (database + API, no agents)")
         elif railway_full:
             app_module = 'src.main:app'
             logger.info("🚂 Using Railway FULL mode (all features, agents, settings)")
         else:
-            # DEFAULT: Use stable mode for reliability
-            app_module = 'src.main_railway_stable:app'
-            logger.info("🚂 Using Railway stable mode (database + API, no agents)")
+            # DEFAULT: Use production mode (features with lazy agent loading)
+            app_module = 'src.main_railway_production:app'
+            logger.info("🚂 Using Railway production mode (all features, lazy agent loading)")
     else:
         app_module = 'src.main:app'
         logger.info("💻 Using full development mode")
