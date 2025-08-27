@@ -29,7 +29,7 @@ try {
       <App />
     </StrictMode>,
   );
-  console.log('React app rendered successfully');
+  console.log('React app rendered successfully - v1.1');
 } catch (error) {
   console.error('Failed to render React app:', error);
   // Fallback: show error on page
