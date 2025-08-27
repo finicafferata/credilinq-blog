@@ -8,16 +8,16 @@ healthcheckTimeout = 60
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
-# Memory and resource limits
-memoryLimit = "1GB"
-cpuLimit = "1000m"
+# Memory and resource limits - increased for full version with agents
+memoryLimit = "2GB"
+cpuLimit = "1500m"
 
-# Startup configuration
-startCommand = "python /app/scripts/start.py"
+# Startup configuration with full mode enabled
+startCommand = "RAILWAY_FULL=true python /app/scripts/start.py"
 
 # Environment-specific overrides
 [environments.production]
-memoryLimit = "2GB"
+memoryLimit = "4GB"
 cpuLimit = "2000m"
 
 [environments.staging]

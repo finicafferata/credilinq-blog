@@ -118,11 +118,15 @@ def main():
     
     # Choose application module based on environment
     # Progressive Railway modes: ultra-minimal -> stable -> full
+    railway_full = os.environ.get('RAILWAY_FULL', '').lower() == 'true'
     railway_stable = os.environ.get('RAILWAY_STABLE', '').lower() == 'true'
     railway_minimal = os.environ.get('RAILWAY_MINIMAL', '').lower() == 'true'
     
     if is_railway:
-        if railway_stable:
+        if railway_full:
+            app_module = 'src.main:app'
+            logger.info("🚂 Using Railway FULL mode (all features, agents, settings)")
+        elif railway_stable:
             app_module = 'src.main_railway_stable:app'
             logger.info("🚂 Using Railway stable mode (database + API, no agents)")
         else:
