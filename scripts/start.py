@@ -117,13 +117,15 @@ def main():
     logger.info(f"  Dry Run Mode: {dry_run}")
     
     # Choose application module based on environment
-    railway_mode = os.environ.get('RAILWAY_MODE', '').lower() == 'true' or \
+    # Default to minimal mode for Railway to avoid resource issues
+    railway_mode = is_railway or \
+                  os.environ.get('RAILWAY_MODE', '').lower() == 'true' or \
                   os.environ.get('MINIMAL_MODE', '').lower() == 'true'
     
-    app_module = 'src.main_railway:app' if railway_mode else 'src.main:app'
+    app_module = 'src.main_minimal:app' if railway_mode else 'src.main:app'
     
     if railway_mode:
-        logger.info("🚂 Using Railway-optimized application mode")
+        logger.info("🚂 Using Railway minimal application mode (optimized for resources)")
     
     # Build uvicorn command
     cmd = [
