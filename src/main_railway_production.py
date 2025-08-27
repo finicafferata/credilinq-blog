@@ -12,6 +12,7 @@ from datetime import datetime
 import logging
 import os
 import asyncpg
+import json
 
 # Configure logging
 logging.basicConfig(
@@ -344,7 +345,7 @@ def create_production_app() -> FastAPI:
                             "styleGuidelines": row["style_guidelines"] or "",
                             "prohibitedTopics": row["prohibited_topics"] or [],
                             "complianceNotes": row["compliance_notes"] or "",
-                            "links": row["links"] or [],
+                            "links": json.loads(row["links"]) if row["links"] else [],
                             "defaultCTA": row["default_cta"] or "",
                             "updatedAt": row["updated_at"].isoformat() if row["updated_at"] else datetime.now().isoformat()
                         }
@@ -442,7 +443,7 @@ def create_production_app() -> FastAPI:
                         profile.get("styleGuidelines", ""),
                         prohibited_topics,
                         profile.get("complianceNotes", ""),
-                        profile.get("links", []),
+                        json.dumps(profile.get("links", [])) if profile.get("links") else '[]',
                         profile.get("defaultCTA", "")
                     )
                     
@@ -462,6 +463,46 @@ def create_production_app() -> FastAPI:
             "agents_loaded": agents_initialized,
             "agent_count": len(agent_registry)
         }
+    
+    # Blog generation endpoint with lazy agent loading
+    @app.post("/api/v2/blogs/generate")
+    async def generate_blog_content(request: dict):
+        """Generate blog content using AI agents."""
+        # Initialize agents on first use
+        if not agents_initialized:
+            initialize_agents_lazy()
+        
+        if not agents_initialized or not agent_registry:
+            return {
+                "status": "error",
+                "message": "AI agents not available. Using template response.",
+                "content": f"# {request.get('title', 'Blog Post')}\n\nThis is a placeholder. AI agents are initializing..."
+            }
+        
+        try:
+            # Use the blog workflow if available
+            from .agents.workflow.blog_workflow import BlogWorkflow
+            
+            workflow = BlogWorkflow()
+            result = await workflow.create_blog_post(
+                title=request.get("title", ""),
+                company_context=request.get("company_context", ""),
+                content_type=request.get("content_type", "blog")
+            )
+            
+            return {
+                "status": "success",
+                "blog_id": result.get("blog_id"),
+                "content": result.get("content"),
+                "message": "Blog generated successfully"
+            }
+        except Exception as e:
+            logger.error(f"Error generating blog: {e}")
+            return {
+                "status": "error",
+                "message": str(e),
+                "content": f"# {request.get('title', 'Blog Post')}\n\nError generating content: {str(e)}"
+            }
 
     logger.info("✅ Production FastAPI app created successfully")
     return app
