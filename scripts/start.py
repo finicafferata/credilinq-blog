@@ -122,7 +122,7 @@ def main():
                   os.environ.get('RAILWAY_MODE', '').lower() == 'true' or \
                   os.environ.get('MINIMAL_MODE', '').lower() == 'true'
     
-    app_module = 'src.main_minimal:app' if railway_mode else 'src.main:app'
+    app_module = 'src.main_railway_minimal:app' if railway_mode else 'src.main:app'
     
     if railway_mode:
         logger.info("🚂 Using Railway minimal application mode (optimized for resources)")
