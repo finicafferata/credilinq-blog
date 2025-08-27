@@ -311,7 +311,7 @@ def create_production_app() -> FastAPI:
             try:
                 async with db_pool.acquire() as conn:
                     row = await conn.fetchrow("""
-                        SELECT id, name, status, strategy, created_at, updated_at
+                        SELECT id, name, status, metadata, created_at, updated_at
                         FROM campaigns
                         WHERE id = $1
                     """, campaign_id)
@@ -319,8 +319,9 @@ def create_production_app() -> FastAPI:
                     if not row:
                         raise HTTPException(status_code=404, detail="Campaign not found")
                     
-                    # Parse strategy JSON
-                    strategy = json.loads(row["strategy"]) if row["strategy"] else {}
+                    # Get strategy from metadata
+                    metadata = row["metadata"] or {}
+                    strategy = metadata
                     
                     return {
                         "id": row["id"],
@@ -357,10 +358,24 @@ def create_production_app() -> FastAPI:
                     import uuid
                     campaign_id = str(uuid.uuid4())
                     
-                    # Create the campaign
+                    # Prepare metadata
+                    metadata = {
+                        "company_context": campaign.get("company_context", ""),
+                        "description": campaign.get("description", ""),
+                        "strategy_type": campaign.get("strategy_type", ""),
+                        "priority": campaign.get("priority", "medium"),
+                        "target_audience": campaign.get("target_audience", ""),
+                        "distribution_channels": campaign.get("distribution_channels", []),
+                        "timeline_weeks": campaign.get("timeline_weeks", 4),
+                        "success_metrics": campaign.get("success_metrics", {}),
+                        "budget_allocation": campaign.get("budget_allocation", {}),
+                        "content_type": campaign.get("content_type", "orchestration")
+                    }
+                    
+                    # Create the campaign with metadata
                     result = await conn.fetchrow("""
                         INSERT INTO campaigns (
-                            id, name, status, strategy, created_at, updated_at
+                            id, name, status, metadata, created_at, updated_at
                         ) VALUES (
                             $1, $2, $3, $4, NOW(), NOW()
                         )
@@ -369,18 +384,7 @@ def create_production_app() -> FastAPI:
                         campaign_id,
                         campaign.get("campaign_name", "Untitled Campaign"),
                         "draft",
-                        json.dumps({
-                            "company_context": campaign.get("company_context", ""),
-                            "description": campaign.get("description", ""),
-                            "strategy_type": campaign.get("strategy_type", ""),
-                            "priority": campaign.get("priority", "medium"),
-                            "target_audience": campaign.get("target_audience", ""),
-                            "distribution_channels": campaign.get("distribution_channels", []),
-                            "timeline_weeks": campaign.get("timeline_weeks", 4),
-                            "success_metrics": campaign.get("success_metrics", {}),
-                            "budget_allocation": campaign.get("budget_allocation", {}),
-                            "content_type": campaign.get("content_type", "orchestration")
-                        })
+                        json.dumps(metadata)
                     )
                     
                     return {
