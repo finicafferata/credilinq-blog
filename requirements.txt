@@ -12,6 +12,7 @@ openai>=1.10.0,<2.0.0
 supabase==2.0.2
 psycopg2-binary==2.9.9
 pgvector==0.2.4
+asyncpg>=0.29.0
 python-multipart==0.0.6
 pydantic==2.5.0
 pydantic-settings>=2.0.0
