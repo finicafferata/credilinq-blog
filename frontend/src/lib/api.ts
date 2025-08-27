@@ -107,7 +107,11 @@ export const blogApi = {
   // Get all blogs
   list: async (): Promise<BlogSummary[]> => {
     const response = await api.get('/api/v2/blogs');
-    return response.data;
+    // Handle both response formats: array or object with blogs property
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    return response.data.blogs || [];
   },
 
   // Get single blog by ID
@@ -189,7 +193,11 @@ export const campaignApi = {
   // Get all campaigns
   list: async (): Promise<CampaignSummary[]> => {
     const response = await api.get('/api/v2/campaigns/');
-    return response.data;
+    // Handle both response formats: array or object with campaigns property
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    return response.data.campaigns || [];
   },
 
   // Create a new campaign
