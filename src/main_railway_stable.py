@@ -157,11 +157,11 @@ def create_stable_app() -> FastAPI:
         if db_pool:
             try:
                 async with db_pool.acquire() as conn:
-                    # Check if BlogPost table exists
+                    # Check if blog_posts table exists
                     table_exists = await conn.fetchval("""
                         SELECT EXISTS (
                             SELECT FROM information_schema.tables 
-                            WHERE table_name = 'BlogPost'
+                            WHERE table_name = 'blog_posts'
                         )
                     """)
                     
@@ -169,25 +169,25 @@ def create_stable_app() -> FastAPI:
                         # Get total count
                         if status:
                             total = await conn.fetchval(
-                                'SELECT COUNT(*) FROM "BlogPost" WHERE status = $1',
+                                'SELECT COUNT(*) FROM "blog_posts" WHERE status = $1',
                                 status
                             )
                         else:
-                            total = await conn.fetchval('SELECT COUNT(*) FROM "BlogPost"')
+                            total = await conn.fetchval('SELECT COUNT(*) FROM "blog_posts"')
                         
                         # Get blogs with pagination
                         offset = (page - 1) * limit
                         query = """
-                            SELECT id, title, content, status, 
-                                   "createdAt", "updatedAt"
-                            FROM "BlogPost"
+                            SELECT id, title, content_markdown as content, status, 
+                                   created_at, updated_at
+                            FROM "blog_posts"
                         """
                         if status:
                             query += " WHERE status = $3"
-                            query += " ORDER BY \"createdAt\" DESC LIMIT $1 OFFSET $2"
+                            query += " ORDER BY created_at DESC LIMIT $1 OFFSET $2"
                             rows = await conn.fetch(query, limit, offset, status)
                         else:
-                            query += " ORDER BY \"createdAt\" DESC LIMIT $1 OFFSET $2"
+                            query += " ORDER BY created_at DESC LIMIT $1 OFFSET $2"
                             rows = await conn.fetch(query, limit, offset)
                         
                         blogs = [
@@ -196,8 +196,8 @@ def create_stable_app() -> FastAPI:
                                 "title": row["title"],
                                 "content": row["content"][:200] if row["content"] else "",
                                 "status": row["status"],
-                                "created_at": row["createdAt"].isoformat() if row["createdAt"] else None,
-                                "updated_at": row["updatedAt"].isoformat() if row["updatedAt"] else None,
+                                "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+                                "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
                             }
                             for row in rows
                         ]
@@ -227,24 +227,24 @@ def create_stable_app() -> FastAPI:
         if db_pool:
             try:
                 async with db_pool.acquire() as conn:
-                    # Check if Campaign table exists
+                    # Check if campaigns table exists
                     table_exists = await conn.fetchval("""
                         SELECT EXISTS (
                             SELECT FROM information_schema.tables 
-                            WHERE table_name = 'Campaign'
+                            WHERE table_name = 'campaigns'
                         )
                     """)
                     
                     if table_exists:
                         # Get total count
-                        total = await conn.fetchval('SELECT COUNT(*) FROM "Campaign"')
+                        total = await conn.fetchval('SELECT COUNT(*) FROM "campaigns"')
                         
                         # Get campaigns with pagination
                         offset = (page - 1) * limit
                         rows = await conn.fetch("""
-                            SELECT id, name, status, "createdAt", "updatedAt"
-                            FROM "Campaign"
-                            ORDER BY "createdAt" DESC
+                            SELECT id, name, status, created_at, updated_at
+                            FROM "campaigns"
+                            ORDER BY created_at DESC
                             LIMIT $1 OFFSET $2
                         """, limit, offset)
                         
@@ -253,8 +253,8 @@ def create_stable_app() -> FastAPI:
                                 "id": row["id"],
                                 "name": row["name"],
                                 "status": row["status"],
-                                "created_at": row["createdAt"].isoformat() if row["createdAt"] else None,
-                                "updated_at": row["updatedAt"].isoformat() if row["updatedAt"] else None,
+                                "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+                                "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
                             }
                             for row in rows
                         ]
@@ -284,18 +284,18 @@ def create_stable_app() -> FastAPI:
                 table_exists = await conn.fetchval("""
                     SELECT EXISTS (
                         SELECT FROM information_schema.tables 
-                        WHERE table_name = 'BlogPost'
+                        WHERE table_name = 'blog_posts'
                     )
                 """)
                 
                 if not table_exists:
-                    raise HTTPException(status_code=503, detail="BlogPost table does not exist")
+                    raise HTTPException(status_code=503, detail="blog_posts table does not exist")
                 
                 # Create blog post
                 result = await conn.fetchrow("""
-                    INSERT INTO "BlogPost" (title, content, status, "createdAt", "updatedAt")
+                    INSERT INTO "blog_posts" (title, content_markdown, status, created_at, updated_at)
                     VALUES ($1, $2, 'draft', NOW(), NOW())
-                    RETURNING id, title, content, status, "createdAt", "updatedAt"
+                    RETURNING id, title, content_markdown as content, status, created_at, updated_at
                 """, title, content)
                 
                 return {
@@ -303,8 +303,8 @@ def create_stable_app() -> FastAPI:
                     "title": result["title"],
                     "content": result["content"],
                     "status": result["status"],
-                    "created_at": result["createdAt"].isoformat(),
-                    "updated_at": result["updatedAt"].isoformat(),
+                    "created_at": result["created_at"].isoformat(),
+                    "updated_at": result["updated_at"].isoformat(),
                 }
                 
         except Exception as e:
