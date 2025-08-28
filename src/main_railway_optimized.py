@@ -2339,34 +2339,63 @@ To unsubscribe from these strategic insights, simply reply with "UNSUBSCRIBE".""
                     """)
                     
                     if tasks_table_exists:
-                        # Clear existing tasks for this campaign rerun
+                        # Clear existing tasks for this campaign (avoid metadata column reference)
+                        # Just delete all tasks for this campaign from recent reruns
                         await conn.execute("""
                             DELETE FROM campaign_tasks 
-                            WHERE campaign_id = $1 AND metadata->>'rerun' = 'true'
+                            WHERE campaign_id = $1 AND updated_at > NOW() - INTERVAL '1 hour'
                         """, campaign_id)
                         
-                        # Insert new generated tasks
+                        # First check what columns exist in campaign_tasks table
+                        columns_result = await conn.fetch("""
+                            SELECT column_name FROM information_schema.columns 
+                            WHERE table_name = 'campaign_tasks' 
+                            ORDER BY ordinal_position
+                        """)
+                        columns = [row['column_name'] for row in columns_result]
+                        logger.info(f"📋 Available campaign_tasks columns: {columns}")
+                        
+                        # Insert new generated tasks with available columns only
                         for task in tasks:
-                            await conn.execute("""
-                                INSERT INTO campaign_tasks (
-                                    id, campaign_id, task_type, result, status, 
-                                    priority, metadata, created_at, updated_at
-                                ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-                            """, 
-                            task["id"],
-                            campaign_id, 
-                            task["type"],
-                            task["content"],
-                            "completed",  # Use valid enum value
-                            task["priority"],
-                            json.dumps({
-                                "title": task["title"],
-                                "word_count": task["word_count"],
-                                "enhanced": task["enhanced"],
-                                "rerun": task["rerun"],
-                                "agent_used": task.get("agent_used", "Enhanced Template")
-                            })
-                            )
+                            if 'metadata' in columns:
+                                # Full insert with metadata
+                                await conn.execute("""
+                                    INSERT INTO campaign_tasks (
+                                        id, campaign_id, task_type, result, status, 
+                                        priority, metadata, created_at, updated_at
+                                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+                                """, 
+                                task["id"], campaign_id, task["type"], task["content"],
+                                "completed", task["priority"],
+                                json.dumps({
+                                    "title": task["title"],
+                                    "word_count": task["word_count"],
+                                    "enhanced": task["enhanced"],
+                                    "rerun": task["rerun"],
+                                    "agent_used": task.get("agent_used", "Enhanced Template")
+                                })
+                                )
+                            elif 'title' in columns:
+                                # Insert with title column if available
+                                await conn.execute("""
+                                    INSERT INTO campaign_tasks (
+                                        id, campaign_id, task_type, result, status, 
+                                        priority, title, created_at, updated_at
+                                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+                                """, 
+                                task["id"], campaign_id, task["type"], task["content"],
+                                "completed", task["priority"], task["title"]
+                                )
+                            else:
+                                # Basic insert with minimal columns
+                                await conn.execute("""
+                                    INSERT INTO campaign_tasks (
+                                        id, campaign_id, task_type, result, status, 
+                                        created_at, updated_at
+                                    ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+                                """, 
+                                task["id"], campaign_id, task["type"], task["content"], "completed"
+                                )
                         
                         logger.info(f"✅ Saved {len(tasks)} generated tasks to database")
                     else:
