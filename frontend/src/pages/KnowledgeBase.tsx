@@ -85,7 +85,7 @@ export function KnowledgeBase() {
       }
 
       const result = await response.json();
-      const uploadResult = result; // Backend returns single object, not array
+      const uploadResult = Array.isArray(result) ? result[0] : result; // Handle both formats
 
       setFiles(prev => prev.map((f, i) => 
         i === fileIndex 
@@ -93,7 +93,7 @@ export function KnowledgeBase() {
               ...f, 
               status: 'success', 
               progress: 100, 
-              documentId: uploadResult.id 
+              documentId: uploadResult?.id || 'unknown'
             }
           : f
       ));
