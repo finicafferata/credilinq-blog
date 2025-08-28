@@ -2386,6 +2386,19 @@ To unsubscribe from these strategic insights, simply reply with "UNSUBSCRIBE".""
                             }
                             return mapping.get(status, "pending")
                         
+                        def map_priority_to_integer(priority):
+                            """Map priority strings to integer values."""
+                            if isinstance(priority, int):
+                                return priority
+                            mapping = {
+                                "high": 1,
+                                "medium": 3,
+                                "low": 5,
+                                "urgent": 0,
+                                "critical": 0
+                            }
+                            return mapping.get(str(priority).lower(), 5)  # Default to 5
+                        
                         def map_content_type_to_target_format(content_type):
                             """Map content type to target format."""
                             mapping = {
@@ -2408,9 +2421,10 @@ To unsubscribe from these strategic insights, simply reply with "UNSUBSCRIBE".""
                         
                         # Insert new generated tasks with proper enum values
                         for task in tasks:
-                            # Map to valid enum values
+                            # Map to valid enum values and data types
                             valid_task_type = map_content_type_to_task_type(task["type"])
                             valid_status = map_status_to_task_status(task.get("status", "generated"))
+                            valid_priority = map_priority_to_integer(task.get("priority", "medium"))
                             target_format = map_content_type_to_target_format(task["type"])
                             target_asset = map_content_type_to_target_asset(task["type"])
                             
@@ -2429,7 +2443,7 @@ To unsubscribe from these strategic insights, simply reply with "UNSUBSCRIBE".""
                                 target_asset,
                                 valid_status,  # Use mapped status
                                 task["content"],
-                                task["priority"]
+                                valid_priority  # Use mapped priority integer
                                 )
                                 logger.debug(f"✅ Saved task {task['id']}: {valid_task_type}")
                                 
