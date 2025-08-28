@@ -3,7 +3,6 @@ import { Play, RefreshCw, CheckCircle, XCircle, Edit3, RotateCcw, BarChart3 } fr
 import type { CampaignDetail } from '../lib/api';
 import { campaignApi } from '../lib/api';
 import { RevisionFeedbackDialog } from './RevisionFeedbackDialog';
-import { CampaignContentViewer } from './CampaignContentViewer';
 import { ContentNarrativeViewer } from './ContentNarrativeViewer';
 
 interface CampaignDetailsProps {
@@ -32,7 +31,7 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
   const [submittingRevision, setSubmittingRevision] = useState(false);
   const [regeneratingTasks, setRegeneratingTasks] = useState<Set<string>>(new Set());
   const [feedbackAnalytics, setFeedbackAnalytics] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'deliverables' | 'tasks' | 'content'>('deliverables');
+  const [activeTab, setActiveTab] = useState<'deliverables' | 'tasks'>('deliverables');
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -350,16 +349,6 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
                       Content Deliverables
                     </button>
                     <button
-                      onClick={() => setActiveTab('content')}
-                      className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                        activeTab === 'content'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      Legacy Content View ({campaignTasks.filter(t => t.status === 'completed').length})
-                    </button>
-                    <button
                       onClick={() => setActiveTab('tasks')}
                       className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                         activeTab === 'tasks'
@@ -378,13 +367,6 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
                     /* Enhanced Content Narrative Viewer */
                     <ContentNarrativeViewer
                       campaignId={campaign.id}
-                      campaignName={campaign.name}
-                    />
-                  ) : activeTab === 'content' ? (
-                    /* Enhanced Content Viewer */
-                    <CampaignContentViewer
-                      campaignId={campaign.id}
-                      tasks={campaignTasks}
                       campaignName={campaign.name}
                     />
                   ) : (

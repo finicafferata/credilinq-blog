@@ -12,9 +12,9 @@ interface CampaignOrchestrationData {
   // Step 1: Campaign Foundation
   campaign_name: string;
   campaign_objective: string; // lead_generation, brand_awareness, customer_retention, etc.
-  industry: string;
+  industry: string; // Campaign purpose/focus area
   company_context: string;
-  target_market: string; // B2B, B2C, etc.
+  target_market: 'direct_merchants' | 'embedded_partners'; // CrediLinq's two business models
   
   // Step 2: Strategy & Audience
   target_personas: Array<{
@@ -64,7 +64,7 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
     campaign_objective: 'lead_generation',
     industry: '',
     company_context: '',
-    target_market: 'B2B',
+    target_market: 'direct_merchants',
     target_personas: [],
     key_messages: [],
     value_proposition: '',
@@ -76,7 +76,12 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
       video_content: 0,
       infographics: 2
     },
-    content_themes: [],
+    content_themes: [
+      'SME credit access fundamentals',
+      'CrediLinq platform benefits',
+      'Customer success stories',
+      'Industry insights and trends'
+    ],
     content_tone: 'professional',
     distribution_channels: ['linkedin', 'website'],
     campaign_duration_weeks: 4,
@@ -123,6 +128,32 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
     updateWizardData({ target_personas: updatedPersonas });
   };
 
+  // Generate smart content themes based on target market and campaign purpose
+  const generateSmartContentThemes = (targetMarket: string, campaignPurpose: string): string[] => {
+    const baseThemes = ['CrediLinq platform benefits', 'Customer success stories'];
+    
+    // Target market specific themes
+    const marketThemes = targetMarket === 'direct_merchants' 
+      ? ['SME credit access fundamentals', 'Business growth through credit', 'Credit application best practices']
+      : ['Embedded finance integration guide', 'API implementation benefits', 'Partner success metrics', 'B2B2B revenue models'];
+    
+    // Campaign purpose specific themes  
+    const purposeThemes: { [key: string]: string[] } = {
+      'credit_access_education': ['Credit education fundamentals', 'Understanding business credit', 'Credit myths debunked'],
+      'partnership_acquisition': ['Partnership benefits showcase', 'Integration success stories', 'ROI of embedded finance'],
+      'product_feature_launch': ['New feature highlights', 'Product update benefits', 'Enhanced capabilities demo'],
+      'competitive_positioning': ['CrediLinq vs competitors', 'Unique value propositions', 'Market differentiation'],
+      'thought_leadership': ['Industry insights and trends', 'Future of fintech', 'Credit market analysis'],
+      'customer_success_stories': ['Customer transformation stories', 'Real-world success metrics', 'Before and after case studies'],
+      'market_expansion': ['New market opportunities', 'Geographic expansion benefits', 'Sector-specific solutions']
+    };
+    
+    const selectedPurposeThemes = purposeThemes[campaignPurpose] || ['Industry best practices', 'Market insights'];
+    
+    // Combine and return unique themes
+    return [...baseThemes, ...marketThemes.slice(0, 2), ...selectedPurposeThemes.slice(0, 2)].slice(0, 4);
+  };
+
   const getAIContentSuggestions = async () => {
     setLoading(true);
     try {
@@ -134,15 +165,20 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
           email_sequences: 1,
           infographics: Math.max(1, Math.floor(wizardData.campaign_duration_weeks / 3))
         },
-        suggested_themes: [
-          `${wizardData.industry} best practices`,
+        suggested_themes: wizardData.industry ? [
+          `${wizardData.industry.replace(/_/g, ' ')} insights`,
           `${wizardData.campaign_objective.replace('_', ' ')} strategies`,
-          'Industry insights and trends',
-          'Case studies and success stories'
+          wizardData.target_market === 'direct_merchants' ? 'SME credit access tips' : 'Embedded finance integration guides',
+          'CrediLinq success stories'
+        ] : [
+          `${wizardData.campaign_objective.replace('_', ' ')} strategies`,
+          'Credit solutions overview',
+          'Customer success stories',
+          'Industry best practices'
         ],
-        optimal_channels: wizardData.target_market === 'B2B' 
-          ? ['linkedin', 'email', 'website'] 
-          : ['facebook', 'instagram', 'email', 'website'],
+        optimal_channels: wizardData.target_market === 'direct_merchants' 
+          ? ['linkedin', 'email', 'website', 'industry_publications'] 
+          : ['linkedin', 'email', 'website', 'partner_portals', 'webinars'],
         recommended_posting_frequency: wizardData.campaign_duration_weeks > 6 ? 'weekly' : 'bi-weekly'
       };
       
@@ -189,7 +225,7 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
       const response = await campaignApi.createOrchestrationCampaign({
         campaign_name: wizardData.campaign_name,
         company_context: wizardData.company_context,
-        description: `${wizardData.campaign_objective} campaign for ${wizardData.industry} targeting ${wizardData.target_market}`,
+        description: `${wizardData.campaign_objective.replace('_', ' ')} campaign targeting ${wizardData.target_market === 'direct_merchants' ? 'businesses seeking credit access' : 'companies interested in embedded finance solutions'}${wizardData.industry ? ` with focus on ${wizardData.industry.replace(/_/g, ' ')}` : ''}`,
         strategy_type: wizardData.campaign_objective,
         priority: 'high',
         target_audience: wizardData.target_personas.map(p => p.name).join(', '),
@@ -331,15 +367,22 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Industry/Sector
+                      Campaign Purpose
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={wizardData.industry}
                       onChange={(e) => updateWizardData({ industry: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                      placeholder="e.g., B2B SaaS, FinTech, Healthcare"
-                    />
+                    >
+                      <option value="">Select campaign purpose...</option>
+                      <option value="credit_access_education">📚 Credit Access Education & Awareness</option>
+                      <option value="partnership_acquisition">🤝 Partnership & Integration Acquisition</option>
+                      <option value="product_feature_launch">🚀 Product Feature Launch & Updates</option>
+                      <option value="competitive_positioning">⚔️ Competitive Positioning & Differentiation</option>
+                      <option value="thought_leadership">💡 Thought Leadership & Industry Expertise</option>
+                      <option value="customer_success_stories">🎯 Customer Success & Case Studies</option>
+                      <option value="market_expansion">🌍 Market Expansion & New Segments</option>
+                    </select>
                   </div>
 
                   <div>
@@ -351,9 +394,8 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
                       onChange={(e) => updateWizardData({ target_market: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                     >
-                      <option value="B2B">B2B (Business to Business)</option>
-                      <option value="B2C">B2C (Business to Consumer)</option>
-                      <option value="B2B2C">B2B2C (Business to Business to Consumer)</option>
+                      <option value="direct_merchants">🏪 Direct Merchant Acquisition (Businesses seeking credit)</option>
+                      <option value="embedded_partners">🏢 Partner/Embedded Solutions (Companies wanting to embed credit)</option>
                     </select>
                   </div>
                 </div>
@@ -378,7 +420,9 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
                 <p className="text-purple-800 text-sm">
                   {wizardData.campaign_objective && (
                     <span className="capitalize">{wizardData.campaign_objective.replace('_', ' ')}</span>
-                  )} campaign for {wizardData.target_market} {wizardData.industry} market.
+                  )} campaign for {wizardData.target_market === 'direct_merchants' ? 'businesses seeking credit' : 'embedded finance partners'}{wizardData.industry && (
+                    <span> - Focus: {wizardData.industry.replace(/_/g, ' ')}</span>
+                  )}.
                 </p>
               </div>
             </div>
@@ -396,28 +440,71 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Value Proposition
+                      Campaign Unique Angle
+                      <span className="text-xs text-gray-500 ml-2">(What makes THIS campaign special?)</span>
                     </label>
                     <textarea
                       value={wizardData.value_proposition}
                       onChange={(e) => updateWizardData({ value_proposition: e.target.value })}
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                      placeholder="What unique value do you provide to customers?"
+                      placeholder={
+                        wizardData.target_market === 'direct_merchants' 
+                          ? "e.g., 'Fast credit decisions in 24 hours for growing SMEs' or 'Zero hidden fees, transparent pricing'"
+                          : "e.g., 'White-label credit API ready in 2 weeks' or 'Revenue share model with guaranteed ROI'"
+                      }
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Competitive Differentiation
+                      Campaign Focus Message
+                      <span className="text-xs text-gray-500 ml-2">(Primary message for this campaign)</span>
                     </label>
                     <textarea
                       value={wizardData.competitive_differentiation}
                       onChange={(e) => updateWizardData({ competitive_differentiation: e.target.value })}
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                      placeholder="How do you stand out from competitors?"
+                      placeholder={
+                        wizardData.industry === 'credit_access_education' 
+                          ? "e.g., 'Demystifying business credit - your guide to financial growth'"
+                          : wizardData.industry === 'partnership_acquisition'
+                          ? "e.g., 'Transform your platform into a credit powerhouse with our embedded solutions'"
+                          : wizardData.industry === 'product_feature_launch'
+                          ? "e.g., 'Introducing faster approvals and enhanced dashboard analytics'"
+                          : "e.g., 'The specific message this campaign will emphasize'"
+                      }
                     />
+                  </div>
+
+                  {/* Smart Campaign Suggestions */}
+                  <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <h5 className="font-medium text-purple-900 mb-3">💡 Smart Campaign Suggestions</h5>
+                    <div className="grid grid-cols-1 gap-2 text-sm">
+                      <button
+                        onClick={() => {
+                          const angle = wizardData.target_market === 'direct_merchants' 
+                            ? 'Fast, transparent credit decisions for growing businesses'
+                            : 'Seamless credit integration with full API control';
+                          const message = wizardData.industry === 'credit_access_education'
+                            ? 'Unlock your business potential with smart credit solutions'
+                            : wizardData.industry === 'partnership_acquisition' 
+                            ? 'Partner with CrediLinq and transform your customer experience'
+                            : 'Discover how CrediLinq accelerates business growth';
+                          updateWizardData({ 
+                            value_proposition: angle,
+                            competitive_differentiation: message
+                          });
+                        }}
+                        className="text-left p-2 bg-white rounded border hover:bg-purple-100 transition-colors"
+                      >
+                        <div className="font-medium text-purple-800">✨ Use Campaign-Optimized Messaging</div>
+                        <div className="text-purple-600 text-xs">
+                          {wizardData.target_market === 'direct_merchants' ? 'Direct merchant' : 'Embedded partner'} + {wizardData.industry.replace(/_/g, ' ')} focus
+                        </div>
+                      </button>
+                    </div>
                   </div>
 
                   <div>
@@ -425,15 +512,28 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
                       <label className="block text-sm font-medium text-gray-700">
                         Key Messages
                       </label>
-                      <button
-                        onClick={() => {
-                          const newMessages = [...wizardData.key_messages, ''];
-                          updateWizardData({ key_messages: newMessages });
-                        }}
-                        className="text-sm text-purple-600 hover:text-purple-700"
-                      >
-                        + Add Message
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            const smartMessages = wizardData.target_market === 'direct_merchants' 
+                              ? ['Quick approval process', 'Transparent pricing', 'Dedicated support']
+                              : ['Easy API integration', 'White-label solution', 'Revenue sharing model'];
+                            updateWizardData({ key_messages: smartMessages });
+                          }}
+                          className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full hover:bg-purple-200 transition-colors"
+                        >
+                          ⚡ Quick Start
+                        </button>
+                        <button
+                          onClick={() => {
+                            const newMessages = [...wizardData.key_messages, ''];
+                            updateWizardData({ key_messages: newMessages });
+                          }}
+                          className="text-sm text-purple-600 hover:text-purple-700"
+                        >
+                          + Add Message
+                        </button>
+                      </div>
                     </div>
                     {wizardData.key_messages.map((message, index) => (
                       <div key={index} className="flex gap-2 mb-2">
@@ -611,15 +711,27 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h4 className="font-medium text-gray-900">Content Themes</h4>
-                    <button
-                      onClick={() => {
-                        const newThemes = [...wizardData.content_themes, ''];
-                        updateWizardData({ content_themes: newThemes });
-                      }}
-                      className="text-sm text-purple-600 hover:text-purple-700"
-                    >
-                      + Add Theme
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const smartThemes = generateSmartContentThemes(wizardData.target_market, wizardData.industry);
+                          updateWizardData({ content_themes: smartThemes });
+                        }}
+                        className="text-sm bg-purple-100 text-purple-700 px-3 py-1 rounded-full hover:bg-purple-200 transition-colors"
+                        title="Generate themes based on your target market and campaign purpose"
+                      >
+                        ⚡ Quick Start
+                      </button>
+                      <button
+                        onClick={() => {
+                          const newThemes = [...wizardData.content_themes, ''];
+                          updateWizardData({ content_themes: newThemes });
+                        }}
+                        className="text-sm text-purple-600 hover:text-purple-700"
+                      >
+                        + Add Theme
+                      </button>
+                    </div>
                   </div>
 
                   {wizardData.content_themes.map((theme, index) => (
@@ -649,19 +761,26 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
 
                   {wizardData.content_themes.length === 0 && (
                     <div className="text-center py-4 border-2 border-dashed border-gray-300 rounded-lg">
-                      <p className="text-gray-500 text-sm mb-2">AI suggested themes available</p>
-                      <button
-                        onClick={() => updateWizardData({ 
-                          content_themes: aiSuggestions?.suggested_themes || [
-                            `${wizardData.industry} best practices`,
-                            'Industry insights',
-                            'Success stories'
-                          ]
-                        })}
-                        className="text-sm text-purple-600 hover:text-purple-700"
-                      >
-                        Use AI Suggestions
-                      </button>
+                      <p className="text-gray-500 text-sm mb-2">Get started with CrediLinq-focused themes</p>
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={() => {
+                            const smartThemes = generateSmartContentThemes(wizardData.target_market, wizardData.industry);
+                            updateWizardData({ content_themes: smartThemes });
+                          }}
+                          className="text-sm bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition-colors"
+                        >
+                          ⚡ Quick Start Themes
+                        </button>
+                        <button
+                          onClick={() => updateWizardData({ 
+                            content_themes: aiSuggestions?.suggested_themes || generateSmartContentThemes(wizardData.target_market, wizardData.industry)
+                          })}
+                          className="text-sm text-purple-600 hover:text-purple-700 px-4 py-2 border border-purple-300 rounded hover:bg-purple-50 transition-colors"
+                        >
+                          Use AI Suggestions
+                        </button>
+                      </div>
                     </div>
                   )}
 
