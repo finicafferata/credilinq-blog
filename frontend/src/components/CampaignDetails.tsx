@@ -410,10 +410,10 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
                       campaignName={campaign.name}
                     />
                   ) : (
-                    /* Original Task Management View */
+                    /* Enhanced Content Gallery View */
                     <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-semibold">Task Management</h3>
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-semibold">Generated Content</h3>
                         <div className="flex items-center space-x-2">
                           {campaignTasks.some(task => task.status === 'approved') && (
                             <button
@@ -445,135 +445,190 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
                           </button>
                         </div>
                       </div>
-                      <div className="space-y-3">
-                        {campaignTasks.map((task: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-gray-900">
-                                {task.title || task.task_type}
-                                {task.channel && task.channel !== 'all' && (
-                                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                                    {task.channel}
-                                  </span>
-                                )}
-                              </h4>
-                              <p className="text-sm text-gray-600">
-                                {typeof task.result === 'object' && task.result?.title 
-                                  ? task.result.title 
-                                  : task.result || task.content || 'No content available'
-                                }
-                              </p>
+                      {/* Content Gallery Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {campaignTasks.map((task: any, index: number) => {
+                          const getContentIcon = (taskType: string) => {
+                            if (taskType?.includes('blog') || taskType?.includes('article')) return '📝';
+                            if (taskType?.includes('social') || taskType?.includes('twitter') || taskType?.includes('linkedin')) return '📱';
+                            if (taskType?.includes('email')) return '📧';
+                            if (taskType?.includes('image') || taskType?.includes('visual')) return '🎨';
+                            if (taskType?.includes('video')) return '🎥';
+                            return '📄';
+                          };
+
+                          const getContentPreview = (task: any) => {
+                            if (typeof task.result === 'object' && task.result?.content) {
+                              return task.result.content.substring(0, 200) + '...';
+                            }
+                            if (typeof task.result === 'string') {
+                              return task.result.substring(0, 200) + (task.result.length > 200 ? '...' : '');
+                            }
+                            if (task.content) {
+                              return task.content.substring(0, 200) + (task.content.length > 200 ? '...' : '');
+                            }
+                            return task.status === 'pending' ? 'Content will be generated when task is executed' : 'No content available';
+                          };
+
+                          const getContentTitle = (task: any) => {
+                            if (typeof task.result === 'object' && task.result?.title) {
+                              return task.result.title;
+                            }
+                            return task.title || task.task_type || 'Untitled Content';
+                          };
+
+                          return (
+                            <div key={index} className="bg-white border-2 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
+                              {/* Content Header */}
+                              <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-center space-x-3">
+                                  <span className="text-2xl">{getContentIcon(task.task_type)}</span>
+                                  <div>
+                                    <h4 className="font-semibold text-gray-900 text-lg leading-tight">
+                                      {getContentTitle(task)}
+                                    </h4>
+                                    <div className="flex items-center space-x-2 mt-1">
+                                      <span className="text-sm text-gray-500 capitalize">
+                                        {task.task_type?.replace('_', ' ') || 'Content'}
+                                      </span>
+                                      {task.channel && task.channel !== 'all' && (
+                                        <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                                          {task.channel}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                  task.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                  task.status === 'scheduled' ? 'bg-purple-100 text-purple-800' :
+                                  task.status === 'generated' ? 'bg-blue-100 text-blue-800' :
+                                  task.status === 'revision_needed' ? 'bg-orange-100 text-orange-800' :
+                                  task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                  task.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {task.status}
+                                </span>
+                              </div>
+
+                              {/* Content Preview */}
+                              <div className="mb-4">
+                                <div className="bg-gray-50 rounded-lg p-4 min-h-[120px]">
+                                  <p className="text-sm text-gray-700 leading-relaxed">
+                                    {getContentPreview(task)}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Error Display */}
                               {task.error && (
-                                <p className="text-sm text-red-600">{task.error}</p>
-                              )}
-                              {task.created_at && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Created: {formatDate(task.created_at)}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              {/* Execute button for pending tasks */}
-                              {task.status === 'pending' && (
-                                <button
-                                  onClick={() => executeTask(task.id)}
-                                  disabled={executingTasks.has(task.id)}
-                                  className="flex items-center space-x-1 px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  {executingTasks.has(task.id) ? (
-                                    <RefreshCw className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <Play className="w-3 h-3" />
-                                  )}
-                                  <span>{executingTasks.has(task.id) ? 'Running...' : 'Execute'}</span>
-                                </button>
-                              )}
-
-                              {/* Review buttons for generated content */}
-                              {task.status === 'generated' && (
-                                <div className="flex items-center space-x-1">
-                                  <button
-                                    onClick={() => reviewTask(task.id, 'approve')}
-                                    className="flex items-center space-x-1 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
-                                    title="Approve content"
-                                  >
-                                    <CheckCircle className="w-3 h-3" />
-                                    <span>Approve</span>
-                                  </button>
-                                  <button
-                                    onClick={() => openRevisionDialog(task)}
-                                    className="flex items-center space-x-1 px-2 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors"
-                                    title="Request detailed revision with feedback"
-                                  >
-                                    <Edit3 className="w-3 h-3" />
-                                    <span>Detailed Revision</span>
-                                  </button>
-                                  <button
-                                    onClick={() => reviewTask(task.id, 'reject', 'Content rejected')}
-                                    className="flex items-center space-x-1 px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors"
-                                    title="Reject content"
-                                  >
-                                    <XCircle className="w-3 h-3" />
-                                    <span>Reject</span>
-                                  </button>
+                                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                  <p className="text-sm text-red-600">{task.error}</p>
                                 </div>
                               )}
 
-                              {/* Regenerate button for revision_needed tasks */}
-                              {task.status === 'revision_needed' && (
-                                <div className="flex items-center space-x-1">
+                              {/* Metadata */}
+                              <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                                {task.created_at && (
+                                  <span>Created: {formatDate(task.created_at)}</span>
+                                )}
+                                {task.quality_score && (
+                                  <div className="flex items-center space-x-1">
+                                    <span>Quality:</span>
+                                    <span className={`font-medium ${
+                                      task.quality_score >= 80 ? 'text-green-600' :
+                                      task.quality_score >= 60 ? 'text-yellow-600' : 'text-red-600'
+                                    }`}>
+                                      {task.quality_score.toFixed(0)}%
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="flex flex-wrap gap-2">
+                                {/* Execute button for pending tasks */}
+                                {task.status === 'pending' && (
                                   <button
-                                    onClick={() => regenerateTask(task.id)}
-                                    disabled={regeneratingTasks.has(task.id)}
-                                    className="flex items-center space-x-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    title="Regenerate with feedback"
+                                    onClick={() => executeTask(task.id)}
+                                    disabled={executingTasks.has(task.id)}
+                                    className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                   >
-                                    {regeneratingTasks.has(task.id) ? (
-                                      <RefreshCw className="w-3 h-3 animate-spin" />
+                                    {executingTasks.has(task.id) ? (
+                                      <RefreshCw className="w-4 h-4 animate-spin" />
                                     ) : (
-                                      <RotateCcw className="w-3 h-3" />
+                                      <Play className="w-4 h-4" />
                                     )}
-                                    <span>{regeneratingTasks.has(task.id) ? 'Regenerating...' : 'Regenerate'}</span>
+                                    <span>{executingTasks.has(task.id) ? 'Generating...' : 'Generate Content'}</span>
                                   </button>
-                                  <button
-                                    onClick={() => openRevisionDialog(task)}
-                                    className="flex items-center space-x-1 px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 transition-colors"
-                                    title="Update revision feedback"
-                                  >
-                                    <Edit3 className="w-3 h-3" />
-                                    <span>Update Feedback</span>
-                                  </button>
-                                </div>
-                              )}
+                                )}
 
-                              {/* Quality score display for reviewed content */}
-                              {task.quality_score && (
-                                <div className="flex items-center space-x-1 text-xs">
-                                  <span className="text-gray-500">Quality:</span>
-                                  <span className={`font-medium ${
-                                    task.quality_score >= 80 ? 'text-green-600' :
-                                    task.quality_score >= 60 ? 'text-yellow-600' : 'text-red-600'
-                                  }`}>
-                                    {task.quality_score.toFixed(0)}%
-                                  </span>
-                                </div>
-                              )}
+                                {/* Review buttons for generated content */}
+                                {task.status === 'generated' && (
+                                  <>
+                                    <button
+                                      onClick={() => reviewTask(task.id, 'approve')}
+                                      className="flex items-center space-x-1 px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                                    >
+                                      <CheckCircle className="w-4 h-4" />
+                                      <span>Approve</span>
+                                    </button>
+                                    <button
+                                      onClick={() => openRevisionDialog(task)}
+                                      className="flex items-center space-x-1 px-3 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 transition-colors"
+                                    >
+                                      <Edit3 className="w-4 h-4" />
+                                      <span>Revise</span>
+                                    </button>
+                                    <button
+                                      onClick={() => reviewTask(task.id, 'reject', 'Content rejected')}
+                                      className="flex items-center space-x-1 px-3 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+                                    >
+                                      <XCircle className="w-4 h-4" />
+                                      <span>Reject</span>
+                                    </button>
+                                  </>
+                                )}
 
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                task.status === 'approved' ? 'bg-green-100 text-green-800' :
-                                task.status === 'scheduled' ? 'bg-purple-100 text-purple-800' :
-                                task.status === 'generated' ? 'bg-blue-100 text-blue-800' :
-                                task.status === 'revision_needed' ? 'bg-orange-100 text-orange-800' :
-                                task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                task.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {task.status}
-                              </span>
+                                {/* Regenerate button for revision_needed tasks */}
+                                {task.status === 'revision_needed' && (
+                                  <>
+                                    <button
+                                      onClick={() => regenerateTask(task.id)}
+                                      disabled={regeneratingTasks.has(task.id)}
+                                      className="flex items-center space-x-1 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                      {regeneratingTasks.has(task.id) ? (
+                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <RotateCcw className="w-4 h-4" />
+                                      )}
+                                      <span>{regeneratingTasks.has(task.id) ? 'Regenerating...' : 'Regenerate'}</span>
+                                    </button>
+                                    <button
+                                      onClick={() => openRevisionDialog(task)}
+                                      className="flex items-center space-x-1 px-3 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors"
+                                    >
+                                      <Edit3 className="w-4 h-4" />
+                                      <span>Update</span>
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
+
+                      {/* Empty State */}
+                      {campaignTasks.length === 0 && (
+                        <div className="text-center py-12">
+                          <div className="text-6xl mb-4">📝</div>
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">No Content Generated Yet</h3>
+                          <p className="text-gray-500">Content will appear here once the campaign tasks are executed.</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
