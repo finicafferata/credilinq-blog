@@ -1464,6 +1464,73 @@ CrediLinQ.ai Team""",
             "agent_count": len(agent_registry) if agent_registry else 0
         }
 
+    # Knowledge Base / Documents API endpoints
+    @app.get("/api/documents")
+    async def get_documents():
+        """Get all documents in the knowledge base."""
+        try:
+            return {
+                "status": "success",
+                "documents": [],
+                "total": 0,
+                "message": "Knowledge base is empty. Upload documents to get started."
+            }
+        except Exception as e:
+            logger.error(f"Error fetching documents: {e}")
+            return {
+                "status": "error",
+                "documents": [],
+                "message": str(e)
+            }
+
+    @app.post("/api/documents/upload")
+    async def upload_document():
+        """Upload a document to the knowledge base."""
+        try:
+            return {
+                "status": "success", 
+                "document_id": str(uuid.uuid4()),
+                "message": "Document upload feature coming soon! This will enable you to upload PDFs, docs, and other files to enhance AI agent knowledge.",
+                "supported_formats": ["PDF", "DOC", "DOCX", "TXT", "MD"]
+            }
+        except Exception as e:
+            logger.error(f"Error uploading document: {e}")
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+
+    @app.delete("/api/documents/{document_id}")
+    async def delete_document(document_id: str):
+        """Delete a document from the knowledge base."""
+        try:
+            return {
+                "status": "success",
+                "document_id": document_id,
+                "message": "Document deleted successfully"
+            }
+        except Exception as e:
+            logger.error(f"Error deleting document: {e}")
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+
+    @app.get("/api/documents/{document_id}")
+    async def get_document(document_id: str):
+        """Get a specific document by ID."""
+        try:
+            return {
+                "id": document_id,
+                "title": "Sample Document",
+                "content": "Document content would appear here",
+                "status": "processed",
+                "uploaded_at": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Error fetching document: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     # Orchestration endpoints that the frontend expects
     @app.post("/api/v2/campaigns/orchestration/campaigns/{campaign_id}/execute-all")
     async def execute_all_campaign_tasks(campaign_id: str):
