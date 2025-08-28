@@ -189,12 +189,18 @@ def main():
     logger.info("🔍 Running pre-flight checks...")
     
     # Check critical environment variables
-    critical_vars = ['DATABASE_URL', 'OPENAI_API_KEY']
+    critical_vars = ['DATABASE_URL']
+    warning_vars = ['OPENAI_API_KEY', 'GEMINI_API_KEY']
+    
     missing_vars = [var for var in critical_vars if not os.getenv(var)]
+    missing_warning_vars = [var for var in warning_vars if not os.getenv(var)]
     
     if missing_vars:
         logger.error(f"❌ Missing critical environment variables: {', '.join(missing_vars)}")
         sys.exit(1)
+    
+    if missing_warning_vars:
+        logger.warning(f"⚠️ Missing optional AI API keys: {', '.join(missing_warning_vars)} - some features may be disabled")
     
     # Check if port is available (local dev only)
     if not is_railway:

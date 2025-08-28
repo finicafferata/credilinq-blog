@@ -38,8 +38,8 @@ agent_memory_usage = {}
 # Simple in-memory document storage for session persistence
 document_storage = {}
 
-# Agent loading configuration
-AGENT_LOADING_ENABLED = os.getenv('AGENT_LOADING_ENABLED', 'true').lower() == 'true'
+# Agent loading configuration - disabled by default for Railway stability
+AGENT_LOADING_ENABLED = os.getenv('AGENT_LOADING_ENABLED', 'false').lower() == 'true'
 AGENT_LOADING_TIMEOUT = int(os.getenv('AGENT_LOADING_TIMEOUT', '30'))  # seconds
 AGENT_MEMORY_LIMIT_MB = int(os.getenv('AGENT_MEMORY_LIMIT_MB', '100'))  # MB per agent
 PROGRESSIVE_LOADING = os.getenv('PROGRESSIVE_LOADING', 'true').lower() == 'true'
@@ -72,7 +72,7 @@ async def initialize_agents_lazy():
         
         logger.info("🤖 Enhanced lazy-loading Phase 1 core content pipeline agents...")
         
-        # Phase 1 target agents
+        # Phase 1 target agents with correct class names
         phase1_agents = {
             "planner": {
                 "name": "PlannerAgent", 
@@ -103,8 +103,8 @@ async def initialize_agents_lazy():
                 "memory_estimate_mb": 20
             },
             "content": {
-                "name": "ContentAgent",
-                "class_path": "src.agents.specialized.content_agent.ContentAgent", 
+                "name": "ContentGenerationAgent",
+                "class_path": "src.agents.specialized.content_agent.ContentGenerationAgent", 
                 "capabilities": ["general_content", "content_operations"],
                 "priority": 3,
                 "memory_estimate_mb": 25
