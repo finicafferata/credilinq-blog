@@ -14,6 +14,8 @@ import os
 import asyncpg
 import json
 import uuid
+import time
+import asyncio
 
 # Configure logging
 logging.basicConfig(
@@ -25,40 +27,293 @@ logger = logging.getLogger(__name__)
 # Global database connection
 db_pool = None
 
-# Lazy-loaded agents (initialized on first use)
+# Enhanced agent system globals
 agents_initialized = False
 agent_registry = {}
+agent_initialization_status = {}
+agent_health_status = {}
+agent_load_times = {}
+agent_memory_usage = {}
 
 # Simple in-memory document storage for session persistence
 document_storage = {}
 
-def initialize_agents_lazy():
-    """Initialize only essential agents for content generation."""
-    global agents_initialized, agent_registry
-    if not agents_initialized:
-        try:
-            logger.info("🤖 Lazy-loading essential AI agents...")
-            
-            # Initialize minimal agent set for content generation
-            agent_registry = {
-                "content_generator": {
-                    "name": "Content Generator",
-                    "status": "initialized",
-                    "capabilities": ["blog_generation", "content_creation"]
-                },
-                "campaign_manager": {
-                    "name": "Campaign Manager", 
-                    "status": "initialized",
-                    "capabilities": ["campaign_orchestration", "task_management"]
-                }
+# Agent loading configuration
+AGENT_LOADING_ENABLED = os.getenv('AGENT_LOADING_ENABLED', 'true').lower() == 'true'
+AGENT_LOADING_TIMEOUT = int(os.getenv('AGENT_LOADING_TIMEOUT', '30'))  # seconds
+AGENT_MEMORY_LIMIT_MB = int(os.getenv('AGENT_MEMORY_LIMIT_MB', '100'))  # MB per agent
+PROGRESSIVE_LOADING = os.getenv('PROGRESSIVE_LOADING', 'true').lower() == 'true'
+MAX_CONCURRENT_AGENTS = int(os.getenv('MAX_CONCURRENT_AGENTS', '3'))
+
+async def initialize_agents_lazy():
+    """Enhanced lazy loading system for Phase 1 core content pipeline agents."""
+    global agents_initialized, agent_registry, agent_initialization_status, agent_health_status
+    
+    if agents_initialized:
+        return agent_registry
+        
+    if not AGENT_LOADING_ENABLED:
+        logger.info("🚫 Agent loading disabled by configuration")
+        agents_initialized = True
+        return {}
+    
+    try:
+        import psutil
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError
+        
+        logger.info("🤖 Enhanced lazy-loading Phase 1 core content pipeline agents...")
+        
+        # Phase 1 target agents
+        phase1_agents = {
+            "planner": {
+                "name": "PlannerAgent", 
+                "class_path": "src.agents.specialized.planner_agent.PlannerAgent",
+                "capabilities": ["content_strategy", "planning", "outline_creation"],
+                "priority": 1,
+                "memory_estimate_mb": 25
+            },
+            "researcher": {
+                "name": "ResearcherAgent",
+                "class_path": "src.agents.specialized.researcher_agent.ResearcherAgent", 
+                "capabilities": ["web_research", "data_gathering", "fact_checking"],
+                "priority": 2,
+                "memory_estimate_mb": 30
+            },
+            "writer": {
+                "name": "WriterAgent",
+                "class_path": "src.agents.specialized.writer_agent.WriterAgent",
+                "capabilities": ["content_creation", "writing", "blog_generation"],
+                "priority": 1, 
+                "memory_estimate_mb": 35
+            },
+            "editor": {
+                "name": "EditorAgent", 
+                "class_path": "src.agents.specialized.editor_agent.EditorAgent",
+                "capabilities": ["content_editing", "quality_assurance", "proofreading"],
+                "priority": 2,
+                "memory_estimate_mb": 20
+            },
+            "content": {
+                "name": "ContentAgent",
+                "class_path": "src.agents.specialized.content_agent.ContentAgent", 
+                "capabilities": ["general_content", "content_operations"],
+                "priority": 3,
+                "memory_estimate_mb": 25
+            },
+            "campaign_manager": {
+                "name": "CampaignManagerAgent",
+                "class_path": "src.agents.specialized.campaign_manager.CampaignManagerAgent",
+                "capabilities": ["campaign_orchestration", "task_management"],
+                "priority": 2,
+                "memory_estimate_mb": 40
             }
-            agents_initialized = True
-            logger.info(f"✅ Loaded {len(agent_registry)} lightweight agents")
+        }
+        
+        # Initialize tracking
+        for agent_key in phase1_agents.keys():
+            agent_initialization_status[agent_key] = "pending"
+            agent_health_status[agent_key] = "unknown"
+        
+        # Check available memory
+        memory_info = psutil.virtual_memory()
+        available_memory_mb = memory_info.available / 1024 / 1024
+        total_required_mb = sum(agent["memory_estimate_mb"] for agent in phase1_agents.values())
+        
+        logger.info(f"💾 Memory check: Available={available_memory_mb:.0f}MB, Required={total_required_mb}MB")
+        
+        if available_memory_mb < total_required_mb * 1.5:  # 50% buffer
+            logger.warning(f"⚠️ Low memory condition. Using selective loading.")
+            
+        if PROGRESSIVE_LOADING:
+            agent_registry = await _load_agents_progressively(phase1_agents, available_memory_mb)
+        else:
+            agent_registry = await _load_agents_batch(phase1_agents)
+        
+        # Health check loaded agents
+        await _perform_agent_health_checks(agent_registry)
+        
+        agents_initialized = True
+        loaded_count = len([a for a in agent_registry.values() if a.get('status') == 'loaded'])
+        
+        logger.info(f"✅ Successfully loaded {loaded_count}/{len(phase1_agents)} Phase 1 agents")
+        
+        return agent_registry
+        
+    except Exception as e:
+        logger.error(f"❌ Enhanced agent initialization failed: {str(e)}")
+        # Fallback to lightweight mode
+        return await _fallback_to_lightweight_mode()
+
+
+async def _load_agents_progressively(agents_config: dict, available_memory_mb: float) -> dict:
+    """Load agents progressively based on priority and memory constraints."""
+    global agent_initialization_status, agent_health_status, agent_load_times, agent_memory_usage
+    
+    registry = {}
+    loaded_memory = 0
+    
+    # Sort by priority (lower number = higher priority)
+    sorted_agents = sorted(agents_config.items(), key=lambda x: x[1]['priority'])
+    
+    for agent_key, agent_config in sorted_agents:
+        try:
+            # Check memory constraint
+            estimated_memory = agent_config['memory_estimate_mb']
+            if loaded_memory + estimated_memory > available_memory_mb * 0.7:  # Use 70% of available
+                logger.warning(f"⚠️ Skipping {agent_key} - memory limit reached")
+                agent_initialization_status[agent_key] = "skipped_memory"
+                continue
+                
+            start_time = time.time()
+            agent_initialization_status[agent_key] = "loading"
+            
+            logger.info(f"🔄 Loading {agent_config['name']}...")
+            
+            # Load agent with timeout
+            agent_instance = await _load_single_agent_with_timeout(agent_config)
+            
+            if agent_instance:
+                load_time = time.time() - start_time
+                agent_load_times[agent_key] = load_time
+                
+                registry[agent_key] = {
+                    "name": agent_config['name'],
+                    "instance": agent_instance,
+                    "status": "loaded", 
+                    "capabilities": agent_config['capabilities'],
+                    "load_time_ms": load_time * 1000,
+                    "memory_usage_mb": estimated_memory,
+                    "health_status": "healthy"
+                }
+                
+                agent_initialization_status[agent_key] = "loaded"
+                agent_health_status[agent_key] = "healthy"
+                agent_memory_usage[agent_key] = estimated_memory
+                loaded_memory += estimated_memory
+                
+                logger.info(f"✅ Loaded {agent_config['name']} in {load_time:.2f}s")
+                
+                # Progressive delay to prevent resource spikes
+                await asyncio.sleep(0.5)
+            else:
+                agent_initialization_status[agent_key] = "failed"
+                agent_health_status[agent_key] = "failed"
+                
         except Exception as e:
-            logger.warning(f"⚠️ Agent initialization failed: {e}")
-            # Continue without agents
-            agents_initialized = True
-            agent_registry = {}
+            logger.error(f"❌ Failed to load {agent_key}: {str(e)}")
+            agent_initialization_status[agent_key] = "failed"
+            agent_health_status[agent_key] = "failed"
+    
+    return registry
+
+
+async def _load_single_agent_with_timeout(agent_config: dict):
+    """Load a single agent with timeout protection."""
+    try:
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+        
+        def _import_and_create_agent():
+            try:
+                # Dynamic import
+                module_path, class_name = agent_config['class_path'].rsplit('.', 1)
+                module = __import__(module_path, fromlist=[class_name])
+                agent_class = getattr(module, class_name)
+                
+                # Create instance
+                return agent_class()
+            except Exception as e:
+                logger.error(f"Error creating {agent_config['name']}: {str(e)}")
+                return None
+        
+        # Run with timeout
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_import_and_create_agent)
+            try:
+                agent_instance = await asyncio.wait_for(
+                    asyncio.wrap_future(future), 
+                    timeout=AGENT_LOADING_TIMEOUT
+                )
+                return agent_instance
+            except asyncio.TimeoutError:
+                logger.error(f"⏰ Timeout loading {agent_config['name']} after {AGENT_LOADING_TIMEOUT}s")
+                return None
+                
+    except Exception as e:
+        logger.error(f"Error in timeout wrapper for {agent_config['name']}: {str(e)}")
+        return None
+
+
+async def _load_agents_batch(agents_config: dict) -> dict:
+    """Load all agents in batch mode (fallback for non-progressive loading)."""
+    registry = {}
+    
+    for agent_key, agent_config in agents_config.items():
+        try:
+            agent_instance = await _load_single_agent_with_timeout(agent_config)
+            if agent_instance:
+                registry[agent_key] = {
+                    "name": agent_config['name'],
+                    "instance": agent_instance,
+                    "status": "loaded",
+                    "capabilities": agent_config['capabilities'],
+                    "health_status": "healthy"
+                }
+        except Exception as e:
+            logger.error(f"Batch load failed for {agent_key}: {str(e)}")
+    
+    return registry
+
+
+async def _perform_agent_health_checks(registry: dict):
+    """Perform health checks on loaded agents."""
+    for agent_key, agent_info in registry.items():
+        try:
+            agent_instance = agent_info.get('instance')
+            if agent_instance and hasattr(agent_instance, 'get_status'):
+                status = agent_instance.get_status()
+                agent_health_status[agent_key] = "healthy" if status else "unhealthy"
+                agent_info['health_status'] = agent_health_status[agent_key]
+            else:
+                agent_health_status[agent_key] = "healthy"  # Assume healthy if no health check
+                agent_info['health_status'] = "healthy"
+        except Exception as e:
+            logger.warning(f"Health check failed for {agent_key}: {str(e)}")
+            agent_health_status[agent_key] = "unhealthy"
+            agent_info['health_status'] = "unhealthy"
+
+
+async def _fallback_to_lightweight_mode() -> dict:
+    """Fallback to lightweight agents when full loading fails."""
+    global agents_initialized, agent_initialization_status, agent_health_status
+    
+    logger.info("🔄 Falling back to lightweight agent mode")
+    
+    lightweight_registry = {
+        "content_generator": {
+            "name": "Lightweight Content Generator",
+            "status": "lightweight",
+            "capabilities": ["basic_content_generation"],
+            "health_status": "healthy",
+            "fallback_mode": True
+        },
+        "campaign_manager": {
+            "name": "Lightweight Campaign Manager",
+            "status": "lightweight", 
+            "capabilities": ["basic_campaign_management"],
+            "health_status": "healthy",
+            "fallback_mode": True
+        }
+    }
+    
+    # Update status tracking
+    for agent_key in ["planner", "researcher", "writer", "editor", "content", "campaign_manager"]:
+        agent_initialization_status[agent_key] = "fallback"
+        agent_health_status[agent_key] = "fallback"
+    
+    agents_initialized = True
+    return lightweight_registry
 
 # Pydantic models for API
 class BlogResponse(BaseModel):
@@ -107,8 +362,16 @@ async def lifespan(app: FastAPI):
         else:
             logger.warning("⚠️ DATABASE_URL not set - running without database")
         
-        # Don't initialize agents at startup - do it lazily
-        logger.info("⏳ Agents will be loaded on first use (lazy loading)")
+        # Initialize agents at startup if enabled
+        if AGENT_LOADING_ENABLED:
+            logger.info("🤖 Initializing Phase 1 core agents at startup...")
+            try:
+                await initialize_agents_lazy()
+                logger.info("✅ Phase 1 agents initialization complete")
+            except Exception as e:
+                logger.warning(f"⚠️ Phase 1 agents initialization failed: {e}. Will retry on first use.")
+        else:
+            logger.info("⏳ Agent loading disabled - will run in lightweight mode")
         
         yield
         
@@ -147,23 +410,44 @@ def create_production_app() -> FastAPI:
     @app.get("/")
     async def root():
         """Root endpoint."""
+        # Quick agent summary for root endpoint
+        agent_summary = "not_initialized"
+        if agents_initialized:
+            loaded_count = len([a for a in agent_registry.values() if a.get('status') == 'loaded'])
+            fallback_count = len([a for a in agent_registry.values() if a.get('fallback_mode', False)])
+            if loaded_count > 0:
+                agent_summary = f"loaded_{loaded_count}"
+            elif fallback_count > 0:
+                agent_summary = f"fallback_{fallback_count}"
+            else:
+                agent_summary = "initialized_none"
+        
         return {
             "message": "CrediLinq Content Agent API",
             "version": "4.1.0",
-            "mode": "Railway Production",
+            "mode": "Railway Production - Phase 1 Agents",
             "status": "healthy",
             "database": "connected" if db_pool else "not connected",
-            "agents": "loaded" if agents_initialized else "lazy-loading"
+            "agents": agent_summary,
+            "phase": "Phase 1 - Core Content Pipeline",
+            "agent_loading_enabled": AGENT_LOADING_ENABLED
         }
 
     @app.get("/health")
     async def health_check():
         """Health check endpoint."""
+        agent_status = "not_initialized"
+        if agents_initialized:
+            loaded_count = len([a for a in agent_registry.values() if a.get('status') == 'loaded'])
+            agent_status = f"loaded_{loaded_count}/6" if loaded_count > 0 else "fallback_mode"
+        
         return {
             "status": "healthy",
-            "mode": "production",
+            "mode": "production_phase1",
             "database": "connected" if db_pool else "not connected",
-            "agents": "loaded" if agents_initialized else "lazy-loading"
+            "agents": agent_status,
+            "phase1_target": "6_core_agents",
+            "loading_enabled": AGENT_LOADING_ENABLED
         }
     
     @app.get("/health/live")
@@ -178,6 +462,72 @@ def create_production_app() -> FastAPI:
             "status": "ready",
             "service": "credilinq-api",
             "database": "connected" if db_pool else "not connected"
+        }
+    
+    # Enhanced agent health monitoring endpoints
+    @app.get("/api/admin/agents/status")
+    async def get_agents_status():
+        """Get comprehensive status of all agents."""
+        global agent_initialization_status, agent_health_status, agent_load_times, agent_memory_usage, agent_registry
+        
+        agents_info = []
+        total_memory = 0
+        loaded_count = 0
+        
+        # Get current system memory
+        try:
+            import psutil
+            system_memory = psutil.virtual_memory()
+            system_info = {
+                "available_mb": system_memory.available / 1024 / 1024,
+                "used_percent": system_memory.percent,
+                "total_mb": system_memory.total / 1024 / 1024
+            }
+        except:
+            system_info = {"available_mb": 0, "used_percent": 0, "total_mb": 0}
+        
+        # Collect agent information
+        phase1_agents = ["planner", "researcher", "writer", "editor", "content", "campaign_manager"]
+        
+        for agent_key in phase1_agents:
+            agent_info = {
+                "agent_key": agent_key,
+                "name": agent_registry.get(agent_key, {}).get("name", f"{agent_key.title()}Agent"),
+                "initialization_status": agent_initialization_status.get(agent_key, "unknown"),
+                "health_status": agent_health_status.get(agent_key, "unknown"),
+                "load_time_ms": agent_load_times.get(agent_key, 0) * 1000 if agent_key in agent_load_times else 0,
+                "memory_usage_mb": agent_memory_usage.get(agent_key, 0),
+                "capabilities": agent_registry.get(agent_key, {}).get("capabilities", []),
+                "is_loaded": agent_key in agent_registry and agent_registry[agent_key].get("status") == "loaded",
+                "fallback_mode": agent_registry.get(agent_key, {}).get("fallback_mode", False)
+            }
+            
+            agents_info.append(agent_info)
+            
+            if agent_info["is_loaded"]:
+                loaded_count += 1
+                total_memory += agent_info["memory_usage_mb"]
+        
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "agents_initialized": agents_initialized,
+            "agent_loading_enabled": AGENT_LOADING_ENABLED,
+            "progressive_loading": PROGRESSIVE_LOADING,
+            "summary": {
+                "total_agents": len(phase1_agents),
+                "loaded_agents": loaded_count,
+                "failed_agents": len([a for a in agents_info if a["initialization_status"] == "failed"]),
+                "fallback_agents": len([a for a in agents_info if a["fallback_mode"]]),
+                "total_memory_usage_mb": total_memory,
+                "average_load_time_ms": sum(agent_load_times.values()) * 1000 / len(agent_load_times) if agent_load_times else 0
+            },
+            "system_memory": system_info,
+            "agents": agents_info,
+            "configuration": {
+                "loading_timeout_seconds": AGENT_LOADING_TIMEOUT,
+                "memory_limit_mb": AGENT_MEMORY_LIMIT_MB,
+                "max_concurrent_agents": MAX_CONCURRENT_AGENTS
+            }
         }
 
     # Import and register all API routes
@@ -679,13 +1029,16 @@ def create_production_app() -> FastAPI:
 
     # Add a special endpoint to trigger agent initialization
     @app.post("/api/admin/initialize-agents")
-    async def initialize_agents():
+    async def initialize_agents_endpoint():
         """Manually trigger agent initialization."""
-        initialize_agents_lazy()
+        registry = await initialize_agents_lazy()
         return {
             "status": "success",
             "agents_loaded": agents_initialized,
-            "agent_count": len(agent_registry)
+            "agent_count": len(registry),
+            "loaded_agents": [key for key, agent in registry.items() if agent.get('status') == 'loaded'],
+            "fallback_agents": [key for key, agent in registry.items() if agent.get('fallback_mode', False)],
+            "timestamp": datetime.now().isoformat()
         }
     
     # Blog generation endpoint with lazy agent loading
@@ -694,7 +1047,7 @@ def create_production_app() -> FastAPI:
         """Generate blog content using AI agents."""
         # Initialize agents on first use
         if not agents_initialized:
-            initialize_agents_lazy()
+            await initialize_agents_lazy()
         
         if not agents_initialized or not agent_registry:
             return {
@@ -754,7 +1107,7 @@ This content has been generated by our AI content system. The lightweight agent 
         """Generate content tasks for a campaign using AI agents."""
         # Initialize agents on first use
         if not agents_initialized:
-            initialize_agents_lazy()
+            await initialize_agents_lazy()
         
         # Handle empty request body
         if request is None:
@@ -916,7 +1269,7 @@ This content has been generated by our AI content system. The lightweight agent 
         """Execute an individual task using AI agents."""
         # Initialize agents on first use
         if not agents_initialized:
-            initialize_agents_lazy()
+            await initialize_agents_lazy()
         
         try:
             # Get campaign details
@@ -1405,7 +1758,7 @@ CrediLinQ.ai Team""",
             
             # Initialize agents if needed
             if not agents_initialized:
-                initialize_agents_lazy()
+                await initialize_agents_lazy()
             
             return {
                 "status": "success",
@@ -1667,7 +2020,7 @@ CrediLinQ.ai Team""",
         try:
             # Initialize agents if needed
             if not agents_initialized:
-                initialize_agents_lazy()
+                await initialize_agents_lazy()
             
             # Get campaign details
             if db_pool:
@@ -1730,7 +2083,7 @@ CrediLinQ.ai Team""",
         try:
             # Initialize agents if needed
             if not agents_initialized:
-                initialize_agents_lazy()
+                await initialize_agents_lazy()
             
             return {
                 "status": "success",
