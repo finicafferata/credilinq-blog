@@ -91,6 +91,16 @@ AGENT_LOADING_TIMEOUT = int(os.getenv('AGENT_LOADING_TIMEOUT', '45'))  # Increas
 PROGRESSIVE_LOADING = os.getenv('PROGRESSIVE_LOADING', 'true').lower() == 'true'
 MAX_CONCURRENT_AGENTS = int(os.getenv('MAX_CONCURRENT_AGENTS', '2'))  # Reduced for Railway
 
+# AI Provider Configuration
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY') 
+PRIMARY_AI_PROVIDER = os.getenv('PRIMARY_AI_PROVIDER', 'openai').lower()
+
+logger.info(f"🤖 AI Configuration:")
+logger.info(f"   Primary AI Provider: {PRIMARY_AI_PROVIDER}")
+logger.info(f"   OpenAI Available: {'✅' if OPENAI_API_KEY else '❌'}")
+logger.info(f"   Gemini Available: {'✅' if GEMINI_API_KEY else '❌'}")
+
 # ====================================
 # PYDANTIC MODELS
 # ====================================
@@ -1669,10 +1679,40 @@ CrediLinQ.ai provides AI-powered embedded finance solutions for B2B platforms, e
     # ====================================
     
     async def generate_ai_blog_content(title: str, brief: str, campaign_name: str) -> str:
-        """Generate blog content using actual AI agents."""
+        """Generate blog content using actual AI agents (OpenAI or Gemini)."""
         try:
-            # Use OpenAI directly if agents aren't fully available
-            if OPENAI_API_KEY:
+            # Use configured AI provider
+            if PRIMARY_AI_PROVIDER == 'gemini' and GEMINI_API_KEY:
+                import google.generativeai as genai
+                genai.configure(api_key=GEMINI_API_KEY)
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                
+                prompt = f"""
+                Write a comprehensive, high-quality blog post with the following specifications:
+                
+                Title: {title}
+                Campaign Context: {brief}
+                Target Audience: B2B professionals, executives, and decision makers
+                Tone: Professional, authoritative, yet engaging
+                Word Count: 1500-2000 words
+                
+                Structure the blog post with:
+                1. Compelling introduction that hooks the reader
+                2. Clear section headers and subheaders  
+                3. Actionable insights and practical advice
+                4. Data-driven points and statistics where relevant
+                5. Strong conclusion with clear next steps
+                6. Include relevant examples and case studies
+                
+                Focus on providing real value to readers, not promotional content.
+                Use markdown formatting for headers, lists, and emphasis.
+                """
+                
+                response = model.generate_content(prompt)
+                logger.info(f"✅ Generated blog content using Gemini AI")
+                return response.text
+                
+            elif OPENAI_API_KEY:
                 from openai import AsyncOpenAI
                 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
                 
@@ -1706,16 +1746,42 @@ CrediLinQ.ai provides AI-powered embedded finance solutions for B2B platforms, e
                 
                 return response.choices[0].message.content
             else:
-                raise Exception("No OpenAI API key available")
+                raise Exception("No AI API key available")
                 
         except Exception as e:
             logger.warning(f"AI blog generation failed: {e}")
             return generate_enhanced_blog_template(title, campaign_name)
     
     async def generate_ai_social_content(title: str, brief: str, campaign_name: str) -> str:
-        """Generate social media content using actual AI agents."""
+        """Generate social media content using actual AI agents (OpenAI or Gemini)."""
         try:
-            if OPENAI_API_KEY:
+            if PRIMARY_AI_PROVIDER == 'gemini' and GEMINI_API_KEY:
+                import google.generativeai as genai
+                genai.configure(api_key=GEMINI_API_KEY)
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                
+                prompt = f"""
+                Create engaging social media content for: {title}
+                
+                Context: {brief}
+                Platform: Based on title (LinkedIn, Twitter, or Facebook)
+                
+                Requirements:
+                - Professional yet engaging tone
+                - Include relevant hashtags
+                - Call-to-action that encourages engagement  
+                - Use emojis appropriately for the platform
+                - Keep within platform character limits
+                - Focus on value, not promotion
+                
+                Generate content that starts conversations and provides genuine insights.
+                """
+                
+                response = model.generate_content(prompt)
+                logger.info(f"✅ Generated social content using Gemini AI")
+                return response.text
+                
+            elif OPENAI_API_KEY:
                 from openai import AsyncOpenAI
                 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
                 
@@ -1745,16 +1811,45 @@ CrediLinQ.ai provides AI-powered embedded finance solutions for B2B platforms, e
                 
                 return response.choices[0].message.content
             else:
-                raise Exception("No OpenAI API key available")
+                raise Exception("No AI API key available")
                 
         except Exception as e:
             logger.warning(f"AI social generation failed: {e}")
             return generate_enhanced_social_template(title, campaign_name)
     
     async def generate_ai_email_content(title: str, brief: str, campaign_name: str) -> str:
-        """Generate email content using actual AI agents."""
+        """Generate email content using actual AI agents (OpenAI or Gemini)."""
         try:
-            if OPENAI_API_KEY:
+            if PRIMARY_AI_PROVIDER == 'gemini' and GEMINI_API_KEY:
+                import google.generativeai as genai
+                genai.configure(api_key=GEMINI_API_KEY)
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                
+                prompt = f"""
+                Write a professional email campaign with the following details:
+                
+                Subject: {title}
+                Campaign: {brief}
+                
+                Create a complete email including:
+                1. Compelling subject line
+                2. Personal greeting
+                3. Value-driven opening
+                4. Main content with actionable insights
+                5. Clear call-to-action
+                6. Professional signature
+                7. Unsubscribe option
+                
+                Tone: Professional, helpful, not pushy
+                Length: 500-700 words
+                Focus on providing value to the recipient
+                """
+                
+                response = model.generate_content(prompt)
+                logger.info(f"✅ Generated email content using Gemini AI")
+                return response.text
+                
+            elif OPENAI_API_KEY:
                 from openai import AsyncOpenAI
                 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
                 
@@ -2131,7 +2226,8 @@ To unsubscribe from these strategic insights, simply reply with "UNSUBSCRIBE".""
                     title = blog_topics[i % len(blog_topics)]
                     
                     # Try to generate actual content using AI agents
-                    if actual_agents_available and OPENAI_API_KEY:
+                    ai_available = (OPENAI_API_KEY or GEMINI_API_KEY) and actual_agents_available
+                    if ai_available:
                         try:
                             # Use real AI agent to generate content
                             blog_content = await generate_ai_blog_content(title, campaign_brief, campaign_name)
@@ -2174,7 +2270,7 @@ To unsubscribe from these strategic insights, simply reply with "UNSUBSCRIBE".""
                     title = social_topics[i % len(social_topics)]
                     
                     # Try to generate actual social content using AI agents
-                    if actual_agents_available and OPENAI_API_KEY:
+                    if ai_available:
                         try:
                             # Use real AI agent for social content
                             social_content = await generate_ai_social_content(title, campaign_brief, campaign_name)
@@ -2206,7 +2302,7 @@ To unsubscribe from these strategic insights, simply reply with "UNSUBSCRIBE".""
                     task_id = str(uuid.uuid4())
                     title = f"Email Campaign: {campaign_name} Strategic Insights Series - Part {i+1}"
                     
-                    if actual_agents_available and OPENAI_API_KEY:
+                    if ai_available:
                         try:
                             email_content = await generate_ai_email_content(title, campaign_brief, campaign_name)
                             word_count = len(email_content.split())
