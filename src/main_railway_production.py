@@ -1255,8 +1255,9 @@ Review and customize this content to match your specific campaign objectives and
                 "message": str(e)
             }
 
-    # Content Deliverables API endpoints
+    # Content Deliverables API endpoints (both URL formats for compatibility)
     @app.get("/api/content-deliverables/campaign/{campaign_id}")
+    @app.get("/api/v2/deliverables/campaign/{campaign_id}")
     async def get_campaign_deliverables(campaign_id: str):
         """Get all content deliverables for a campaign."""
         try:
@@ -1390,6 +1391,7 @@ CrediLinQ.ai Team""",
             }
 
     @app.post("/api/content-deliverables/generate")
+    @app.post("/api/v2/deliverables/generate")
     async def generate_content_deliverables(request: dict):
         """Generate content deliverables for a campaign."""
         try:
@@ -1420,6 +1422,7 @@ CrediLinQ.ai Team""",
             }
 
     @app.get("/api/content-deliverables/{deliverable_id}")
+    @app.get("/api/v2/deliverables/{deliverable_id}")
     async def get_deliverable(deliverable_id: str):
         """Get a specific content deliverable by ID."""
         try:
@@ -1436,6 +1439,7 @@ CrediLinQ.ai Team""",
             raise HTTPException(status_code=500, detail=str(e))
 
     @app.put("/api/content-deliverables/{deliverable_id}/status")
+    @app.put("/api/v2/deliverables/{deliverable_id}/status")
     async def update_deliverable_status(deliverable_id: str, request: dict):
         """Update the status of a content deliverable."""
         try:
