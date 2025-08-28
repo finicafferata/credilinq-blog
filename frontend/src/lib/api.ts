@@ -371,6 +371,31 @@ export const campaignApi = {
     const response = await api.get(`/api/v2/campaigns/orchestration/campaigns/${campaignId}/feedback-analytics`);
     return response.data;
   },
+
+  // Get AI-powered content recommendations using PlannerAgent
+  getAIRecommendations: async (campaignData: {
+    campaign_objective: string;
+    target_market: string;
+    campaign_purpose: string;
+    campaign_duration_weeks: number;
+    company_context?: string;
+  }): Promise<{
+    recommended_content_mix: {
+      blog_posts: number;
+      social_posts: number;
+      email_sequences: number;
+      infographics: number;
+    };
+    suggested_themes: string[];
+    optimal_channels: string[];
+    recommended_posting_frequency: string;
+    ai_reasoning?: string;
+    generated_by: string;
+    timestamp: string;
+  }> => {
+    const response = await api.post('/api/v2/campaigns/ai-recommendations', campaignData);
+    return response.data;
+  },
 };
 
 // Analytics API endpoints

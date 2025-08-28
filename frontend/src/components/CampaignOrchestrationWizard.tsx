@@ -157,29 +157,27 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
   const getAIContentSuggestions = async () => {
     setLoading(true);
     try {
-      // This would call AI to suggest optimal content mix based on campaign data
+      // Call real AI recommendations API using PlannerAgent
+      const { campaignApi } = await import('../lib/api');
+      
+      const aiRecommendations = await campaignApi.getAIRecommendations({
+        campaign_objective: wizardData.campaign_objective,
+        target_market: wizardData.target_market,
+        campaign_purpose: wizardData.industry,
+        campaign_duration_weeks: wizardData.campaign_duration_weeks,
+        company_context: wizardData.company_context
+      });
+      
+      console.log('🤖 AI Recommendations received:', aiRecommendations);
+      
+      // Structure suggestions for the UI
       const suggestions = {
-        recommended_content_mix: {
-          blog_posts: Math.max(2, Math.floor(wizardData.campaign_duration_weeks / 2)),
-          social_posts: wizardData.campaign_duration_weeks * 3,
-          email_sequences: 1,
-          infographics: Math.max(1, Math.floor(wizardData.campaign_duration_weeks / 3))
-        },
-        suggested_themes: wizardData.industry ? [
-          `${wizardData.industry.replace(/_/g, ' ')} insights`,
-          `${wizardData.campaign_objective.replace('_', ' ')} strategies`,
-          wizardData.target_market === 'direct_merchants' ? 'SME credit access tips' : 'Embedded finance integration guides',
-          'CrediLinq success stories'
-        ] : [
-          `${wizardData.campaign_objective.replace('_', ' ')} strategies`,
-          'Credit solutions overview',
-          'Customer success stories',
-          'Industry best practices'
-        ],
-        optimal_channels: wizardData.target_market === 'direct_merchants' 
-          ? ['linkedin', 'email', 'website', 'industry_publications'] 
-          : ['linkedin', 'email', 'website', 'partner_portals', 'webinars'],
-        recommended_posting_frequency: wizardData.campaign_duration_weeks > 6 ? 'weekly' : 'bi-weekly'
+        recommended_content_mix: aiRecommendations.recommended_content_mix,
+        suggested_themes: aiRecommendations.suggested_themes,
+        optimal_channels: aiRecommendations.optimal_channels,
+        recommended_posting_frequency: aiRecommendations.recommended_posting_frequency,
+        ai_reasoning: aiRecommendations.ai_reasoning,
+        generated_by: aiRecommendations.generated_by
       };
       
       setAiSuggestions(suggestions);
@@ -194,6 +192,32 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
       
     } catch (err) {
       console.error('Error getting AI suggestions:', err);
+      
+      // Fallback to intelligent defaults if API fails
+      const fallbackSuggestions = {
+        recommended_content_mix: {
+          blog_posts: Math.max(2, Math.floor(wizardData.campaign_duration_weeks / 2)),
+          social_posts: wizardData.campaign_duration_weeks * 2,
+          email_sequences: 1,
+          infographics: Math.max(1, Math.floor(wizardData.campaign_duration_weeks / 3))
+        },
+        suggested_themes: generateSmartContentThemes(wizardData.target_market, wizardData.industry),
+        optimal_channels: wizardData.target_market === 'direct_merchants' 
+          ? ['linkedin', 'email', 'website', 'industry_publications'] 
+          : ['linkedin', 'email', 'website', 'partner_portals', 'webinars'],
+        recommended_posting_frequency: wizardData.campaign_duration_weeks > 6 ? 'bi-weekly' : 'weekly',
+        ai_reasoning: 'Using intelligent fallbacks due to AI service unavailability',
+        generated_by: 'IntelligentFallback'
+      };
+      
+      setAiSuggestions(fallbackSuggestions);
+      updateWizardData({
+        content_mix: fallbackSuggestions.recommended_content_mix,
+        content_themes: fallbackSuggestions.suggested_themes,
+        distribution_channels: fallbackSuggestions.optimal_channels,
+        content_frequency: fallbackSuggestions.recommended_posting_frequency
+      });
+      
     } finally {
       setLoading(false);
     }
@@ -645,12 +669,22 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
 
               {aiSuggestions && (
                 <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 mb-6">
-                  <h4 className="font-medium text-blue-900 mb-2">🎯 AI Recommendations</h4>
-                  <p className="text-blue-800 text-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium text-blue-900">🎯 AI Recommendations</h4>
+                    <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                      {aiSuggestions.generated_by === 'PlannerAgent' ? '🤖 AI Generated' : '⚡ Smart Default'}
+                    </span>
+                  </div>
+                  <p className="text-blue-800 text-sm mb-2">
                     Based on your {wizardData.campaign_objective.replace('_', ' ')} objective and {wizardData.campaign_duration_weeks}-week timeline,
                     I recommend {Object.values(aiSuggestions.recommended_content_mix).reduce((a, b) => a + b, 0)} total content pieces
                     across {aiSuggestions.optimal_channels.length} channels.
                   </p>
+                  {aiSuggestions.ai_reasoning && (
+                    <div className="mt-2 p-2 bg-blue-100 rounded text-xs text-blue-700">
+                      <strong>AI Insight:</strong> {aiSuggestions.ai_reasoning}
+                    </div>
+                  )}
                 </div>
               )}
 

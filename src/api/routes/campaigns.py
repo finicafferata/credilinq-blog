@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from src.agents.specialized.campaign_manager import CampaignManagerAgent
 from src.agents.specialized.task_scheduler import TaskSchedulerAgent
 from src.agents.specialized.distribution_agent import DistributionAgent
+from src.agents.specialized.planner_agent import PlannerAgent
 from src.agents.workflow.autonomous_workflow_orchestrator import autonomous_orchestrator
 from src.config.database import db_config
 from src.services.campaign_progress_service import campaign_progress_service
@@ -103,10 +104,18 @@ class ScheduledPostRequest(BaseModel):
 class DistributionRequest(BaseModel):
     campaign_id: str
 
+class AIRecommendationsRequest(BaseModel):
+    campaign_objective: str  # lead_generation, brand_awareness, etc.
+    target_market: str  # direct_merchants, embedded_partners
+    campaign_purpose: str  # credit_access_education, partnership_acquisition, etc.
+    campaign_duration_weeks: int
+    company_context: Optional[str] = None
+
 # Initialize agents
 campaign_manager = CampaignManagerAgent()
 task_scheduler = TaskSchedulerAgent()
 distribution_agent = DistributionAgent()
+planner_agent = PlannerAgent()
 
 @router.post("/", response_model=Dict[str, Any])
 async def create_campaign(request: CampaignCreateRequest):
@@ -747,6 +756,85 @@ async def get_campaign_performance(campaign_id: str):
     except Exception as e:
         logger.error(f"Error getting campaign performance: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to get campaign performance: {str(e)}")
+
+@router.post("/ai-recommendations", response_model=Dict[str, Any])
+async def get_ai_content_recommendations(request: AIRecommendationsRequest):
+    """
+    Get AI-powered content recommendations using PlannerAgent
+    """
+    try:
+        logger.info(f"Generating AI recommendations for {request.target_market} campaign: {request.campaign_objective}")
+        
+        # Build context for the AI planner
+        campaign_context = {
+            "objective": request.campaign_objective,
+            "target_market": request.target_market,
+            "campaign_purpose": request.campaign_purpose,
+            "duration_weeks": request.campaign_duration_weeks,
+            "company_context": request.company_context or "CrediLinq - Financial technology platform providing credit solutions"
+        }
+        
+        # Create a planning prompt for content strategy
+        planning_prompt = f"""
+        Create a strategic content plan for a CrediLinq {request.campaign_objective} campaign with the following parameters:
+        
+        Target Market: {request.target_market} ({'businesses seeking credit' if request.target_market == 'direct_merchants' else 'companies wanting embedded finance solutions'})
+        Campaign Purpose: {request.campaign_purpose.replace('_', ' ')}
+        Duration: {request.campaign_duration_weeks} weeks
+        
+        Please recommend:
+        1. Optimal content mix (blog posts, social posts, email sequences, infographics)
+        2. Content themes specific to CrediLinq's business
+        3. Distribution channels for maximum impact
+        4. Publishing frequency
+        
+        Focus on CrediLinq's expertise in credit solutions, embedded finance, and SME growth.
+        """
+        
+        # Execute planning with PlannerAgent
+        from src.agents.core.base_agent import AgentExecutionContext
+        
+        execution_context = AgentExecutionContext(
+            campaign_context=campaign_context,
+            content_requirements={
+                "format": "content_strategy",
+                "target_audience": request.target_market,
+                "campaign_type": request.campaign_objective
+            }
+        )
+        
+        planner_result = await planner_agent.execute(planning_prompt, execution_context)
+        
+        # Parse AI response and structure recommendations
+        ai_response = planner_result.result if planner_result.success else ""
+        
+        # Smart parsing of AI recommendations with fallbacks
+        recommended_content_mix = _parse_content_mix(ai_response, request.campaign_duration_weeks)
+        suggested_themes = _parse_content_themes(ai_response, request.target_market, request.campaign_purpose)
+        optimal_channels = _parse_distribution_channels(ai_response, request.target_market)
+        posting_frequency = _parse_posting_frequency(ai_response, request.campaign_duration_weeks)
+        
+        recommendations = {
+            "recommended_content_mix": recommended_content_mix,
+            "suggested_themes": suggested_themes,
+            "optimal_channels": optimal_channels,
+            "recommended_posting_frequency": posting_frequency,
+            "ai_reasoning": ai_response[:500] + "..." if len(ai_response) > 500 else ai_response,
+            "generated_by": "PlannerAgent",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        logger.info(f"AI recommendations generated successfully")
+        return recommendations
+        
+    except Exception as e:
+        logger.error(f"Error generating AI recommendations: {str(e)}")
+        
+        # Fallback to intelligent defaults if AI fails
+        fallback_recommendations = _get_intelligent_fallbacks(request)
+        fallback_recommendations["ai_reasoning"] = f"Using intelligent defaults due to AI service unavailability: {str(e)}"
+        
+        return fallback_recommendations
 
 @router.post("/{campaign_id}/status", response_model=Dict[str, Any])
 async def update_campaign_status(campaign_id: str, status: str):
@@ -2376,3 +2464,166 @@ async def get_autonomous_workflow_status(campaign_id: str):
     except Exception as e:
         logger.error(f"Error getting autonomous workflow status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to get workflow status: {str(e)}")
+
+
+# Helper functions for AI recommendations parsing
+def _parse_content_mix(ai_response: str, duration_weeks: int) -> Dict[str, int]:
+    """Parse content mix recommendations from AI response"""
+    try:
+        # Look for numbers in AI response
+        import re
+        
+        # Default smart recommendations
+        defaults = {
+            "blog_posts": max(2, duration_weeks // 2),
+            "social_posts": duration_weeks * 2,  # 2 per week
+            "email_sequences": 1,
+            "infographics": max(1, duration_weeks // 3)
+        }
+        
+        # Try to extract specific recommendations from AI response
+        blog_match = re.search(r'blog\s*posts?\s*[:=]?\s*(\d+)', ai_response.lower())
+        social_match = re.search(r'social\s*posts?\s*[:=]?\s*(\d+)', ai_response.lower())
+        email_match = re.search(r'email\s*(?:sequences?)?\s*[:=]?\s*(\d+)', ai_response.lower())
+        infographic_match = re.search(r'infographics?\s*[:=]?\s*(\d+)', ai_response.lower())
+        
+        if blog_match:
+            defaults["blog_posts"] = min(int(blog_match.group(1)), duration_weeks)
+        if social_match:
+            defaults["social_posts"] = min(int(social_match.group(1)), duration_weeks * 5)  # Max 5 per week
+        if email_match:
+            defaults["email_sequences"] = min(int(email_match.group(1)), 3)  # Max 3 sequences
+        if infographic_match:
+            defaults["infographics"] = min(int(infographic_match.group(1)), duration_weeks)
+            
+        return defaults
+        
+    except Exception as e:
+        logger.warning(f"Error parsing content mix from AI: {e}")
+        return {
+            "blog_posts": max(2, duration_weeks // 2),
+            "social_posts": duration_weeks * 2,
+            "email_sequences": 1,
+            "infographics": max(1, duration_weeks // 3)
+        }
+
+
+def _parse_content_themes(ai_response: str, target_market: str, campaign_purpose: str) -> List[str]:
+    """Parse content themes from AI response"""
+    try:
+        # Smart fallback themes based on target market and purpose
+        base_themes = ["CrediLinq platform benefits", "Customer success stories"]
+        
+        if target_market == "direct_merchants":
+            market_themes = ["SME credit access fundamentals", "Business growth through credit"]
+        else:
+            market_themes = ["Embedded finance integration", "Partner success metrics"]
+        
+        # Purpose-specific themes
+        purpose_themes = {
+            "credit_access_education": ["Credit education fundamentals", "Understanding business credit"],
+            "partnership_acquisition": ["Partnership benefits showcase", "Integration success stories"],
+            "product_feature_launch": ["New feature highlights", "Enhanced capabilities demo"],
+            "competitive_positioning": ["CrediLinq vs competitors", "Unique value propositions"],
+            "thought_leadership": ["Industry insights and trends", "Future of fintech"],
+            "customer_success_stories": ["Customer transformation stories", "Real-world success metrics"],
+            "market_expansion": ["New market opportunities", "Sector-specific solutions"]
+        }
+        
+        selected_purpose_themes = purpose_themes.get(campaign_purpose, ["Industry best practices"])
+        
+        # Try to extract themes from AI response
+        themes_from_ai = []
+        if "themes:" in ai_response.lower() or "topics:" in ai_response.lower():
+            lines = ai_response.split('\n')
+            in_themes_section = False
+            for line in lines:
+                line = line.strip()
+                if 'themes:' in line.lower() or 'topics:' in line.lower():
+                    in_themes_section = True
+                    continue
+                if in_themes_section and line and not line.lower().startswith(('1.', '2.', '3.', '4.', '-')):
+                    break
+                if in_themes_section and line:
+                    # Extract theme from bullet points
+                    theme = line.strip('- 1234567890.')
+                    if theme and len(theme) > 10:
+                        themes_from_ai.append(theme.strip())
+        
+        # Combine AI themes with smart defaults
+        final_themes = base_themes + market_themes[:1] + selected_purpose_themes[:1]
+        if themes_from_ai:
+            final_themes = themes_from_ai[:4] if len(themes_from_ai) >= 4 else themes_from_ai + final_themes
+        
+        return final_themes[:4]
+        
+    except Exception as e:
+        logger.warning(f"Error parsing content themes from AI: {e}")
+        return ["CrediLinq platform benefits", "Customer success stories", "SME growth strategies", "Credit solutions overview"]
+
+
+def _parse_distribution_channels(ai_response: str, target_market: str) -> List[str]:
+    """Parse distribution channels from AI response"""
+    try:
+        # Smart channel recommendations based on target market
+        if target_market == "direct_merchants":
+            default_channels = ["linkedin", "website", "email", "industry_publications"]
+        else:
+            default_channels = ["linkedin", "website", "email", "partner_portals", "webinars"]
+        
+        # Try to extract channels from AI response
+        channels_mentioned = []
+        channel_keywords = {
+            "linkedin": ["linkedin", "professional network"],
+            "email": ["email", "newsletter", "mailing"],
+            "website": ["website", "blog", "company site"],
+            "webinars": ["webinar", "virtual event", "online event"],
+            "partner_portals": ["partner", "integration", "portal"],
+            "industry_publications": ["publication", "industry media", "trade media"],
+            "social_media": ["social media", "social platform"],
+            "content_syndication": ["syndication", "content distribution"]
+        }
+        
+        response_lower = ai_response.lower()
+        for channel, keywords in channel_keywords.items():
+            if any(keyword in response_lower for keyword in keywords):
+                channels_mentioned.append(channel)
+        
+        # Use AI suggestions if available, otherwise use defaults
+        return channels_mentioned[:5] if len(channels_mentioned) >= 3 else default_channels
+        
+    except Exception as e:
+        logger.warning(f"Error parsing distribution channels from AI: {e}")
+        return ["linkedin", "website", "email", "industry_publications"]
+
+
+def _parse_posting_frequency(ai_response: str, duration_weeks: int) -> str:
+    """Parse posting frequency from AI response"""
+    try:
+        response_lower = ai_response.lower()
+        
+        if "daily" in response_lower and duration_weeks <= 2:
+            return "daily"
+        elif "weekly" in response_lower or duration_weeks <= 4:
+            return "weekly"
+        elif "bi-weekly" in response_lower or "biweekly" in response_lower:
+            return "bi-weekly"
+        else:
+            # Smart default based on duration
+            return "weekly" if duration_weeks <= 6 else "bi-weekly"
+            
+    except Exception as e:
+        logger.warning(f"Error parsing posting frequency from AI: {e}")
+        return "weekly"
+
+
+def _get_intelligent_fallbacks(request: AIRecommendationsRequest) -> Dict[str, Any]:
+    """Get intelligent fallback recommendations when AI is unavailable"""
+    return {
+        "recommended_content_mix": _parse_content_mix("", request.campaign_duration_weeks),
+        "suggested_themes": _parse_content_themes("", request.target_market, request.campaign_purpose),
+        "optimal_channels": _parse_distribution_channels("", request.target_market),
+        "recommended_posting_frequency": _parse_posting_frequency("", request.campaign_duration_weeks),
+        "generated_by": "IntelligentFallback",
+        "timestamp": datetime.now().isoformat()
+    }
