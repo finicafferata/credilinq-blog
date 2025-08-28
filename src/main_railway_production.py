@@ -4,7 +4,7 @@ Includes all API endpoints and essential features with lazy agent loading.
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
@@ -1484,22 +1484,64 @@ CrediLinQ.ai Team""",
             }
 
     @app.post("/api/documents/upload")
-    async def upload_document():
-        """Upload a document to the knowledge base."""
+    async def upload_document(
+        files: List[UploadFile] = File(...),
+        description: str = Form(None)
+    ):
+        """Upload documents to the knowledge base."""
         try:
-            document_id = str(uuid.uuid4())
-            return {
-                "status": "success", 
-                "id": document_id,  # Frontend expects 'id' field
-                "document_id": document_id,  # Keep both for compatibility
-                "title": "Uploaded Document",
-                "filename": "document.pdf", 
-                "size": 1024,
-                "upload_status": "processed",
-                "message": "Document uploaded successfully! File has been processed and added to knowledge base.",
-                "supported_formats": ["PDF", "DOC", "DOCX", "TXT", "MD"],
-                "uploaded_at": datetime.now().isoformat()
-            }
+            uploaded_files = []
+            
+            for file in files:
+                # Validate file type
+                allowed_extensions = {'.pdf', '.doc', '.docx', '.txt', '.md'}
+                file_extension = os.path.splitext(file.filename)[1].lower()
+                
+                if file_extension not in allowed_extensions:
+                    return {
+                        "status": "error",
+                        "message": f"Unsupported file type: {file_extension}. Supported formats: {', '.join(allowed_extensions)}"
+                    }
+                
+                # Read file content
+                content = await file.read()
+                file_size = len(content)
+                
+                # Generate document ID
+                document_id = str(uuid.uuid4())
+                
+                # Create document record (in real app, this would save to database)
+                document_data = {
+                    "id": document_id,
+                    "document_id": document_id,  # Keep both for compatibility
+                    "title": file.filename,
+                    "filename": file.filename,
+                    "size": file_size,
+                    "mime_type": file.content_type,
+                    "upload_status": "processed",
+                    "description": description or f"Uploaded document: {file.filename}",
+                    "uploaded_at": datetime.now().isoformat()
+                }
+                
+                uploaded_files.append(document_data)
+                
+                # Log successful upload
+                logger.info(f"Document uploaded: {file.filename} ({file_size} bytes)")
+            
+            # Return single file or array based on input
+            if len(uploaded_files) == 1:
+                result = uploaded_files[0]
+                result["message"] = "Document uploaded successfully! File has been processed and added to knowledge base."
+                result["supported_formats"] = ["PDF", "DOC", "DOCX", "TXT", "MD"]
+                return result
+            else:
+                return {
+                    "status": "success",
+                    "message": f"Successfully uploaded {len(uploaded_files)} documents",
+                    "files": uploaded_files,
+                    "supported_formats": ["PDF", "DOC", "DOCX", "TXT", "MD"]
+                }
+                
         except Exception as e:
             logger.error(f"Error uploading document: {e}")
             return {

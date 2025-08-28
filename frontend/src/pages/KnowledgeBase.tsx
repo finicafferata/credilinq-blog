@@ -85,7 +85,7 @@ export function KnowledgeBase() {
       }
 
       const result = await response.json();
-      const uploadResult = result[0]; // First file result
+      const uploadResult = result; // Backend returns single object, not array
 
       setFiles(prev => prev.map((f, i) => 
         i === fileIndex 
