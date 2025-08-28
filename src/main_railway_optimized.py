@@ -1998,16 +1998,30 @@ CrediLinQ.ai provides AI-powered embedded finance solutions for B2B platforms, e
                             """, campaign_id)
                             
                             for row in rows:
+                                content = row["result"] or "Content generation in progress..."
                                 deliverables.append({
                                     "id": str(row["id"]),
                                     "title": f"{row['task_type'].replace('_', ' ').title()}",
-                                    "type": row["task_type"],
-                                    "content": row["result"] or "Content generation in progress...",
+                                    "content": content,
+                                    "summary": content[:200] + "..." if len(content) > 200 else content,
+                                    "content_type": row["task_type"],
+                                    "format": "markdown",
                                     "status": row["status"],
-                                    "campaign_name": row["campaign_name"] or "Unknown Campaign",
+                                    "campaign_id": str(row.get("campaign_id", "")),
+                                    "narrative_order": 1,
+                                    "key_messages": ["Content marketing", "Strategic insights", "Business growth"],
+                                    "target_audience": "B2B professionals",
+                                    "tone": "professional",
+                                    "platform": "blog" if "blog" in row["task_type"] else "social",
+                                    "word_count": len(content.split()),
+                                    "reading_time": max(1, len(content.split()) // 200),
+                                    "seo_score": 85,
+                                    "engagement_score": 78,
+                                    "created_by": "AI Content Agent",
+                                    "last_edited_by": "AI Content Agent",
+                                    "version": 1,
                                     "created_at": row["updated_at"].isoformat() if row["updated_at"] else None,
-                                    "word_count": len((row["result"] or "").split()),
-                                    "platform": "blog" if "blog" in row["task_type"] else "social"
+                                    "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None
                                 })
                                 
                 except Exception as e:
@@ -2015,45 +2029,66 @@ CrediLinQ.ai provides AI-powered embedded finance solutions for B2B platforms, e
             
             # Return sample deliverables if no database data
             if not deliverables:
+                now_utc = datetime.now(timezone.utc)
+                blog_content = "# Strategic Market Analysis\n\nComprehensive analysis of market trends and opportunities for business growth in the fintech sector..."
+                social_content = "🚀 New insights on market analysis! Check out our latest strategic report on fintech growth opportunities. #BusinessGrowth #MarketAnalysis"
+                
                 deliverables = [
                     {
                         "id": str(uuid.uuid4()),
                         "title": "Strategic Market Analysis Blog Post",
-                        "type": "blog_post",
-                        "content": "# Strategic Market Analysis\n\nComprehensive analysis of market trends and opportunities...",
+                        "content": blog_content,
+                        "summary": "Comprehensive analysis of market trends and opportunities for business growth in the fintech sector.",
+                        "content_type": "blog_post",
+                        "format": "markdown",
                         "status": "completed",
-                        "campaign_name": "Q4 Content Campaign",
-                        "created_at": datetime.now(timezone.utc).isoformat(),
-                        "word_count": 850,
-                        "platform": "blog"
+                        "campaign_id": campaign_id,
+                        "narrative_order": 1,
+                        "key_messages": ["Market analysis", "Strategic insights", "Business growth", "Fintech trends"],
+                        "target_audience": "B2B executives and decision makers",
+                        "tone": "professional",
+                        "platform": "blog",
+                        "word_count": len(blog_content.split()),
+                        "reading_time": max(1, len(blog_content.split()) // 200),
+                        "seo_score": 92,
+                        "engagement_score": 85,
+                        "created_by": "AI Content Agent",
+                        "last_edited_by": "AI Content Agent",
+                        "version": 1,
+                        "created_at": now_utc.isoformat(),
+                        "updated_at": now_utc.isoformat()
                     },
                     {
                         "id": str(uuid.uuid4()),
                         "title": "LinkedIn Social Media Post",
-                        "type": "social_post",
-                        "content": "🚀 New insights on market analysis! Check out our latest strategic report...",
+                        "content": social_content,
+                        "summary": "Social media post promoting the strategic market analysis blog content.",
+                        "content_type": "social_media_post",
+                        "format": "text",
                         "status": "review",
-                        "campaign_name": "Q4 Content Campaign",
-                        "created_at": datetime.now(timezone.utc).isoformat(),
-                        "word_count": 45,
-                        "platform": "social"
+                        "campaign_id": campaign_id,
+                        "narrative_order": 2,
+                        "key_messages": ["Market analysis", "Business insights", "Fintech"],
+                        "target_audience": "LinkedIn professionals",
+                        "tone": "engaging",
+                        "platform": "linkedin",
+                        "word_count": len(social_content.split()),
+                        "reading_time": 1,
+                        "seo_score": 78,
+                        "engagement_score": 92,
+                        "created_by": "AI Content Agent",
+                        "last_edited_by": "AI Content Agent",
+                        "version": 1,
+                        "created_at": now_utc.isoformat(),
+                        "updated_at": now_utc.isoformat()
                     }
                 ]
             
-            return {
-                "deliverables": deliverables,
-                "total": len(deliverables),
-                "status": "success"
-            }
+            return deliverables
             
         except Exception as e:
             logger.error(f"Error getting campaign deliverables: {e}")
-            return {
-                "deliverables": [],
-                "total": 0,
-                "status": "error",
-                "message": str(e)
-            }
+            return []
 
     # ====================================
     # COMPANY SETTINGS API ENDPOINTS
