@@ -2627,3 +2627,83 @@ def _get_intelligent_fallbacks(request: AIRecommendationsRequest) -> Dict[str, A
         "generated_by": "IntelligentFallback",
         "timestamp": datetime.now().isoformat()
     }
+
+@router.post("/{campaign_id}/rerun-agents", response_model=Dict[str, Any])
+async def rerun_campaign_agents(campaign_id: str):
+    """
+    Rerun AI agents to generate new tasks for an existing campaign.
+    This will create additional content tasks based on the original campaign strategy.
+    """
+    try:
+        logger.info(f"Rerunning agents for campaign {campaign_id}")
+        
+        # Get existing campaign details
+        with db_config.get_db_connection() as conn:
+            cur = conn.cursor()
+            
+            # Get campaign information
+            cur.execute("""
+                SELECT c.id, b.campaign_name, b.description, b.target_market, b.campaign_purpose, 
+                       b.content_themes, b.distribution_channels, b.timeline_weeks
+                FROM campaigns c
+                LEFT JOIN briefings b ON c.id = b.campaign_id
+                WHERE c.id = %s
+            """, (campaign_id,))
+            
+            campaign_row = cur.fetchone()
+            if not campaign_row:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            
+            _, campaign_name, description, target_market, campaign_purpose, content_themes, distribution_channels, timeline_weeks = campaign_row
+            
+            # Parse existing campaign data
+            campaign_data = {
+                "campaign_name": campaign_name or f"Campaign {campaign_id}",
+                "company_context": description or "B2B financial services campaign",
+                "target_market": target_market or "embedded_partners",
+                "campaign_purpose": campaign_purpose or "lead_generation",
+                "channels": distribution_channels if isinstance(distribution_channels, list) else ["linkedin", "email"],
+                "timeline_weeks": timeline_weeks or 4,
+                "success_metrics": {
+                    "blog_posts": 2,
+                    "social_posts": 6,
+                    "email_content": 3,
+                    "infographics": 1
+                }
+            }
+            
+            # Create enhanced template config for rerun
+            enhanced_template_config = {
+                "orchestration_mode": True,
+                "campaign_data": campaign_data,
+                "rerun_mode": True,  # Flag to indicate this is a rerun
+                "template_id": "enhanced_rerun"
+            }
+            
+            # Use campaign manager to generate new tasks
+            new_campaign_plan = await campaign_manager.create_campaign_plan(
+                blog_id=campaign_id,  # Use campaign_id as placeholder
+                campaign_name=f"{campaign_name} - Enhanced",
+                company_context=campaign_data["company_context"],
+                content_type="orchestration",
+                template_id="enhanced_rerun",
+                template_config=enhanced_template_config
+            )
+            
+            # The campaign manager will save new tasks to the existing campaign
+            logger.info(f"Successfully generated {len(new_campaign_plan.get(\"content_tasks\", []))} new tasks for campaign {campaign_id}")
+            
+            return {
+                "success": True,
+                "message": f"Successfully generated {len(new_campaign_plan.get(\"content_tasks\", []))} new tasks",
+                "campaign_id": campaign_id,
+                "new_tasks_count": len(new_campaign_plan.get("content_tasks", [])),
+                "strategy_enhanced": True
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error rerunning agents for campaign {campaign_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to rerun agents: {str(e)}")
+

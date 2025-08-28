@@ -1,5 +1,6 @@
 """
 Enhanced base agent implementation with proper interfaces and communication protocols.
+Now includes LangGraph state management capabilities for hybrid workflows.
 """
 
 from abc import ABC, abstractmethod
@@ -11,6 +12,7 @@ import time
 import uuid
 from datetime import datetime
 import traceback
+import asyncio
 
 # Import performance tracking
 try:
@@ -103,13 +105,48 @@ class AgentResult:
 
 @dataclass 
 class AgentState:
-    """Agent execution state."""
+    """Agent execution state with LangGraph workflow support."""
     status: AgentStatus = AgentStatus.IDLE
     current_operation: Optional[str] = None
     progress_percentage: float = 0.0
     last_updated: datetime = field(default_factory=datetime.utcnow)
     execution_context: Optional[AgentExecutionContext] = None
     result: Optional[AgentResult] = None
+    
+    # LangGraph state management additions
+    workflow_id: Optional[str] = None
+    workflow_state: Optional[Dict[str, Any]] = None
+    checkpoint_id: Optional[str] = None
+    is_langgraph_workflow: bool = False
+    recoverable: bool = False
+    
+    def to_workflow_state(self) -> Dict[str, Any]:
+        """Convert to LangGraph workflow state format."""
+        return {
+            'agent_status': self.status.value,
+            'current_operation': self.current_operation,
+            'progress_percentage': self.progress_percentage,
+            'last_updated': self.last_updated.isoformat(),
+            'workflow_id': self.workflow_id,
+            'checkpoint_id': self.checkpoint_id,
+            'workflow_state': self.workflow_state or {},
+            'recoverable': self.recoverable
+        }
+    
+    @classmethod
+    def from_workflow_state(cls, workflow_state: Dict[str, Any]) -> 'AgentState':
+        """Create AgentState from LangGraph workflow state."""
+        return cls(
+            status=AgentStatus(workflow_state.get('agent_status', 'idle')),
+            current_operation=workflow_state.get('current_operation'),
+            progress_percentage=workflow_state.get('progress_percentage', 0.0),
+            last_updated=datetime.fromisoformat(workflow_state.get('last_updated', datetime.utcnow().isoformat())),
+            workflow_id=workflow_state.get('workflow_id'),
+            workflow_state=workflow_state.get('workflow_state'),
+            checkpoint_id=workflow_state.get('checkpoint_id'),
+            is_langgraph_workflow=True,
+            recoverable=workflow_state.get('recoverable', False)
+        )
 
 class AgentCommunicationProtocol:
     """Standard communication protocol for agent interactions."""
@@ -197,6 +234,11 @@ class BaseAgent(ABC, Generic[T]):
         else:
             self.performance_tracker = None
             self.agent_name = self.__class__.__name__.lower()
+        
+        # LangGraph workflow capabilities
+        self._langgraph_enabled = False
+        self._workflow_manager = None
+        self._state_persistence = {}  # In-memory state for workflow recovery
         
         # Initialize agent-specific setup
         self._initialize()
@@ -484,6 +526,199 @@ class BaseAgent(ABC, Generic[T]):
             )
             self.performance_tracker.update_cache_config(self.agent_name, cache_config)
             self.logger.info(f"Updated cache configuration for {self.agent_name}: TTL={ttl}s")
+    
+    # LangGraph workflow methods
+    def enable_langgraph_workflow(self, workflow_manager=None):
+        """
+        Enable LangGraph workflow capabilities for this agent.
+        
+        Args:
+            workflow_manager: Optional workflow manager for state persistence
+        """
+        self._langgraph_enabled = True
+        self._workflow_manager = workflow_manager
+        self.logger.info(f"LangGraph workflow enabled for {self.agent_name}")
+    
+    def disable_langgraph_workflow(self):
+        """Disable LangGraph workflow capabilities."""
+        self._langgraph_enabled = False
+        self._workflow_manager = None
+        self.logger.info(f"LangGraph workflow disabled for {self.agent_name}")
+    
+    def is_langgraph_enabled(self) -> bool:
+        """Check if LangGraph workflow is enabled."""
+        return self._langgraph_enabled
+    
+    def save_workflow_state(self, workflow_id: str, state_data: Dict[str, Any]) -> bool:
+        """
+        Save workflow state for recovery.
+        
+        Args:
+            workflow_id: Unique workflow identifier
+            state_data: State data to save
+            
+        Returns:
+            bool: True if saved successfully
+        """
+        try:
+            # Update agent state with workflow info
+            self.state.workflow_id = workflow_id
+            self.state.workflow_state = state_data
+            self.state.is_langgraph_workflow = True
+            self.state.recoverable = True
+            self.state.last_updated = datetime.utcnow()
+            
+            # Store in in-memory persistence (can be enhanced with database later)
+            self._state_persistence[workflow_id] = {
+                'agent_state': self.state.to_workflow_state(),
+                'workflow_data': state_data,
+                'saved_at': datetime.utcnow().isoformat()
+            }
+            
+            self.logger.info(f"Saved workflow state for {workflow_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to save workflow state for {workflow_id}: {e}")
+            return False
+    
+    def load_workflow_state(self, workflow_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Load workflow state for recovery.
+        
+        Args:
+            workflow_id: Workflow identifier to load
+            
+        Returns:
+            Optional state data if found
+        """
+        try:
+            if workflow_id in self._state_persistence:
+                saved_data = self._state_persistence[workflow_id]
+                
+                # Restore agent state
+                self.state = AgentState.from_workflow_state(saved_data['agent_state'])
+                
+                self.logger.info(f"Loaded workflow state for {workflow_id}")
+                return saved_data['workflow_data']
+        except Exception as e:
+            self.logger.error(f"Failed to load workflow state for {workflow_id}: {e}")
+        
+        return None
+    
+    def clear_workflow_state(self, workflow_id: str) -> bool:
+        """
+        Clear saved workflow state.
+        
+        Args:
+            workflow_id: Workflow identifier to clear
+            
+        Returns:
+            bool: True if cleared successfully
+        """
+        try:
+            if workflow_id in self._state_persistence:
+                del self._state_persistence[workflow_id]
+                
+                # Reset agent state if it matches this workflow
+                if self.state.workflow_id == workflow_id:
+                    self.state.workflow_id = None
+                    self.state.workflow_state = None
+                    self.state.checkpoint_id = None
+                    self.state.is_langgraph_workflow = False
+                    self.state.recoverable = False
+                
+                self.logger.info(f"Cleared workflow state for {workflow_id}")
+                return True
+        except Exception as e:
+            self.logger.error(f"Failed to clear workflow state for {workflow_id}: {e}")
+        
+        return False
+    
+    def get_workflow_states(self) -> Dict[str, Any]:
+        """Get all saved workflow states for this agent."""
+        return self._state_persistence.copy()
+    
+    async def execute_with_workflow_recovery(
+        self,
+        input_data: AgentInput,
+        workflow_id: Optional[str] = None,
+        context: Optional[AgentExecutionContext] = None,
+        **kwargs
+    ) -> AgentResult:
+        """
+        Execute agent with LangGraph workflow recovery capabilities.
+        
+        Args:
+            input_data: Input data for the agent
+            workflow_id: Optional workflow ID for recovery
+            context: Execution context
+            **kwargs: Additional parameters
+            
+        Returns:
+            AgentResult: Execution result with workflow state
+        """
+        if not self._langgraph_enabled:
+            # Fall back to regular execution
+            return self.execute_safe(input_data, context, **kwargs)
+        
+        # Generate workflow ID if not provided
+        if workflow_id is None:
+            workflow_id = str(uuid.uuid4())
+        
+        # Try to recover previous state
+        recovered_state = self.load_workflow_state(workflow_id)
+        if recovered_state:
+            self.logger.info(f"Recovered workflow {workflow_id}, resuming execution")
+            # Merge recovered state with current input
+            if isinstance(input_data, dict) and isinstance(recovered_state, dict):
+                input_data = {**recovered_state, **input_data}
+        
+        # Set workflow ID in context
+        if context is None:
+            context = AgentExecutionContext()
+        context.workflow_id = workflow_id
+        
+        try:
+            # Execute with state saving
+            result = self.execute_safe(input_data, context, **kwargs)
+            
+            # Save successful state
+            if result.is_success:
+                self.save_workflow_state(workflow_id, {
+                    'input_data': input_data,
+                    'result': result.data,
+                    'completed': True
+                })
+            
+            # Add workflow info to result metadata
+            result.metadata = result.metadata or {}
+            result.metadata.update({
+                'workflow_id': workflow_id,
+                'langgraph_enabled': True,
+                'recoverable': True
+            })
+            
+            return result
+            
+        except Exception as e:
+            # Save error state for recovery
+            self.save_workflow_state(workflow_id, {
+                'input_data': input_data,
+                'error': str(e),
+                'failed_at': datetime.utcnow().isoformat(),
+                'completed': False
+            })
+            
+            return AgentResult(
+                success=False,
+                error_message=str(e),
+                error_code=self._get_error_code(e),
+                metadata={
+                    'workflow_id': workflow_id,
+                    'langgraph_enabled': True,
+                    'recoverable': True
+                }
+            )
 
 class WorkflowAgent(BaseAgent[Dict[str, Any]]):
     """

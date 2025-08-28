@@ -1,11 +1,16 @@
 """
 Agent factory pattern implementation for creating and managing agents.
+Now supports hybrid LangChain/LangGraph agent creation with workflow capabilities.
 """
 
-from typing import Type, Dict, Any, Optional, List, Callable
+from typing import Type, Dict, Any, Optional, List, Callable, Union
 from enum import Enum
 import logging
 from .base_agent import BaseAgent, AgentType, AgentMetadata, AgentResult, AgentExecutionContext
+from .langgraph_base import (
+    LangGraphWorkflowBase, LangGraphAgentMixin, create_hybrid_agent, 
+    LangGraphExecutionContext, CheckpointStrategy
+)
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +21,11 @@ class AgentRegistry:
         self._agents: Dict[AgentType, Type[BaseAgent]] = {}
         self._factories: Dict[AgentType, Callable[..., BaseAgent]] = {}
         self._metadata_templates: Dict[AgentType, AgentMetadata] = {}
+        
+        # LangGraph workflow support
+        self._workflows: Dict[AgentType, Type[LangGraphWorkflowBase]] = {}
+        self._hybrid_factories: Dict[AgentType, Callable[..., BaseAgent]] = {}
+        self._langgraph_enabled: Dict[AgentType, bool] = {}
     
     def register_agent(
         self, 
@@ -50,6 +60,64 @@ class AgentRegistry:
         
         logger.info(f"Registered agent type {agent_type.value} with class {agent_class.__name__}")
     
+    def register_workflow(
+        self,
+        agent_type: AgentType,
+        workflow_class: Type[LangGraphWorkflowBase],
+        enable_by_default: bool = False
+    ) -> None:
+        """
+        Register a LangGraph workflow for an agent type.
+        
+        Args:
+            agent_type: Agent type to register workflow for
+            workflow_class: LangGraph workflow class
+            enable_by_default: Whether to enable LangGraph by default for this agent
+        """
+        self._workflows[agent_type] = workflow_class
+        self._langgraph_enabled[agent_type] = enable_by_default
+        
+        # Create hybrid factory that combines agent and workflow
+        def hybrid_factory(metadata: Optional[AgentMetadata] = None, enable_langgraph: bool = enable_by_default, **kwargs) -> BaseAgent:
+            agent_class = self._agents[agent_type]
+            if enable_langgraph:
+                return create_hybrid_agent(
+                    agent_class=agent_class,
+                    workflow_class=workflow_class,
+                    enable_langgraph=True,
+                    metadata=metadata,
+                    **kwargs
+                )
+            else:
+                return agent_class(metadata=metadata, **kwargs)
+        
+        self._hybrid_factories[agent_type] = hybrid_factory
+        
+        logger.info(f"Registered LangGraph workflow for {agent_type.value}: {workflow_class.__name__}")
+    
+    def unregister_workflow(self, agent_type: AgentType) -> None:
+        """Remove LangGraph workflow registration for an agent type."""
+        if agent_type in self._workflows:
+            del self._workflows[agent_type]
+        if agent_type in self._hybrid_factories:
+            del self._hybrid_factories[agent_type]
+        if agent_type in self._langgraph_enabled:
+            del self._langgraph_enabled[agent_type]
+        
+        logger.info(f"Unregistered LangGraph workflow for {agent_type.value}")
+    
+    def has_workflow(self, agent_type: AgentType) -> bool:
+        """Check if agent type has a registered LangGraph workflow."""
+        return agent_type in self._workflows
+    
+    def is_langgraph_enabled_by_default(self, agent_type: AgentType) -> bool:
+        """Check if LangGraph is enabled by default for an agent type."""
+        return self._langgraph_enabled.get(agent_type, False)
+    
+    def get_workflow_class(self, agent_type: AgentType) -> Optional[Type[LangGraphWorkflowBase]]:
+        """Get the registered workflow class for an agent type."""
+        return self._workflows.get(agent_type)
+    
     def get_agent_class(self, agent_type: AgentType) -> Optional[Type[BaseAgent]]:
         """Get agent class for a given type."""
         return self._agents.get(agent_type)
@@ -70,24 +138,38 @@ class AgentRegistry:
         self, 
         agent_type: AgentType, 
         metadata: Optional[AgentMetadata] = None,
+        enable_langgraph: Optional[bool] = None,
         **kwargs
     ) -> BaseAgent:
         """
-        Create an agent instance using the factory.
+        Create an agent instance using the factory with optional LangGraph workflow support.
         
         Args:
             agent_type: Type of agent to create
             metadata: Agent metadata (uses template if not provided)
+            enable_langgraph: Whether to enable LangGraph workflow (None = use default)
             **kwargs: Additional arguments for agent construction
             
         Returns:
-            BaseAgent: Created agent instance
+            BaseAgent: Created agent instance with optional LangGraph capabilities
             
         Raises:
             ValueError: If agent type is not registered
         """
         if agent_type not in self._agents:
             raise ValueError(f"Agent type {agent_type.value} is not registered")
+        
+        # Determine if LangGraph should be enabled
+        if enable_langgraph is None:
+            enable_langgraph = self.is_langgraph_enabled_by_default(agent_type)
+        
+        # Use hybrid factory if LangGraph is enabled and workflow is available
+        if enable_langgraph and agent_type in self._hybrid_factories:
+            return self._hybrid_factories[agent_type](
+                metadata=metadata, 
+                enable_langgraph=True, 
+                **kwargs
+            )
         
         # Use custom factory if available
         if agent_type in self._factories:
@@ -98,7 +180,28 @@ class AgentRegistry:
         if metadata is None:
             metadata = self._metadata_templates[agent_type]
         
-        return agent_class(metadata=metadata, **kwargs)
+        agent = agent_class(metadata=metadata, **kwargs)
+        
+        # Enable LangGraph workflow if requested and available
+        if enable_langgraph and agent_type in self._workflows:
+            workflow_class = self._workflows[agent_type]
+            workflow_name = f"{agent_class.__name__}_workflow"
+            workflow = workflow_class(workflow_name=workflow_name)
+            
+            # Add LangGraph mixin capabilities if not already present
+            if not hasattr(agent, 'enable_langgraph'):
+                # Dynamically add mixin capabilities
+                agent.__class__ = type(
+                    f"Hybrid{agent.__class__.__name__}",
+                    (LangGraphAgentMixin, agent.__class__),
+                    {}
+                )
+                agent._langgraph_enabled = False
+                agent._workflow = None
+            
+            agent.enable_langgraph(workflow)
+        
+        return agent
 
 # Global agent registry
 _global_registry = AgentRegistry()
@@ -122,22 +225,27 @@ class AgentFactory:
         self, 
         agent_type: AgentType, 
         metadata: Optional[AgentMetadata] = None,
+        enable_langgraph: Optional[bool] = None,
         **kwargs
     ) -> BaseAgent:
         """
-        Create an agent of the specified type.
+        Create an agent of the specified type with optional LangGraph support.
         
         Args:
             agent_type: Type of agent to create
             metadata: Custom metadata (optional)
+            enable_langgraph: Whether to enable LangGraph workflow (None = use default)
             **kwargs: Additional arguments
             
         Returns:
             BaseAgent: Created agent instance
         """
         try:
-            agent = self.registry.create_agent(agent_type, metadata, **kwargs)
-            self.logger.info(f"Created agent {agent.metadata.name} of type {agent_type.value}")
+            agent = self.registry.create_agent(
+                agent_type, metadata, enable_langgraph=enable_langgraph, **kwargs
+            )
+            langgraph_status = "with LangGraph" if getattr(agent, '_langgraph_enabled', False) else "LangChain only"
+            self.logger.info(f"Created agent {agent.metadata.name} of type {agent_type.value} ({langgraph_status})")
             return agent
         except Exception as e:
             self.logger.error(f"Failed to create agent of type {agent_type.value}: {str(e)}")
@@ -353,6 +461,45 @@ def get_available_agent_types() -> List[AgentType]:
     """Get all available agent types from global registry."""
     return _global_registry.get_registered_types()
 
+def register_workflow(
+    agent_type: AgentType,
+    workflow_class: Type[LangGraphWorkflowBase],
+    enable_by_default: bool = False
+) -> None:
+    """Register a LangGraph workflow globally for an agent type."""
+    _global_registry.register_workflow(agent_type, workflow_class, enable_by_default)
+
+def create_langgraph_agent(
+    agent_type: AgentType,
+    metadata: Optional[AgentMetadata] = None,
+    **kwargs
+) -> BaseAgent:
+    """Create an agent with LangGraph workflow enabled."""
+    factory = AgentFactory()
+    return factory.create_agent(agent_type, metadata, enable_langgraph=True, **kwargs)
+
+def create_langchain_agent(
+    agent_type: AgentType,
+    metadata: Optional[AgentMetadata] = None,
+    **kwargs
+) -> BaseAgent:
+    """Create an agent with only LangChain capabilities (no LangGraph)."""
+    factory = AgentFactory()
+    return factory.create_agent(agent_type, metadata, enable_langgraph=False, **kwargs)
+
+def get_workflow_info(agent_type: AgentType) -> Optional[Dict[str, Any]]:
+    """Get information about registered workflow for an agent type."""
+    if not _global_registry.has_workflow(agent_type):
+        return None
+    
+    workflow_class = _global_registry.get_workflow_class(agent_type)
+    return {
+        "agent_type": agent_type.value,
+        "workflow_class": workflow_class.__name__ if workflow_class else None,
+        "langgraph_enabled_by_default": _global_registry.is_langgraph_enabled_by_default(agent_type),
+        "has_workflow": True
+    }
+
 # Pre-configured factories for common use cases
 class BlogWorkflowAgentFactory(AgentFactory):
     """Specialized factory for blog workflow agents."""
@@ -387,6 +534,15 @@ def _initialize_default_agents():
         from ..specialized.campaign_manager import CampaignManagerAgent
         from ..specialized.content_repurposer import ContentRepurposer
         from ..specialized.content_brief_agent import ContentBriefAgent
+        from ..specialized.seo_agent import SEOAgent
+        from ..specialized.social_media_agent import SocialMediaAgent
+        from ..specialized.geo_analysis_agent import GEOAnalysisAgent
+        
+        # Import LangGraph workflows
+        from ..specialized.planner_agent_langgraph import PlannerAgentWorkflow
+        from ..specialized.seo_agent_langgraph import SEOAgentWorkflow
+        from ..specialized.social_media_agent_langgraph import SocialMediaAgentWorkflow
+        from ..specialized.geo_analysis_agent_langgraph import GEOAnalysisAgentWorkflow
         
         # Register Image Agent
         register_agent(
@@ -440,7 +596,72 @@ def _initialize_default_agents():
             )
         )
         
-        logger.info("Successfully registered specialized agents")
+        # Register SEO Agent
+        register_agent(
+            AgentType.SEO,
+            SEOAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.SEO,
+                name="SEOAgent", 
+                description="Optimizes content for search engines with advanced SEO analysis and recommendations",
+                capabilities=["keyword_optimization", "meta_tag_generation", "technical_seo", "competitive_analysis", "schema_markup"],
+                dependencies=[]
+            )
+        )
+        
+        # Register Social Media Agent
+        register_agent(
+            AgentType.SOCIAL_MEDIA,
+            SocialMediaAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.SOCIAL_MEDIA,
+                name="SocialMediaAgent",
+                description="Adapts content for different social media platforms with engagement optimization",
+                capabilities=["platform_adaptation", "engagement_optimization", "hashtag_generation", "social_strategy"],
+                dependencies=[]
+            )
+        )
+        
+        # Register GEO Analysis Agent (Content Optimizer)
+        register_agent(
+            AgentType.CONTENT_OPTIMIZER,
+            GEOAnalysisAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.CONTENT_OPTIMIZER,
+                name="GEOAnalysisAgent",
+                description="Optimizes content for AI search engines like ChatGPT and Gemini with E-E-A-T analysis",
+                capabilities=["generative_engine_optimization", "eeat_analysis", "factual_density", "ai_citability"],
+                dependencies=[]
+            )
+        )
+        
+        # Register LangGraph workflows for existing agents
+        register_workflow(
+            AgentType.PLANNER,
+            PlannerAgentWorkflow,
+            enable_by_default=False  # Start with opt-in for safety
+        )
+        
+        # Register LangGraph workflows for optimization agents
+        register_workflow(
+            AgentType.SEO,
+            SEOAgentWorkflow,
+            enable_by_default=True  # Enable by default for enhanced optimization
+        )
+        
+        register_workflow(
+            AgentType.SOCIAL_MEDIA,
+            SocialMediaAgentWorkflow,
+            enable_by_default=True  # Enable by default for enhanced platform adaptation
+        )
+        
+        register_workflow(
+            AgentType.CONTENT_OPTIMIZER,
+            GEOAnalysisAgentWorkflow,
+            enable_by_default=True  # Enable by default for enhanced AI optimization
+        )
+        
+        logger.info("Successfully registered specialized agents and LangGraph workflows")
         
     except ImportError as e:
         logger.warning(f"Failed to register some specialized agents: {e}")

@@ -117,6 +117,32 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         enhanced_logger.warning("⚠️ Failed to start CI Scheduler", exception=e)
     
+    # Display AI provider configuration
+    try:
+        from .core.ai_utils import setup_ai_environment, check_provider_availability
+        from .config.settings import get_settings
+        
+        ai_settings = get_settings()
+        availability = check_provider_availability()
+        
+        enhanced_logger.info(f"🤖 AI Configuration:")
+        enhanced_logger.info(f"   Primary Provider: {ai_settings.primary_ai_provider.upper()}")
+        
+        if availability.get('openai', False):
+            enhanced_logger.info(f"   OpenAI: ✅ Available (Model: {ai_settings.openai_model})")
+        else:
+            enhanced_logger.info(f"   OpenAI: ❌ Not configured")
+            
+        if availability.get('gemini', False):
+            enhanced_logger.info(f"   Gemini: ✅ Available (Model: {ai_settings.gemini_model})")
+        else:
+            enhanced_logger.info(f"   Gemini: ❌ Not configured")
+            
+        setup_ai_environment()
+        
+    except Exception as e:
+        enhanced_logger.warning(f"⚠️ AI environment setup warning: {e}")
+    
     enhanced_logger.info("🚀 CrediLinq AI Content Platform startup completed")
     
     yield

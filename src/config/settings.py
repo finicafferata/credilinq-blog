@@ -56,15 +56,25 @@ class Settings(BaseSettings):
     # database_url_direct: Optional[str] = Field(None, env="DATABASE_URL_DIRECT")
     
     # ========================================
-    # AI SERVICES - REQUIRED
+    # AI SERVICES - PRIMARY MODEL SELECTION
     # ========================================
-    openai_api_key: str = Field(..., env="OPENAI_API_KEY")
+    # Primary AI Provider Selection
+    primary_ai_provider: str = Field("openai", env="PRIMARY_AI_PROVIDER")  # "openai" or "gemini"
+    
+    # OpenAI Configuration
+    openai_api_key: Optional[str] = Field(None, env="OPENAI_API_KEY")
     openai_model: str = Field("gpt-3.5-turbo", env="OPENAI_MODEL")
     openai_temperature: float = Field(0.7, env="OPENAI_TEMPERATURE")
     openai_max_tokens: int = Field(4000, env="OPENAI_MAX_TOKENS")
     
-    # AI Services - Optional
+    # Google/Gemini Configuration
     google_api_key: Optional[str] = Field(None, env="GOOGLE_API_KEY")
+    gemini_api_key: Optional[str] = Field(None, env="GEMINI_API_KEY")
+    gemini_model: str = Field("gemini-1.5-flash", env="GEMINI_MODEL")
+    gemini_temperature: float = Field(0.7, env="GEMINI_TEMPERATURE")
+    gemini_max_tokens: int = Field(4000, env="GEMINI_MAX_TOKENS")
+    
+    # AI Services - Optional
     tavily_api_key: Optional[str] = Field(None, env="TAVILY_API_KEY")
     
     # ========================================
@@ -143,21 +153,34 @@ class Settings(BaseSettings):
         """Parse allowed file types from comma-separated string."""
         return [ftype.strip() for ftype in self.allowed_file_types_str.split(",") if ftype.strip()]
     
-    # Backward compatibility properties
+    # Primary AI provider properties (dynamic based on selection)
     @property
     def default_model(self) -> str:
-        """Backward compatibility for openai_model."""
+        """Get the default model for the primary AI provider."""
+        if self.primary_ai_provider == "gemini":
+            return self.gemini_model
         return self.openai_model
     
     @property
     def default_temperature(self) -> float:
-        """Backward compatibility for openai_temperature."""
+        """Get the default temperature for the primary AI provider."""
+        if self.primary_ai_provider == "gemini":
+            return self.gemini_temperature
         return self.openai_temperature
     
     @property
     def max_tokens(self) -> int:
-        """Backward compatibility for openai_max_tokens."""
+        """Get the max tokens for the primary AI provider."""
+        if self.primary_ai_provider == "gemini":
+            return self.gemini_max_tokens
         return self.openai_max_tokens
+    
+    @property
+    def primary_api_key(self) -> Optional[str]:
+        """Get the API key for the primary AI provider."""
+        if self.primary_ai_provider == "gemini":
+            return self.gemini_api_key or self.google_api_key
+        return self.openai_api_key
     
     @property
     def max_retries(self) -> int:
@@ -212,11 +235,18 @@ class Settings(BaseSettings):
         
         return v
     
-    @validator('openai_temperature')
+    @validator('primary_ai_provider')
+    def validate_primary_provider(cls, v):
+        """Validate primary AI provider selection."""
+        if v not in ["openai", "gemini"]:
+            raise ValueError("Primary AI provider must be 'openai' or 'gemini'")
+        return v
+    
+    @validator('openai_temperature', 'gemini_temperature')
     def validate_temperature(cls, v):
         """Ensure temperature is within valid range."""
         if not 0.0 <= v <= 2.0:
-            raise ValueError("OpenAI temperature must be between 0.0 and 2.0")
+            raise ValueError("AI temperature must be between 0.0 and 2.0")
         return v
     
     @validator('rate_limit_per_minute')
@@ -306,8 +336,12 @@ def get_settings() -> Settings:
 
 # Validate critical settings on import
 if settings.environment == "production":
-    # Additional production validations
-    critical_production_vars = ['OPENAI_API_KEY']
+    # Additional production validations based on primary provider
+    if settings.primary_ai_provider == "gemini":
+        critical_production_vars = ['GEMINI_API_KEY']
+    else:
+        critical_production_vars = ['OPENAI_API_KEY']
+    
     optional_production_vars = ['SUPABASE_URL', 'SUPABASE_KEY']
     
     missing_critical = []

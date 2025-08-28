@@ -910,8 +910,44 @@ class CampaignManagerAgent(BaseAgent, CampaignIntelligenceMixin):
                 'performance_analytics': 'analytics'
             }
             
+            # Handle both detailed content mix and total content_pieces
+            if 'content_pieces' in content_mix and len([k for k in content_mix.keys() if k in content_channel_mapping]) == 0:
+                # User specified total content pieces - generate smart distribution
+                total_pieces = content_mix.get('content_pieces', 3)
+                target_channels = content_mix.get('target_channels', 3)
+                
+                # Smart distribution based on total pieces
+                if total_pieces >= 16:
+                    # Large campaign - diverse content mix
+                    smart_mix = {
+                        'blog_posts': max(3, total_pieces // 5),      # 20% blogs
+                        'social_posts': max(6, total_pieces // 2),    # 50% social
+                        'email_content': max(2, total_pieces // 8),   # 12% email
+                        'infographics': max(1, total_pieces // 10),   # 10% visuals
+                        'video_content': max(1, total_pieces // 16)   # 8% video
+                    }
+                elif total_pieces >= 8:
+                    # Medium campaign
+                    smart_mix = {
+                        'blog_posts': max(2, total_pieces // 4),      # 25% blogs
+                        'social_posts': max(4, total_pieces // 2),    # 50% social  
+                        'email_content': max(2, total_pieces // 4),   # 25% email
+                    }
+                else:
+                    # Small campaign - focus on essentials
+                    smart_mix = {
+                        'blog_posts': 1,
+                        'social_posts': max(2, total_pieces - 2),
+                        'email_content': 1
+                    }
+                
+                logger.info(f"Generated smart content mix for {total_pieces} pieces: {smart_mix}")
+                content_mix.update(smart_mix)
+            
             # Generate EXACT number of tasks as specified by user
             for content_type, count in content_mix.items():
+                if content_type in ['content_pieces', 'target_channels', 'campaign_objective', 'content_themes_count']:
+                    continue  # Skip metadata fields
                 if count == 0:
                     continue
                     

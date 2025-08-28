@@ -9,12 +9,14 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
 
 from ..core.base_agent import BaseAgent, AgentResult, AgentExecutionContext, AgentMetadata, AgentType
+from ..core.langgraph_base import LangGraphAgentMixin, LangGraphExecutionContext
 from ...core.security import SecurityValidator
 
 
 class PlannerAgent(BaseAgent[Dict[str, Any]]):
     """
     Agent responsible for creating structured outlines for blog posts and content.
+    Now supports both LangChain and LangGraph execution modes.
     """
     
     def __init__(self, metadata: Optional[AgentMetadata] = None):
@@ -427,3 +429,46 @@ class PlannerAgent(BaseAgent[Dict[str, Any]]):
         }
         
         return self.execute(input_data, context)
+    
+    async def execute_async(
+        self,
+        input_data: Dict[str, Any],
+        context: Optional[LangGraphExecutionContext] = None,
+        **kwargs
+    ) -> AgentResult:
+        """
+        Async execution method supporting both LangChain and LangGraph workflows.
+        
+        Args:
+            input_data: Input data for planning
+            context: LangGraph execution context
+            **kwargs: Additional parameters
+            
+        Returns:
+            AgentResult: Planning result
+        """
+        # If LangGraph is enabled, use LangGraph execution
+        if self._langgraph_enabled and self._workflow:
+            try:
+                return await self.execute_langgraph(input_data, context)
+            except Exception as e:
+                self.logger.error(f"LangGraph execution failed: {e}")
+                
+                # Fallback to LangChain if enabled
+                if getattr(self, '_fallback_to_langchain', True):
+                    self.logger.info("Falling back to LangChain execution")
+                    agent_context = context.to_agent_context() if context else None
+                    return self.execute_safe(input_data, agent_context, **kwargs)
+                raise
+        
+        # Use standard LangChain execution
+        agent_context = context.to_agent_context() if context else None
+        return self.execute_safe(input_data, agent_context, **kwargs)
+    
+    def get_execution_modes(self) -> Dict[str, bool]:
+        """Get available execution modes for this agent."""
+        return {
+            "langchain": True,
+            "langgraph": self._langgraph_enabled,
+            "hybrid": self._langgraph_enabled and getattr(self, '_fallback_to_langchain', True)
+        }
