@@ -2355,47 +2355,98 @@ To unsubscribe from these strategic insights, simply reply with "UNSUBSCRIBE".""
                         columns = [row['column_name'] for row in columns_result]
                         logger.info(f"📋 Available campaign_tasks columns: {columns}")
                         
-                        # Insert new generated tasks with available columns only
+                        # Map our content types to valid database TaskType enum values
+                        def map_content_type_to_task_type(content_type):
+                            """Map our content types to valid database enum values."""
+                            mapping = {
+                                "blog_post": "content_creation",
+                                "social_post": "social_media_adaptation", 
+                                "email_campaign": "email_formatting",
+                                "social_media_post": "social_media_adaptation",
+                                "linkedin_post": "blog_to_linkedin",
+                                "twitter_post": "blog_to_twitter",
+                                "video_script": "blog_to_video_script",
+                                "repurpose": "content_repurposing",
+                                "seo": "seo_optimization",
+                                "image": "image_generation"
+                            }
+                            return mapping.get(content_type, "content_creation")
+                        
+                        def map_status_to_task_status(status):
+                            """Map our status values to valid database enum values."""
+                            mapping = {
+                                "generated": "completed",
+                                "scheduled": "pending", 
+                                "draft": "pending",
+                                "review": "needs_review",
+                                "published": "approved",
+                                "failed": "error",
+                                "active": "in_progress",
+                                "running": "in_progress"
+                            }
+                            return mapping.get(status, "pending")
+                        
+                        def map_content_type_to_target_format(content_type):
+                            """Map content type to target format."""
+                            mapping = {
+                                "blog_post": "markdown",
+                                "social_post": "text",
+                                "email_campaign": "html",
+                                "social_media_post": "text"
+                            }
+                            return mapping.get(content_type, "text")
+                        
+                        def map_content_type_to_target_asset(content_type):
+                            """Map content type to target asset."""
+                            mapping = {
+                                "blog_post": "blog",
+                                "social_post": "social_media",
+                                "email_campaign": "email",
+                                "social_media_post": "social_media"
+                            }
+                            return mapping.get(content_type, "blog")
+                        
+                        # Insert new generated tasks with proper enum values
                         for task in tasks:
-                            if 'metadata' in columns:
-                                # Full insert with metadata
+                            # Map to valid enum values
+                            valid_task_type = map_content_type_to_task_type(task["type"])
+                            valid_status = map_status_to_task_status(task.get("status", "generated"))
+                            target_format = map_content_type_to_target_format(task["type"])
+                            target_asset = map_content_type_to_target_asset(task["type"])
+                            
+                            try:
+                                # Insert with all available columns from actual schema
                                 await conn.execute("""
                                     INSERT INTO campaign_tasks (
-                                        id, campaign_id, task_type, result, status, 
-                                        priority, metadata, created_at, updated_at
-                                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+                                        id, campaign_id, task_type, target_format, target_asset,
+                                        status, result, priority, created_at, updated_at
+                                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
                                 """, 
-                                task["id"], campaign_id, task["type"], task["content"],
-                                "completed", task["priority"],
-                                json.dumps({
-                                    "title": task["title"],
-                                    "word_count": task["word_count"],
-                                    "enhanced": task["enhanced"],
-                                    "rerun": task["rerun"],
-                                    "agent_used": task.get("agent_used", "Enhanced Template")
-                                })
+                                task["id"], 
+                                campaign_id, 
+                                valid_task_type,
+                                target_format,
+                                target_asset,
+                                valid_status,  # Use mapped status
+                                task["content"],
+                                task["priority"]
                                 )
-                            elif 'title' in columns:
-                                # Insert with title column if available
-                                await conn.execute("""
-                                    INSERT INTO campaign_tasks (
-                                        id, campaign_id, task_type, result, status, 
-                                        priority, title, created_at, updated_at
-                                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-                                """, 
-                                task["id"], campaign_id, task["type"], task["content"],
-                                "completed", task["priority"], task["title"]
-                                )
-                            else:
-                                # Basic insert with minimal columns
-                                await conn.execute("""
-                                    INSERT INTO campaign_tasks (
-                                        id, campaign_id, task_type, result, status, 
-                                        created_at, updated_at
-                                    ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-                                """, 
-                                task["id"], campaign_id, task["type"], task["content"], "completed"
-                                )
+                                logger.debug(f"✅ Saved task {task['id']}: {valid_task_type}")
+                                
+                            except Exception as task_error:
+                                logger.error(f"❌ Failed to save individual task {task['id']}: {task_error}")
+                                # Try minimal insert as fallback
+                                try:
+                                    await conn.execute("""
+                                        INSERT INTO campaign_tasks (
+                                            id, campaign_id, task_type, status, result, created_at, updated_at
+                                        ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+                                    """, 
+                                    task["id"], campaign_id, valid_task_type, valid_status, task["content"]
+                                    )
+                                    logger.info(f"✅ Saved task {task['id']} with minimal schema")
+                                except Exception as fallback_error:
+                                    logger.error(f"❌ Complete failure saving task {task['id']}: {fallback_error}")
                         
                         logger.info(f"✅ Saved {len(tasks)} generated tasks to database")
                     else:
