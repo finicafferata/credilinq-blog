@@ -234,6 +234,8 @@ def main():
         startup_timeout = 60  # 60 seconds for startup
         startup_time = time.time()
         
+        startup_successful = False
+        
         while app_process.poll() is None:
             line = app_process.stdout.readline()
             if line:
@@ -243,6 +245,7 @@ def main():
                 if any(indicator in line.lower() for indicator in 
                        ['started server process', 'application startup complete', 'uvicorn running']):
                     logger.info("✅ Application started successfully")
+                    startup_successful = True
                     break
                 
                 # Check for startup errors
@@ -258,13 +261,40 @@ def main():
             
             time.sleep(0.1)
         
-        # If we get here, process exited during startup
-        if app_process.returncode != 0:
-            logger.error(f"❌ Application exited with code {app_process.returncode}")
-            sys.exit(app_process.returncode)
-        
-        # Wait for the process to complete (shouldn't reach here normally)
-        app_process.wait()
+        # Handle different exit scenarios
+        if startup_successful:
+            # Application started successfully, now monitor it continuously
+            logger.info("🔄 Application running, monitoring for output...")
+            try:
+                # Continue reading output until process ends
+                while app_process.poll() is None:
+                    line = app_process.stdout.readline()
+                    if line:
+                        print(line.rstrip())  # Forward output to Railway logs
+                    time.sleep(0.1)
+                
+                # Process ended - check return code
+                return_code = app_process.returncode
+                if return_code == 0:
+                    logger.info("✅ Application shut down gracefully")
+                else:
+                    logger.error(f"❌ Application exited with code {return_code}")
+                    sys.exit(return_code)
+                    
+            except KeyboardInterrupt:
+                logger.info("🛑 Shutdown requested, terminating application...")
+                app_process.terminate()
+                app_process.wait(timeout=10)
+                
+        else:
+            # Process exited during startup without success indicator
+            return_code = app_process.returncode
+            if return_code is not None and return_code != 0:
+                logger.error(f"❌ Application exited during startup with code {return_code}")
+                sys.exit(return_code)
+            else:
+                logger.error("❌ Application exited during startup unexpectedly")
+                sys.exit(1)
         
     except subprocess.CalledProcessError as e:
         logger.error(f"❌ Failed to start application: {e}")
