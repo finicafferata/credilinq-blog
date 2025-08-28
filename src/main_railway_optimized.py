@@ -1269,10 +1269,7 @@ CrediLinQ.ai provides AI-powered embedded finance solutions for B2B platforms, e
                             "status": "pending",
                             "priority": "high",
                             "assignee": "Content Generation Agent",
-                            "due_date": (datetime.now() + 
-                                       asyncio.get_event_loop().time()
-                                       if hasattr(asyncio.get_event_loop(), 'time') 
-                                       else datetime.now()).strftime("%Y-%m-%d") if False else "2025-09-15",
+                            "due_date": "2025-09-15",
                             "progress": 0,
                             "estimated_hours": 4
                         },
