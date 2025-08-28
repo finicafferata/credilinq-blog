@@ -4,22 +4,30 @@ dockerfile = "Dockerfile"
 
 [deploy]
 healthcheckPath = "/health/live"
-healthcheckTimeout = 300  # 5 minutes for agent initialization
+healthcheckTimeout = 120  # 2 minutes - optimized for Railway
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
+restartPolicyMaxRetries = 5  # Increased retries for Railway stability
 
-# Memory and resource limits - increased for full version with agents
-memoryLimit = "2GB"
-cpuLimit = "1500m"
+# Memory and resource limits - Railway optimized for full features
+memoryLimit = "1GB"  # Reduced but sufficient for optimized version
+cpuLimit = "1000m"   # Railway-appropriate CPU allocation
 
-# Startup configuration
+# Startup configuration - Railway optimized
 startCommand = "python /app/scripts/start.py"
 
 # Environment-specific overrides
 [environments.production]
-memoryLimit = "4GB"
-cpuLimit = "2000m"
+memoryLimit = "2GB"   # Production with more resources
+cpuLimit = "1500m"
+# Use full mode in production if desired
+# RAILWAY_FULL = "true"
 
-[environments.staging]
-memoryLimit = "1GB"
+[environments.staging] 
+memoryLimit = "1GB"   # Staging uses optimized mode
 cpuLimit = "1000m"
+# ENABLE_AGENT_LOADING = "true"
+
+[environments.development]
+memoryLimit = "512MB" # Development minimal resources
+cpuLimit = "500m"
+# RAILWAY_MINIMAL = "true"
