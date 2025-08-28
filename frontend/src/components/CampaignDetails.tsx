@@ -260,9 +260,49 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">{campaign.name}</h2>
-              <p className="text-gray-600">Campaign ID: {campaign.id}</p>
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h2 className="text-2xl font-bold text-gray-900">{campaign.name}</h2>
+                <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">
+                  {campaign.status}
+                </span>
+                <span className="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full flex items-center gap-1">
+                  🤖 AI-Powered
+                </span>
+              </div>
+              <p className="text-gray-600 mb-4">Campaign ID: {campaign.id}</p>
+              
+              {/* Campaign Configuration Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Target Market</h4>
+                  <p className="text-sm text-gray-900">
+                    {campaign.target_audience?.includes('embedded') || campaign.description?.includes('embedded') 
+                      ? '🏢 Embedded Partners' 
+                      : '🏪 Direct Merchants'}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Campaign Type</h4>
+                  <p className="text-sm text-gray-900 capitalize">
+                    {campaign.strategy_type?.replace('_', ' ') || 'Lead Generation'}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Focus</h4>
+                  <p className="text-sm text-gray-900">
+                    {campaign.description?.includes('partnership') ? 'Partnership Acquisition' :
+                     campaign.description?.includes('education') ? 'Credit Education' :
+                     campaign.description?.includes('launch') ? 'Product Launch' : 'Business Growth'}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Content Status</h4>
+                  <p className="text-sm text-gray-900">
+                    {campaignTasks.filter(t => t.status === 'completed').length} of {campaignTasks.length} complete
+                  </p>
+                </div>
+              </div>
             </div>
             <button
               onClick={onClose}
