@@ -162,15 +162,16 @@ function CampaignView() {
                 }
               };
 
-              const nextStatus = task.status === 'pending' ? 'in_progress' : 
-                               task.status === 'in_progress' ? 'completed' : 'pending';
+              const currentStatus = task.status || 'pending';
+              const nextStatus = currentStatus === 'pending' ? 'in_progress' : 
+                               currentStatus === 'in_progress' ? 'completed' : 'pending';
 
               return (
                 <div 
                   key={index} 
                   className={`border-2 rounded-lg p-4 transition-all duration-200 hover:shadow-md cursor-pointer ${
-                    task.status === 'completed' ? 'bg-green-50 border-green-200' :
-                    task.status === 'in_progress' ? 'bg-yellow-50 border-yellow-200' :
+                    currentStatus === 'completed' ? 'bg-green-50 border-green-200' :
+                    currentStatus === 'in_progress' ? 'bg-yellow-50 border-yellow-200' :
                     'bg-gray-50 border-gray-200 hover:border-blue-300'
                   }`}
                   onClick={() => {
@@ -181,16 +182,16 @@ function CampaignView() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-lg">{getTaskIcon(task.task_type)}</span>
+                        <span className="text-lg">{getTaskIcon(task.task_type || task.type)}</span>
                         <h3 className="font-semibold text-gray-900 capitalize">
-                          {task.task_type.replace('_', ' ')}
+                          {(task.task_type || task.type || 'Unknown').replace('_', ' ')}
                         </h3>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(task.status)}`}>
-                          {task.status.replace('_', ' ')}
+                          {(task.status || 'Unknown').replace('_', ' ')}
                         </span>
                       </div>
                       
-                      <p className="text-sm text-gray-600 mb-2">{task.content}</p>
+                      <p className="text-sm text-gray-600 mb-2">{task.content || task.title || 'No description available'}</p>
                       
                       {/* Task Metadata */}
                       {task.metadata && (
