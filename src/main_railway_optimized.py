@@ -1761,6 +1761,7 @@ CrediLinQ.ai provides AI-powered embedded finance solutions for B2B platforms, e
                 """, json.dumps(metadata), campaign_id)
                 
                 return {
+                    "success": True,
                     "status": "success",
                     "message": "Campaign agents rerun successfully with enhanced content generation",
                     "campaign_id": campaign_id,
@@ -1777,6 +1778,7 @@ CrediLinQ.ai provides AI-powered embedded finance solutions for B2B platforms, e
         except Exception as e:
             logger.error(f"Error rerunning campaign agents: {e}")
             return {
+                "success": False,
                 "status": "error",
                 "message": f"Failed to rerun campaign agents: {str(e)}",
                 "campaign_id": campaign_id
