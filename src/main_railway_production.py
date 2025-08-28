@@ -29,6 +29,9 @@ db_pool = None
 agents_initialized = False
 agent_registry = {}
 
+# Simple in-memory document storage for session persistence
+document_storage = {}
+
 def initialize_agents_lazy():
     """Initialize only essential agents for content generation."""
     global agents_initialized, agent_registry
@@ -181,9 +184,10 @@ def create_production_app() -> FastAPI:
     try:
         from .api.routes import (
             blogs, campaigns, settings as settings_router,
-            analytics, documents, content_repurposing,
+            analytics, content_repurposing,
             competitor_intelligence
         )
+        # documents import disabled - using simple implementation
         
         # Core routes
         app.include_router(blogs.router, prefix="/api/v2", tags=["blogs"])
@@ -192,7 +196,7 @@ def create_production_app() -> FastAPI:
         
         # Feature routes (these will lazy-load agents when needed)
         app.include_router(analytics.router, prefix="/api", tags=["analytics"])
-        app.include_router(documents.router, prefix="/api", tags=["documents"])
+        # app.include_router(documents.router, prefix="/api", tags=["documents"])  # Disabled: using simple implementation
         app.include_router(content_repurposing.router, prefix="/api/v2", tags=["content"])
         app.include_router(competitor_intelligence.router, prefix="/api", tags=["competitor_intelligence"])
         
@@ -1469,12 +1473,64 @@ CrediLinQ.ai Team""",
     async def get_documents():
         """Get all documents in the knowledge base."""
         try:
-            return {
-                "status": "success",
-                "documents": [],
-                "total": 0,
-                "message": "Knowledge base is empty. Upload documents to get started."
-            }
+            if db_pool:
+                # Try to get from PostgreSQL database first
+                async with db_pool.acquire() as conn:
+                    try:
+                        # Create documents table if it doesn't exist
+                        await conn.execute("""
+                            CREATE TABLE IF NOT EXISTS documents (
+                                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                filename VARCHAR(255) NOT NULL,
+                                file_size INTEGER,
+                                mime_type VARCHAR(100),
+                                description TEXT,
+                                status VARCHAR(50) DEFAULT 'completed',
+                                created_at TIMESTAMP DEFAULT NOW(),
+                                updated_at TIMESTAMP DEFAULT NOW()
+                            )
+                        """)
+                        
+                        # Fetch documents from database
+                        rows = await conn.fetch("SELECT * FROM documents ORDER BY created_at DESC")
+                        documents_list = [dict(row) for row in rows]
+                        
+                        # Convert timestamps to strings for JSON serialization
+                        for doc in documents_list:
+                            if doc.get('created_at'):
+                                doc['created_at'] = doc['created_at'].isoformat()
+                            if doc.get('updated_at'):
+                                doc['updated_at'] = doc['updated_at'].isoformat()
+                        
+                        if documents_list:
+                            return {
+                                "status": "success",
+                                "documents": documents_list,
+                                "total": len(documents_list),
+                                "message": f"Found {len(documents_list)} documents in knowledge base."
+                            }
+                            
+                    except Exception as db_e:
+                        logger.warning(f"Database error, falling back to memory storage: {db_e}")
+                        # Fall back to memory storage if database fails
+            
+            # Use in-memory storage as fallback
+            documents_list = list(document_storage.values())
+            if documents_list:
+                return {
+                    "status": "success", 
+                    "documents": documents_list,
+                    "total": len(documents_list),
+                    "message": f"Found {len(documents_list)} documents in knowledge base (memory)."
+                }
+            else:
+                return {
+                    "status": "success",
+                    "documents": [],
+                    "total": 0,
+                    "message": "Knowledge base is empty. Upload documents to get started."
+                }
+                
         except Exception as e:
             logger.error(f"Error fetching documents: {e}")
             return {
@@ -1510,18 +1566,42 @@ CrediLinQ.ai Team""",
                 # Generate document ID
                 document_id = str(uuid.uuid4())
                 
-                # Create document record (in real app, this would save to database)
+                # Create document record and store in memory
                 document_data = {
                     "id": document_id,
                     "document_id": document_id,  # Keep both for compatibility
                     "title": file.filename,
                     "filename": file.filename,
-                    "size": file_size,
+                    "file_size": file_size,  # Match frontend expectation
+                    "size": file_size,  # Keep both for compatibility
                     "mime_type": file.content_type,
                     "upload_status": "processed",
+                    "status": "completed",  # Match frontend expectation
                     "description": description or f"Uploaded document: {file.filename}",
-                    "uploaded_at": datetime.now().isoformat()
+                    "uploaded_at": datetime.now().isoformat(),
+                    "created_at": datetime.now().isoformat(),
+                    "updated_at": datetime.now().isoformat()
                 }
+                
+                # Store document in PostgreSQL database
+                if db_pool:
+                    try:
+                        async with db_pool.acquire() as conn:
+                            await conn.execute("""
+                                INSERT INTO documents (id, filename, file_size, mime_type, description, status, created_at, updated_at)
+                                VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+                                ON CONFLICT (id) DO UPDATE SET
+                                    updated_at = NOW()
+                            """, document_id, file.filename, file_size, file.content_type, 
+                                description or f"Uploaded document: {file.filename}", "completed")
+                            logger.info(f"Document saved to PostgreSQL database: {document_id}")
+                    except Exception as db_e:
+                        logger.warning(f"Failed to save to database, using memory storage: {db_e}")
+                        # Store in memory as fallback
+                        document_storage[document_id] = document_data
+                else:
+                    # Store in memory if no database connection
+                    document_storage[document_id] = document_data
                 
                 uploaded_files.append(document_data)
                 
