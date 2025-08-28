@@ -1,6 +1,7 @@
 """
 Production Railway FastAPI application with optimized startup.
 Includes all API endpoints and essential features with lazy agent loading.
+Railway-optimized with proper error handling and simplified imports.
 """
 
 from contextlib import asynccontextmanager
@@ -16,6 +17,8 @@ import json
 import uuid
 import time
 import asyncio
+import sys
+import traceback
 
 # Configure logging
 logging.basicConfig(
