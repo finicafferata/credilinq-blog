@@ -346,12 +346,12 @@ const Campaigns: React.FC<CampaignsProps> = ({ onNavigate }) => {
                             <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
                             Progress
                           </span>
-                          <span className="font-medium">{campaign.progress.toFixed(0)}%</span>
+                          <span className="font-medium">{(campaign.progress || 0).toFixed(0)}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2.5">
                           <div 
                             className="bg-gradient-to-r from-blue-500 to-purple-500 h-2.5 rounded-full transition-all duration-500"
-                            style={{ width: `${campaign.progress}%` }}
+                            style={{ width: `${campaign.progress || 0}%` }}
                           ></div>
                         </div>
                       </div>
@@ -359,10 +359,10 @@ const Campaigns: React.FC<CampaignsProps> = ({ onNavigate }) => {
                       <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center text-gray-600">
                           <CheckCircleIcon className="w-4 h-4 mr-1" />
-                          <span>{campaign.completed_tasks} of {campaign.total_tasks} tasks</span>
+                          <span>{campaign.completed_tasks || 0} of {campaign.total_tasks || 0} tasks</span>
                         </div>
                         <div className="text-gray-500">
-                          {Math.round(((campaign.total_tasks - campaign.completed_tasks) / campaign.total_tasks) * 100)}% remaining
+                          {(campaign.total_tasks || 0) > 0 ? Math.round((((campaign.total_tasks || 0) - (campaign.completed_tasks || 0)) / (campaign.total_tasks || 1)) * 100) : 0}% remaining
                         </div>
                       </div>
                     </div>
@@ -417,11 +417,11 @@ const Campaigns: React.FC<CampaignsProps> = ({ onNavigate }) => {
                           </span>
                           <span className="flex items-center">
                             <CheckCircleIcon className="w-4 h-4 mr-1" />
-                            {campaign.completed_tasks}/{campaign.total_tasks} tasks
+                            {campaign.completed_tasks || 0}/{campaign.total_tasks || 0} tasks
                           </span>
                           <span className="flex items-center">
                             <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
-                            {campaign.progress.toFixed(0)}% complete
+                            {(campaign.progress || 0).toFixed(0)}% complete
                           </span>
                         </div>
                       </div>
@@ -431,7 +431,7 @@ const Campaigns: React.FC<CampaignsProps> = ({ onNavigate }) => {
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div 
                               className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${campaign.progress}%` }}
+                              style={{ width: `${campaign.progress || 0}%` }}
                             ></div>
                           </div>
                         </div>
