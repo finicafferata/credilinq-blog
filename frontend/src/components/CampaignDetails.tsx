@@ -353,10 +353,80 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
               <div className="bg-white border rounded-lg p-6">
                 <h3 className="text-xl font-semibold mb-4">Strategy</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {campaign.strategy.target_audience && (
+                  {(campaign.strategy.target_audience || campaign.strategy.audience_personas) && (
                     <div>
                       <h4 className="font-medium text-gray-900 mb-2">Target Audience</h4>
-                      <p className="text-gray-600">{campaign.strategy.target_audience}</p>
+                      {campaign.strategy.audience_personas && campaign.strategy.audience_personas.length > 0 ? (
+                        <div className="space-y-3">
+                          {campaign.strategy.audience_personas.map((persona: any, index: number) => (
+                            <div key={index} className="bg-blue-50 rounded-lg p-4">
+                              <div className="flex items-start space-x-3">
+                                <div className="flex-shrink-0">
+                                  <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                                    {persona.name ? persona.name.charAt(0).toUpperCase() : '👤'}
+                                  </div>
+                                </div>
+                                <div className="flex-1">
+                                  <h5 className="font-medium text-gray-900 mb-1">
+                                    {persona.name || persona.role || 'Business Decision Maker'}
+                                  </h5>
+                                  {persona.role && persona.role !== persona.name && (
+                                    <p className="text-sm text-blue-700 font-medium mb-2">{persona.role}</p>
+                                  )}
+                                  {persona.description && (
+                                    <p className="text-sm text-gray-600 mb-2">{persona.description}</p>
+                                  )}
+                                  {persona.company_size && (
+                                    <p className="text-xs text-gray-500">
+                                      <span className="font-medium">Company Size:</span> {persona.company_size}
+                                    </p>
+                                  )}
+                                  {persona.pain_points && persona.pain_points.length > 0 && (
+                                    <div className="mt-2">
+                                      <p className="text-xs font-medium text-gray-700 mb-1">Key Challenges:</p>
+                                      <div className="flex flex-wrap gap-1">
+                                        {persona.pain_points.slice(0, 3).map((pain: string, painIndex: number) => (
+                                          <span key={painIndex} className="inline-block bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full">
+                                            {pain}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {persona.channels && persona.channels.length > 0 && (
+                                    <div className="mt-2">
+                                      <p className="text-xs font-medium text-gray-700 mb-1">Preferred Channels:</p>
+                                      <div className="flex flex-wrap gap-1">
+                                        {persona.channels.slice(0, 3).map((channel: string, channelIndex: number) => (
+                                          <span key={channelIndex} className="inline-block bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">
+                                            {channel}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gray-400 text-white rounded-full flex items-center justify-center">
+                              👤
+                            </div>
+                            <div>
+                              <p className="text-gray-700 font-medium">
+                                {campaign.strategy.target_audience || 'Business Decision Makers'}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                Financial services professionals seeking growth solutions
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                   {campaign.strategy.key_messages && (
