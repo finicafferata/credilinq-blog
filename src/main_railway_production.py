@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import os
 import asyncpg
@@ -417,7 +417,18 @@ def create_production_app() -> FastAPI:
                     ]
                     
                     # Generate performance data based on campaign age
-                    days_since_created = (datetime.now() - row["created_at"]).days if row["created_at"] else 0
+                    if row["created_at"]:
+                        # Handle timezone-aware datetime from database
+                        created_at = row["created_at"]
+                        if created_at.tzinfo is not None:
+                            # Database datetime is timezone-aware, make current datetime timezone-aware
+                            current_time = datetime.now(timezone.utc)
+                        else:
+                            # Database datetime is timezone-naive
+                            current_time = datetime.now()
+                        days_since_created = (current_time - created_at).days
+                    else:
+                        days_since_created = 0
                     
                     performance = {
                         "total_posts": len(tasks),
