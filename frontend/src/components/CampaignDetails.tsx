@@ -8,9 +8,10 @@ import { ContentNarrativeViewer } from './ContentNarrativeViewer';
 interface CampaignDetailsProps {
   campaign: CampaignDetail;
   onClose: () => void;
+  fullPage?: boolean;
 }
 
-export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
+export function CampaignDetails({ campaign, onClose, fullPage = false }: CampaignDetailsProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [executingTasks, setExecutingTasks] = useState<Set<string>>(new Set());
   const [campaignTasks, setCampaignTasks] = useState(campaign.tasks || []);
@@ -32,6 +33,7 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
   const [regeneratingTasks, setRegeneratingTasks] = useState<Set<string>>(new Set());
   const [feedbackAnalytics, setFeedbackAnalytics] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'deliverables' | 'tasks'>('tasks');
+  const [rerunningAgents, setRerunningAgents] = useState(false);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -226,6 +228,31 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
     }
   };
 
+  const rerunAgents = async () => {
+    try {
+      setRerunningAgents(true);
+      
+      const response = await campaignApi.rerunCampaignAgents(campaign.id);
+      
+      if (response.success) {
+        // Refresh campaign tasks
+        const updatedCampaign = await campaignApi.get(campaign.id);
+        if (updatedCampaign.tasks) {
+          setCampaignTasks(updatedCampaign.tasks);
+        }
+        
+        alert('Agents have been rerun successfully! New content tasks have been generated.');
+      } else {
+        alert('Failed to rerun agents: ' + (response.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error rerunning agents:', error);
+      alert('Failed to rerun agents. Please try again.');
+    } finally {
+      setRerunningAgents(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'active':
@@ -241,24 +268,10 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
     }
   };
 
-  return (
-    <>
-      <div
-        ref={overlayRef}
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-        onClick={(e) => {
-          if (e.target === overlayRef.current) {
-            onClose()
-          }
-        }}
-      >
-        <div
-          className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-          onClick={(e) => e.stopPropagation()}
-          role="dialog"
-          aria-modal="true"
-        >
-          {/* Header */}
+  // Main content that can be rendered in both modal and full-page modes
+  const mainContent = (
+    <div className={`bg-white ${fullPage ? 'min-h-screen' : 'rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto'}`}>
+      {/* Header */}
           <div className="flex items-center justify-between p-6 border-b">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
@@ -442,6 +455,19 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
                               <Play className="w-4 h-4" />
                             )}
                             <span>{executingAll ? 'Executing...' : 'Execute All Tasks'}</span>
+                          </button>
+                          <button
+                            onClick={rerunAgents}
+                            disabled={rerunningAgents}
+                            className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            title="Regenerate campaign tasks using AI agents"
+                          >
+                            {rerunningAgents ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <RotateCcw className="w-4 h-4" />
+                            )}
+                            <span>{rerunningAgents ? 'Regenerating...' : 'Rerun Agents'}</span>
                           </button>
                         </div>
                       </div>
@@ -726,10 +752,16 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
               </div>
             )}
           </div>
-        </div>
-      </div>
+    </div>
+  );
 
-      {/* Revision Feedback Dialog */}
+  return (
+    <>
+      {fullPage ? (
+        // Full page mode - render content directly
+        <>
+          {mainContent}
+          {/* Revision Feedback Dialog */}
       <RevisionFeedbackDialog
         isOpen={revisionDialog.isOpen}
         onClose={() => setRevisionDialog({ isOpen: false, taskId: '', taskType: '', currentContent: '' })}
@@ -739,6 +771,33 @@ export function CampaignDetails({ campaign, onClose }: CampaignDetailsProps) {
         currentContent={revisionDialog.currentContent}
         isSubmitting={submittingRevision}
       />
+        </>
+      ) : (
+        // Modal mode - wrap content in modal overlay
+        <div
+          ref={overlayRef}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === overlayRef.current) {
+              onClose()
+            }
+          }}
+        >
+          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            {mainContent}
+          </div>
+          {/* Revision Feedback Dialog */}
+          <RevisionFeedbackDialog
+            isOpen={revisionDialog.isOpen}
+            onClose={() => setRevisionDialog({ isOpen: false, taskId: '', taskType: '', currentContent: '' })}
+            onSubmit={submitRevisionFeedback}
+            taskId={revisionDialog.taskId}
+            taskType={revisionDialog.taskType}
+            currentContent={revisionDialog.currentContent}
+            isSubmitting={submittingRevision}
+          />
+        </div>
+      )}
     </>
   );
 } 

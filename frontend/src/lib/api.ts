@@ -319,6 +319,12 @@ export const campaignApi = {
     return response.data;
   },
 
+  // Rerun agents to generate new tasks for a campaign
+  rerunCampaignAgents: async (campaignId: string): Promise<any> => {
+    const response = await api.post(`/api/v2/campaigns/${campaignId}/rerun-agents`);
+    return response.data;
+  },
+
   // Review task content (approve, reject, request revision)
   reviewTask: async (campaignId: string, taskId: string, action: 'approve' | 'reject' | 'request_revision', notes?: string): Promise<any> => {
     const params = new URLSearchParams({ action });
