@@ -58,9 +58,17 @@ async def initialize_agents_lazy():
         return {}
     
     try:
-        import psutil
+        # Try to import required dependencies, fallback if not available
+        try:
+            import psutil
+            memory_available = True
+        except ImportError:
+            logger.warning("⚠️ psutil not available - using basic memory estimation")
+            psutil = None
+            memory_available = False
+            
         import asyncio
-        from concurrent.futures import ThreadPoolExecutor, TimeoutError
+        from concurrent.futures import ThreadPoolExecutor
         
         logger.info("🤖 Enhanced lazy-loading Phase 1 core content pipeline agents...")
         
@@ -116,14 +124,19 @@ async def initialize_agents_lazy():
             agent_health_status[agent_key] = "unknown"
         
         # Check available memory
-        memory_info = psutil.virtual_memory()
-        available_memory_mb = memory_info.available / 1024 / 1024
         total_required_mb = sum(agent["memory_estimate_mb"] for agent in phase1_agents.values())
         
-        logger.info(f"💾 Memory check: Available={available_memory_mb:.0f}MB, Required={total_required_mb}MB")
-        
-        if available_memory_mb < total_required_mb * 1.5:  # 50% buffer
-            logger.warning(f"⚠️ Low memory condition. Using selective loading.")
+        if memory_available and psutil:
+            memory_info = psutil.virtual_memory()
+            available_memory_mb = memory_info.available / 1024 / 1024
+            logger.info(f"💾 Memory check: Available={available_memory_mb:.0f}MB, Required={total_required_mb}MB")
+            
+            if available_memory_mb < total_required_mb * 1.5:  # 50% buffer
+                logger.warning(f"⚠️ Low memory condition. Using selective loading.")
+        else:
+            # Assume we have reasonable memory available (Railway typically has 512MB-1GB)
+            available_memory_mb = 512.0  # Conservative estimate
+            logger.info(f"💾 Memory check (estimated): Available={available_memory_mb:.0f}MB, Required={total_required_mb}MB")
             
         if PROGRESSIVE_LOADING:
             agent_registry = await _load_agents_progressively(phase1_agents, available_memory_mb)
@@ -218,13 +231,24 @@ async def _load_single_agent_with_timeout(agent_config: dict):
             try:
                 # Dynamic import
                 module_path, class_name = agent_config['class_path'].rsplit('.', 1)
+                logger.debug(f"Importing {module_path}.{class_name}")
+                
                 module = __import__(module_path, fromlist=[class_name])
                 agent_class = getattr(module, class_name)
                 
                 # Create instance
-                return agent_class()
+                agent_instance = agent_class()
+                logger.debug(f"Successfully created {agent_config['name']}")
+                return agent_instance
+                
+            except ImportError as e:
+                logger.warning(f"Import failed for {agent_config['name']}: {str(e)} - module may not be available")
+                return None
+            except AttributeError as e:
+                logger.warning(f"Class not found for {agent_config['name']}: {str(e)}")
+                return None
             except Exception as e:
-                logger.error(f"Error creating {agent_config['name']}: {str(e)}")
+                logger.warning(f"Error creating {agent_config['name']}: {str(e)}")
                 return None
         
         # Run with timeout
@@ -362,14 +386,28 @@ async def lifespan(app: FastAPI):
         else:
             logger.warning("⚠️ DATABASE_URL not set - running without database")
         
-        # Initialize agents at startup if enabled
+        # Initialize agents at startup if enabled - but don't block startup on failure
         if AGENT_LOADING_ENABLED:
-            logger.info("🤖 Initializing Phase 1 core agents at startup...")
+            logger.info("🤖 Starting Phase 1 core agents initialization (non-blocking)...")
             try:
-                await initialize_agents_lazy()
-                logger.info("✅ Phase 1 agents initialization complete")
+                # Use asyncio.create_task to run in background without blocking startup
+                agent_init_task = asyncio.create_task(initialize_agents_lazy())
+                
+                # Try to wait for a short time, but don't block startup
+                try:
+                    await asyncio.wait_for(agent_init_task, timeout=5.0)  # Only wait 5 seconds
+                    logger.info("✅ Phase 1 agents initialization complete")
+                except asyncio.TimeoutError:
+                    logger.info("⏳ Agent initialization taking longer - continuing in background")
+                    # Task continues running in background
+                except Exception as e:
+                    logger.warning(f"⚠️ Phase 1 agents initialization failed: {e}. App will start without agents.")
+                    # Cancel the background task if it failed
+                    if not agent_init_task.done():
+                        agent_init_task.cancel()
+                        
             except Exception as e:
-                logger.warning(f"⚠️ Phase 1 agents initialization failed: {e}. Will retry on first use.")
+                logger.warning(f"⚠️ Could not start agent initialization: {e}. Running without agents.")
         else:
             logger.info("⏳ Agent loading disabled - will run in lightweight mode")
         
