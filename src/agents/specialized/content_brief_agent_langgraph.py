@@ -22,7 +22,7 @@ from .content_brief_agent import (
     ContentBriefAgent, ContentBrief, ContentType, ContentPurpose,
     SEOKeyword, KeywordDifficulty, CompetitorInsight, ContentStructure
 )
-from ...config.database import DatabaseConnection
+# from ...config.database import DatabaseConnection  # Temporarily disabled
 
 
 class BriefComplexity(str, Enum):

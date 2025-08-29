@@ -348,9 +348,9 @@ async def execute_image_logic(workflow_state: WorkflowState):
     try:
         # Create image agent
         image_agent = create_agent(
-            AgentType.IMAGE_PROMPT_GENERATOR,
+            AgentType.IMAGE_PROMPT,
             metadata=AgentMetadata(
-                agent_type=AgentType.IMAGE_PROMPT_GENERATOR,
+                agent_type=AgentType.IMAGE_PROMPT,
                 name="WorkflowImageAgent",
                 description="Generates image prompts for blog content"
             )

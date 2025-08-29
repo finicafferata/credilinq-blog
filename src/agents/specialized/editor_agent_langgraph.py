@@ -59,7 +59,7 @@ class EditorState(TypedDict):
     errors: List[str]
 
 
-class EditorAgentWorkflow(LangGraphWorkflowBase):
+class EditorAgentWorkflow(LangGraphWorkflowBase[EditorState]):
     """
     LangGraph-based EditorAgent with multi-stage quality assurance.
     """
@@ -67,6 +67,7 @@ class EditorAgentWorkflow(LangGraphWorkflowBase):
     def __init__(
         self,
         llm: Optional[ChatOpenAI] = None,
+        workflow_name: str = "editor_agent_workflow",
         checkpoint_strategy: CheckpointStrategy = CheckpointStrategy.DATABASE_PERSISTENT,
         max_revisions: int = 3
     ):
@@ -75,17 +76,12 @@ class EditorAgentWorkflow(LangGraphWorkflowBase):
         
         Args:
             llm: Language model for content review
+            workflow_name: Name of the workflow
             checkpoint_strategy: When to save checkpoints
             max_revisions: Maximum number of revision cycles
         """
-        super().__init__(
-            name="EditorAgentWorkflow",
-            checkpoint_strategy=checkpoint_strategy
-        )
-        
         self.llm = llm
         self.security_validator = SecurityValidator()
-        self.max_revisions = max_revisions
         self.quality_thresholds = {
             "excellent": 90,
             "good": 80,
@@ -93,11 +89,15 @@ class EditorAgentWorkflow(LangGraphWorkflowBase):
             "needs_improvement": 60
         }
         
-        # Build the workflow graph
-        self._build_graph()
+        # Initialize base class
+        super().__init__(
+            workflow_name=workflow_name,
+            checkpoint_strategy=checkpoint_strategy,
+            max_retries=max_revisions
+        )
     
-    def _build_graph(self):
-        """Build the LangGraph workflow graph."""
+    def _create_workflow_graph(self) -> StateGraph:
+        """Create and configure the LangGraph workflow structure."""
         workflow = StateGraph(EditorState)
         
         # Add nodes for each phase
@@ -137,9 +137,37 @@ class EditorAgentWorkflow(LangGraphWorkflowBase):
         
         workflow.add_edge("final_approval", END)
         
-        # Compile with memory
-        memory = MemorySaver()
-        self.graph = workflow.compile(checkpointer=memory)
+        return workflow
+    
+    def _create_initial_state(self, input_data: Dict[str, Any]) -> EditorState:
+        """Create the initial state for the workflow."""
+        return EditorState(
+            # Input data
+            content=input_data.get("content", ""),
+            blog_title=input_data.get("blog_title", ""),
+            company_context=input_data.get("company_context", ""),
+            content_type=input_data.get("content_type", "blog"),
+            quality_standards=input_data.get("quality_standards", {}),
+            
+            # Review results - will be filled during workflow
+            automated_score={},
+            llm_review={},
+            quality_dimensions={},
+            improvement_suggestions=[],
+            
+            # Decision data - will be filled during workflow
+            overall_score=0.0,
+            approved=False,
+            revision_notes="",
+            confidence_level="low",
+            
+            # Workflow metadata
+            current_phase=EditingPhase.INITIAL_REVIEW,
+            revision_count=0,
+            max_revisions=self.max_retries,
+            phase_results={},
+            errors=[]
+        )
     
     def validate_input_node(self, state: EditorState) -> EditorState:
         """Validate input data and initialize state."""

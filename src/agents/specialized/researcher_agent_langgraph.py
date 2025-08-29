@@ -75,7 +75,7 @@ class ResearcherState(TypedDict):
     warnings: List[str]
 
 
-class ResearcherAgentWorkflow(LangGraphWorkflowBase):
+class ResearcherAgentWorkflow(LangGraphWorkflowBase[ResearcherState]):
     """
     LangGraph-based ResearcherAgent with parallel search and intelligent synthesis.
     """
@@ -84,6 +84,7 @@ class ResearcherAgentWorkflow(LangGraphWorkflowBase):
         self,
         embeddings_model: Optional[OpenAIEmbeddings] = None,
         llm: Optional[ChatOpenAI] = None,
+        workflow_name: str = "researcher_agent_workflow",
         checkpoint_strategy: CheckpointStrategy = CheckpointStrategy.DATABASE_PERSISTENT,
         parallel_batch_size: int = 3,
         max_retries: int = 2
@@ -94,19 +95,14 @@ class ResearcherAgentWorkflow(LangGraphWorkflowBase):
         Args:
             embeddings_model: Embeddings model for vector search
             llm: Language model for query planning and synthesis
+            workflow_name: Name of the workflow
             checkpoint_strategy: When to save checkpoints
             parallel_batch_size: Number of parallel searches
             max_retries: Maximum retries for failed searches
         """
-        super().__init__(
-            name="ResearcherAgentWorkflow",
-            checkpoint_strategy=checkpoint_strategy
-        )
-        
         self.embeddings_model = embeddings_model
         self.llm = llm
         self.parallel_batch_size = parallel_batch_size
-        self.max_retries = max_retries
         self.security_validator = SecurityValidator()
         self.db_service = None
         
@@ -117,11 +113,15 @@ class ResearcherAgentWorkflow(LangGraphWorkflowBase):
             "deep": {"queries_per_section": 3, "search_limit": 10}
         }
         
-        # Build the workflow graph
-        self._build_graph()
+        # Initialize base class
+        super().__init__(
+            workflow_name=workflow_name,
+            checkpoint_strategy=checkpoint_strategy,
+            max_retries=max_retries
+        )
     
-    def _build_graph(self):
-        """Build the LangGraph workflow graph."""
+    def _create_workflow_graph(self) -> StateGraph:
+        """Create and configure the LangGraph workflow structure."""
         workflow = StateGraph(ResearcherState)
         
         # Add nodes for each phase
@@ -151,9 +151,40 @@ class ResearcherAgentWorkflow(LangGraphWorkflowBase):
             }
         )
         
-        # Compile with memory
-        memory = MemorySaver()
-        self.graph = workflow.compile(checkpointer=memory)
+        return workflow
+    
+    def _create_initial_state(self, input_data: Dict[str, Any]) -> ResearcherState:
+        """Create the initial state for the workflow."""
+        return ResearcherState(
+            # Input data
+            outline=input_data.get("outline", []),
+            blog_title=input_data.get("blog_title", ""),
+            company_context=input_data.get("company_context", ""),
+            research_depth=input_data.get("research_depth", "medium"),
+            
+            # Research planning - will be filled during workflow
+            research_queries={},
+            research_strategy="",
+            parallel_batch_size=self.parallel_batch_size,
+            
+            # Research results - will be filled during workflow
+            raw_research={},
+            verified_sources={},
+            synthesized_content={},
+            research_metadata={},
+            
+            # Quality assessment - will be filled during workflow
+            research_quality={},
+            confidence_scores={},
+            coverage_analysis={},
+            
+            # Workflow metadata
+            current_phase=ResearchPhase.INITIALIZATION,
+            sections_processed=0,
+            total_sections=len(input_data.get("outline", [])),
+            errors=[],
+            warnings=[]
+        )
     
     def initialization_node(self, state: ResearcherState) -> ResearcherState:
         """Initialize research workflow and validate inputs."""
@@ -656,69 +687,6 @@ class ResearcherAgentWorkflow(LangGraphWorkflowBase):
         
         return confidence
     
-    async def execute_workflow(
-        self,
-        initial_state: Dict[str, Any],
-        context: Optional[LangGraphExecutionContext] = None
-    ) -> WorkflowState:
-        """Execute the researcher workflow."""
-        try:
-            # Convert input to ResearcherState
-            researcher_state = ResearcherState(
-                outline=initial_state["outline"],
-                blog_title=initial_state["blog_title"],
-                company_context=initial_state.get("company_context", ""),
-                research_depth=initial_state.get("research_depth", "medium"),
-                research_queries={},
-                research_strategy="",
-                parallel_batch_size=self.parallel_batch_size,
-                raw_research={},
-                verified_sources={},
-                synthesized_content={},
-                research_metadata={},
-                research_quality={},
-                confidence_scores={},
-                coverage_analysis={},
-                current_phase=ResearchPhase.INITIALIZATION,
-                sections_processed=0,
-                total_sections=len(initial_state["outline"]),
-                errors=[],
-                warnings=[]
-            )
-            
-            # Execute the graph
-            config = {"configurable": {"thread_id": context.session_id if context else "default"}}
-            final_state = await self.graph.ainvoke(researcher_state, config)
-            
-            # Convert to WorkflowState
-            return WorkflowState(
-                status=WorkflowStatus.COMPLETED if final_state["synthesized_content"] else WorkflowStatus.FAILED,
-                phase=final_state["current_phase"],
-                data={
-                    "research": final_state["synthesized_content"],
-                    "research_quality": final_state["research_quality"],
-                    "confidence_scores": final_state["confidence_scores"],
-                    "coverage_analysis": final_state["coverage_analysis"],
-                    "sections_researched": len(final_state["synthesized_content"]),
-                    "metadata": final_state["research_metadata"]
-                },
-                errors=final_state.get("errors", []),
-                metadata={
-                    "warnings": final_state.get("warnings", []),
-                    "research_strategy": final_state.get("research_strategy", ""),
-                    "total_queries": final_state.get("research_metadata", {}).get("total_queries", 0)
-                }
-            )
-            
-        except Exception as e:
-            self.logger.error(f"Workflow execution failed: {str(e)}")
-            return WorkflowState(
-                status=WorkflowStatus.FAILED,
-                phase=ResearchPhase.INITIALIZATION,
-                data={},
-                errors=[str(e)],
-                metadata={"error_type": type(e).__name__}
-            )
 
 
 # Adapter for backward compatibility
@@ -781,8 +749,8 @@ class ResearcherAgentLangGraph:
     ) -> AgentResult:
         """Execute the researcher workflow."""
         try:
-            # Execute workflow
-            result = await self.workflow.execute_workflow(
+            # Execute workflow using the base class method
+            result = await self.workflow.execute(
                 input_data,
                 LangGraphExecutionContext(
                     session_id=context.session_id if context else "default",
@@ -790,18 +758,7 @@ class ResearcherAgentLangGraph:
                 )
             )
             
-            # Convert to AgentResult
-            return AgentResult(
-                success=result.status == WorkflowStatus.COMPLETED,
-                data=result.data,
-                metadata={
-                    "agent_type": "researcher_langgraph",
-                    "workflow_status": result.status,
-                    "final_phase": result.phase,
-                    **result.metadata
-                },
-                error_message="; ".join(result.errors) if result.errors else None
-            )
+            return result
             
         except Exception as e:
             return AgentResult(

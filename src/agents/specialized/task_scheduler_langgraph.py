@@ -13,7 +13,10 @@ import uuid
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.checkpoint.postgres import PostgresSaver
+try:
+    from langgraph.checkpoint.postgres import PostgresSaver
+except ImportError:
+    PostgresSaver = None  # PostgreSQL checkpointing not available
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
 from ..core.langgraph_base import (
@@ -22,7 +25,7 @@ from ..core.langgraph_base import (
 )
 from ..core.base_agent import AgentType, AgentResult, AgentExecutionContext
 from .task_scheduler import TaskSchedulerAgent, PlatformSchedule, ScheduledPost
-from ...config.database import DatabaseConnection
+# from ...config.database import DatabaseConnection  # Temporarily disabled
 
 
 class TaskPriority(Enum):

@@ -19,7 +19,8 @@ from ..specialized.planner_agent import PlannerAgent
 from ..specialized.researcher_agent import ResearcherAgent
 from ..specialized.writer_agent import WriterAgent
 from ..specialized.editor_agent import EditorAgent
-from ..specialized.image_agent import ImageAgent
+from ..specialized.image_prompt_agent import ImagePromptAgent
+from ..specialized.video_prompt_agent import VideoPromptAgent
 from ..specialized.seo_agent import SEOAgent
 from ..specialized.social_media_agent import SocialMediaAgent
 from ...core.exceptions import AgentExecutionError, WorkflowExecutionError
@@ -74,8 +75,11 @@ class BlogWorkflow(WorkflowAgent):
             if not _global_registry.is_registered(AgentType.EDITOR):
                 register_agent(AgentType.EDITOR, EditorAgent)
             
-            if not _global_registry.is_registered(AgentType.IMAGE):
-                register_agent(AgentType.IMAGE, ImageAgent)
+            if not _global_registry.is_registered(AgentType.IMAGE_PROMPT):
+                register_agent(AgentType.IMAGE_PROMPT, ImagePromptAgent)
+            
+            if not _global_registry.is_registered(AgentType.VIDEO_PROMPT):
+                register_agent(AgentType.VIDEO_PROMPT, VideoPromptAgent)
             
             if not _global_registry.is_registered(AgentType.SEO):
                 register_agent(AgentType.SEO, SEOAgent)
@@ -348,13 +352,18 @@ class BlogWorkflow(WorkflowAgent):
             workflow_state["revision_count"] = revision_data["revision_count"]
             workflow_state["quality_score"] = revision_data["final_quality_score"]
             
+            # Step 4: Enhance content with creative prompts
+            enhanced_content = self._enhance_content_with_prompts(
+                final_content, validated_input, context, workflow_state
+            )
+            
             # Calculate total execution time
             end_time = datetime.datetime.utcnow()
             workflow_state["total_execution_time"] = (end_time - start_time).total_seconds() * 1000
             
             return {
                 **workflow_state,
-                "final_content": final_content,
+                "final_content": enhanced_content,
                 "outline": outline_result.data["outline"],
                 "research": research_result.data["research"]
             }
@@ -486,6 +495,226 @@ class BlogWorkflow(WorkflowAgent):
         }
         
         return current_content, revision_data
+    
+    def _enhance_content_with_prompts(
+        self,
+        content: str,
+        validated_input: Dict[str, Any],
+        context: AgentExecutionContext,
+        workflow_state: Dict[str, Any]
+    ) -> str:
+        """Enhance content with image and video prompt suggestions."""
+        try:
+            self.logger.info("Enhancing content with creative prompts")
+            
+            # Initialize prompt agents
+            image_prompt_agent = ImagePromptAgent()
+            video_prompt_agent = VideoPromptAgent()
+            
+            # Prepare input for prompt agents
+            prompt_input = {
+                "content": content,
+                "blog_title": validated_input["blog_title"],
+                "company_context": validated_input["company_context"],
+                "content_type": validated_input["content_type"]
+            }
+            
+            # Generate image prompts
+            image_result = image_prompt_agent.execute_safe(prompt_input, context)
+            image_prompts = []
+            if image_result.success:
+                image_prompts = image_result.data.get("prompts", [])
+                workflow_state["agent_performance"]["image_prompt"] = {
+                    "execution_time": image_result.execution_time_ms,
+                    "success": image_result.success,
+                    "prompts_generated": len(image_prompts)
+                }
+            else:
+                self.logger.warning(f"Image prompt generation failed: {image_result.error_message}")
+            
+            # Generate video prompts
+            video_result = video_prompt_agent.execute_safe(prompt_input, context)
+            video_prompts = []
+            if video_result.success:
+                video_prompts = video_result.data.get("prompts", [])
+                workflow_state["agent_performance"]["video_prompt"] = {
+                    "execution_time": video_result.execution_time_ms,
+                    "success": video_result.success,
+                    "prompts_generated": len(video_prompts)
+                }
+            else:
+                self.logger.warning(f"Video prompt generation failed: {video_result.error_message}")
+            
+            # Enhance content with prompts
+            if image_prompts or video_prompts:
+                enhanced_content = self._integrate_prompts_into_content(
+                    content, image_prompts, video_prompts, validated_input["content_type"]
+                )
+                workflow_state["steps_completed"].append("content_enhancement_with_prompts")
+                return enhanced_content
+            else:
+                self.logger.info("No prompts generated, returning original content")
+                return content
+                
+        except Exception as e:
+            self.logger.error(f"Content enhancement failed: {str(e)}")
+            # Return original content if enhancement fails
+            return content
+    
+    def _integrate_prompts_into_content(
+        self,
+        content: str,
+        image_prompts: List[Dict[str, Any]],
+        video_prompts: List[Dict[str, Any]],
+        content_type: str
+    ) -> str:
+        """Integrate prompts strategically into the content."""
+        try:
+            # Split content into sections for strategic placement
+            sections = content.split('\n\n')
+            enhanced_sections = []
+            
+            # Add prompts throughout the content
+            prompt_positions = self._calculate_prompt_positions(len(sections), len(image_prompts), len(video_prompts))
+            
+            for i, section in enumerate(sections):
+                enhanced_sections.append(section)
+                
+                # Add image prompt suggestions at calculated positions
+                if i in prompt_positions.get("image_positions", []) and image_prompts:
+                    prompt_idx = prompt_positions["image_positions"].index(i)
+                    if prompt_idx < len(image_prompts):
+                        image_suggestion = self._format_image_prompt_suggestion(
+                            image_prompts[prompt_idx], content_type
+                        )
+                        enhanced_sections.append(image_suggestion)
+                
+                # Add video prompt suggestions at calculated positions
+                if i in prompt_positions.get("video_positions", []) and video_prompts:
+                    prompt_idx = prompt_positions["video_positions"].index(i)
+                    if prompt_idx < len(video_prompts):
+                        video_suggestion = self._format_video_prompt_suggestion(
+                            video_prompts[prompt_idx], content_type
+                        )
+                        enhanced_sections.append(video_suggestion)
+            
+            # Add comprehensive creative assets section at the end
+            creative_section = self._create_creative_assets_section(
+                image_prompts, video_prompts, content_type
+            )
+            enhanced_sections.append(creative_section)
+            
+            return '\n\n'.join(enhanced_sections)
+            
+        except Exception as e:
+            self.logger.error(f"Prompt integration failed: {str(e)}")
+            return content
+    
+    def _calculate_prompt_positions(
+        self, 
+        section_count: int, 
+        image_count: int, 
+        video_count: int
+    ) -> Dict[str, List[int]]:
+        """Calculate optimal positions for prompt suggestions."""
+        positions = {"image_positions": [], "video_positions": []}
+        
+        if section_count < 3:
+            return positions
+        
+        # Place image prompts in the first third and middle sections
+        if image_count > 0:
+            mid_point = section_count // 2
+            positions["image_positions"] = [min(2, section_count - 1)]  # Early position
+            if image_count > 1 and section_count > 4:
+                positions["image_positions"].append(mid_point)  # Middle position
+        
+        # Place video prompts in the latter sections
+        if video_count > 0 and section_count > 3:
+            late_position = max(section_count - 3, section_count // 2 + 1)
+            positions["video_positions"] = [late_position]
+        
+        return positions
+    
+    def _format_image_prompt_suggestion(
+        self, 
+        image_prompt: Dict[str, Any], 
+        content_type: str
+    ) -> str:
+        """Format an image prompt suggestion for content integration."""
+        prompt_text = image_prompt.get("prompt", "")
+        style_info = image_prompt.get("style_guidance", {})
+        
+        suggestion = f"\n**💡 Image Suggestion:**\n"
+        suggestion += f"*{prompt_text}*\n"
+        
+        if style_info:
+            style_notes = []
+            if style_info.get("style"):
+                style_notes.append(f"Style: {style_info['style']}")
+            if style_info.get("colors"):
+                style_notes.append(f"Colors: {', '.join(style_info['colors'])}")
+            if style_info.get("mood"):
+                style_notes.append(f"Mood: {style_info['mood']}")
+            
+            if style_notes:
+                suggestion += f"*({' | '.join(style_notes)})*\n"
+        
+        return suggestion
+    
+    def _format_video_prompt_suggestion(
+        self, 
+        video_prompt: Dict[str, Any], 
+        content_type: str
+    ) -> str:
+        """Format a video prompt suggestion for content integration."""
+        prompt_text = video_prompt.get("prompt", "")
+        duration = video_prompt.get("duration", "30-60 seconds")
+        
+        suggestion = f"\n**🎬 Video Suggestion:**\n"
+        suggestion += f"*{prompt_text}*\n"
+        suggestion += f"*Duration: {duration}*\n"
+        
+        return suggestion
+    
+    def _create_creative_assets_section(
+        self,
+        image_prompts: List[Dict[str, Any]],
+        video_prompts: List[Dict[str, Any]],
+        content_type: str
+    ) -> str:
+        """Create a comprehensive creative assets section."""
+        section = "\n---\n\n## 🎨 Creative Assets Suggestions\n\n"
+        
+        if image_prompts:
+            section += "### Image Prompts\n\n"
+            for i, prompt in enumerate(image_prompts, 1):
+                section += f"**Image {i}:**\n"
+                section += f"- **Prompt:** {prompt.get('prompt', 'N/A')}\n"
+                section += f"- **Platform:** {prompt.get('platform', 'General')}\n"
+                section += f"- **Style:** {prompt.get('style_guidance', {}).get('style', 'Professional')}\n\n"
+        
+        if video_prompts:
+            section += "### Video Prompts\n\n"
+            for i, prompt in enumerate(video_prompts, 1):
+                section += f"**Video {i}:**\n"
+                section += f"- **Concept:** {prompt.get('prompt', 'N/A')}\n"
+                section += f"- **Duration:** {prompt.get('duration', '30-60 seconds')}\n"
+                section += f"- **Type:** {prompt.get('video_type', 'Explainer')}\n"
+                
+                scenes = prompt.get('scenes', [])
+                if scenes:
+                    section += f"- **Scene Breakdown:**\n"
+                    for j, scene in enumerate(scenes, 1):
+                        section += f"  - Scene {j}: {scene.get('description', 'N/A')}\n"
+                section += "\n"
+        
+        if not image_prompts and not video_prompts:
+            section += "*No creative assets generated for this content.*\n\n"
+        
+        section += "---\n"
+        
+        return section
     
     def _update_final_blog_record(self, blog_id: str, workflow_result: Dict[str, Any]):
         """Update the blog record with final content."""

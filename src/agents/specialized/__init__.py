@@ -2,13 +2,14 @@
 
 from .campaign_manager import CampaignManagerAgent
 from .content_agent import ContentGenerationAgent  
-from .repurpose_agent import ContentRepurposingAgent
+from .content_repurposer import ContentRepurposer
 from .search_agent import WebSearchAgent
 from .planner_agent import PlannerAgent
 from .researcher_agent import ResearcherAgent
 from .writer_agent import WriterAgent
 from .editor_agent import EditorAgent
-from .image_agent import ImageAgent
+from .image_prompt_agent import ImagePromptAgent
+from .video_prompt_agent import VideoPromptAgent
 from .seo_agent import SEOAgent
 from .geo_analysis_agent import GEOAnalysisAgent
 from .social_media_agent import SocialMediaAgent
@@ -27,8 +28,9 @@ def _register_agents():
         register_agent(AgentType.WRITER, WriterAgent)
         register_agent(AgentType.EDITOR, EditorAgent)
         register_agent(AgentType.CAMPAIGN_MANAGER, CampaignManagerAgent)
-        register_agent(AgentType.CONTENT_REPURPOSER, ContentRepurposingAgent)
-        register_agent(AgentType.IMAGE_PROMPT_GENERATOR, ImageAgent)
+        register_agent(AgentType.CONTENT_REPURPOSER, ContentRepurposer)
+        register_agent(AgentType.IMAGE_PROMPT, ImagePromptAgent)
+        register_agent(AgentType.VIDEO_PROMPT, VideoPromptAgent)
         register_agent(AgentType.SEO, SEOAgent)
         register_agent(AgentType.CONTENT_OPTIMIZER, GEOAnalysisAgent)
         register_agent(AgentType.SOCIAL_MEDIA, SocialMediaAgent)
@@ -41,7 +43,7 @@ def _register_agents():
         traceback.print_exc()
 
 # Auto-register agents when module is imported
-_register_agents()
+# _register_agents()  # Disabled - using factory registration instead
 
 __all__ = [
     "CampaignManagerAgent",
@@ -52,7 +54,8 @@ __all__ = [
     "ResearcherAgent",
     "WriterAgent",
     "EditorAgent",
-    "ImageAgent",
+    "ImagePromptAgent",
+    "VideoPromptAgent",
     "SEOAgent",
     "GEOAnalysisAgent",
     "SocialMediaAgent",

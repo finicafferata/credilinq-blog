@@ -527,32 +527,119 @@ class BlogWorkflowAgentFactory(AgentFactory):
 
 # Initialize specialized agents registration
 def _initialize_default_agents():
-    """Initialize registration of all specialized agents."""
+    """Initialize registration of all specialized agents with LangGraph workflows."""
     try:
-        # Import specialized agents
-        from ..specialized.image_agent import ImageAgent
+        # Import all regular agents
+        from ..specialized.planner_agent import PlannerAgent
+        from ..specialized.researcher_agent import ResearcherAgent
+        from ..specialized.writer_agent import WriterAgent
+        from ..specialized.editor_agent import EditorAgent
+        from ..specialized.image_prompt_agent import ImagePromptAgent
+        from ..specialized.video_prompt_agent import VideoPromptAgent
         from ..specialized.campaign_manager import CampaignManagerAgent
         from ..specialized.content_repurposer import ContentRepurposer
         from ..specialized.content_brief_agent import ContentBriefAgent
         from ..specialized.seo_agent import SEOAgent
         from ..specialized.social_media_agent import SocialMediaAgent
         from ..specialized.geo_analysis_agent import GEOAnalysisAgent
+        from ..specialized.distribution_agent import DistributionAgent
+        from ..specialized.task_scheduler import TaskSchedulerAgent
+        from ..specialized.document_processor import DocumentProcessorAgent
+        from ..specialized.content_agent import ContentGenerationAgent
+        from ..specialized.ai_content_generator import AIContentGeneratorAgent
+        from ..specialized.search_agent import WebSearchAgent
         
-        # Import LangGraph workflows
+        # Import all LangGraph workflows
         from ..specialized.planner_agent_langgraph import PlannerAgentWorkflow
+        from ..specialized.researcher_agent_langgraph import ResearcherAgentWorkflow
+        from ..specialized.writer_agent_langgraph import WriterAgentLangGraph
+        from ..specialized.editor_agent_langgraph import EditorAgentWorkflow
         from ..specialized.seo_agent_langgraph import SEOAgentWorkflow
         from ..specialized.social_media_agent_langgraph import SocialMediaAgentWorkflow
         from ..specialized.geo_analysis_agent_langgraph import GEOAnalysisAgentWorkflow
+        from ..specialized.content_repurposer_langgraph import ContentRepurposerWorkflow
+        from ..specialized.distribution_agent_langgraph import DistributionAgentWorkflow
+        from ..specialized.task_scheduler_langgraph import TaskSchedulerWorkflow
+        from ..specialized.document_processor_langgraph import DocumentProcessorWorkflow
+        from ..specialized.content_agent_langgraph import ContentAgentWorkflow
+        from ..specialized.ai_content_generator_langgraph import AIContentGeneratorWorkflow
+        from ..specialized.content_brief_agent_langgraph import ContentBriefAgentWorkflow
+        from ..specialized.campaign_manager_langgraph import CampaignManagerWorkflow
+        from ..specialized.search_agent_langgraph import SearchAgentWorkflow
+        from ..specialized.image_prompt_agent_langgraph import ImagePromptAgentLangGraph
+        from ..specialized.video_prompt_agent_langgraph import VideoPromptAgentLangGraph
         
-        # Register Image Agent
+        # Register Core Blog Workflow Agents
         register_agent(
-            AgentType.IMAGE,
-            ImageAgent,
+            AgentType.PLANNER,
+            PlannerAgent,
             metadata_template=AgentMetadata(
-                agent_type=AgentType.IMAGE,
-                name="ImageAgent",
-                description="Generates images and visual content for campaigns and blog posts",
-                capabilities=["image_generation", "visual_content_creation", "prompt_optimization"],
+                agent_type=AgentType.PLANNER,
+                name="PlannerAgent",
+                description="Creates strategic content plans with SEO research and competitive analysis",
+                capabilities=["content_planning", "strategy_development", "seo_research", "competitive_analysis"],
+                dependencies=[]
+            )
+        )
+        
+        register_agent(
+            AgentType.RESEARCHER,
+            ResearcherAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.RESEARCHER,
+                name="ResearcherAgent",
+                description="Conducts comprehensive research for content creation",
+                capabilities=["web_research", "fact_checking", "source_verification", "data_analysis"],
+                dependencies=[]
+            )
+        )
+        
+        register_agent(
+            AgentType.WRITER,
+            WriterAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.WRITER,
+                name="WriterAgent",
+                description="Creates high-quality content with advanced writing capabilities",
+                capabilities=["content_writing", "tone_adaptation", "structure_optimization", "engagement_optimization"],
+                dependencies=[]
+            )
+        )
+        
+        register_agent(
+            AgentType.EDITOR,
+            EditorAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.EDITOR,
+                name="EditorAgent",
+                description="Reviews and enhances content for quality, clarity, and engagement",
+                capabilities=["content_editing", "quality_assurance", "grammar_checking", "style_optimization"],
+                dependencies=[]
+            )
+        )
+        
+        # Register Image Prompt Agent
+        register_agent(
+            AgentType.IMAGE_PROMPT,
+            ImagePromptAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.IMAGE_PROMPT,
+                name="ImagePromptAgent",
+                description="Generates creative prompts for image generation services",
+                capabilities=["image_prompt_generation", "creative_prompt_optimization", "platform_specific_prompts"],
+                dependencies=[]
+            )
+        )
+        
+        # Register Video Prompt Agent
+        register_agent(
+            AgentType.VIDEO_PROMPT,
+            VideoPromptAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.VIDEO_PROMPT,
+                name="VideoPromptAgent",
+                description="Generates comprehensive prompts for video generation services",
+                capabilities=["video_prompt_generation", "scene_planning", "narrative_structure", "transition_design"],
                 dependencies=[]
             )
         )
@@ -635,14 +722,106 @@ def _initialize_default_agents():
             )
         )
         
-        # Register LangGraph workflows for existing agents
+        # Register additional specialized agents
+        register_agent(
+            AgentType.DOCUMENT_PROCESSOR,
+            DocumentProcessorAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.DOCUMENT_PROCESSOR,
+                name="DocumentProcessorAgent",
+                description="Processes and analyzes documents for knowledge base management",
+                capabilities=["document_processing", "text_extraction", "content_analysis", "knowledge_extraction"],
+                dependencies=[]
+            )
+        )
+        
+        register_agent(
+            AgentType.SEARCH,
+            WebSearchAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.SEARCH,
+                name="SearchAgent",
+                description="Performs web search and information gathering",
+                capabilities=["web_search", "information_retrieval", "source_analysis", "competitive_intelligence"],
+                dependencies=[]
+            )
+        )
+        
+        register_agent(
+            AgentType.AI_CONTENT_GENERATOR,
+            AIContentGeneratorAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.AI_CONTENT_GENERATOR,
+                name="AIContentGenerator",
+                description="Generates content using advanced AI templates and optimization",
+                capabilities=["ai_content_generation", "template_processing", "content_optimization", "multi_format_output"],
+                dependencies=[]
+            )
+        )
+        
+        register_agent(
+            AgentType.CONTENT_AGENT,
+            ContentGenerationAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.CONTENT_AGENT,
+                name="ContentGenerationAgent",
+                description="General content operations and management",
+                capabilities=["content_management", "content_operations", "workflow_coordination"],
+                dependencies=[]
+            )
+        )
+        
+        register_agent(
+            AgentType.TASK_SCHEDULER,
+            TaskSchedulerAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.TASK_SCHEDULER,
+                name="TaskSchedulerAgent",
+                description="Schedules and manages workflow tasks and execution timing",
+                capabilities=["task_scheduling", "workflow_management", "timing_optimization", "resource_allocation"],
+                dependencies=[]
+            )
+        )
+        
+        register_agent(
+            AgentType.DISTRIBUTION_AGENT,
+            DistributionAgent,
+            metadata_template=AgentMetadata(
+                agent_type=AgentType.DISTRIBUTION_AGENT,
+                name="DistributionAgent",
+                description="Distributes content across multiple channels and platforms",
+                capabilities=["multi_channel_distribution", "platform_publishing", "content_syndication", "scheduling"],
+                dependencies=[]
+            )
+        )
+        
+        # Register LangGraph workflows for all agents
+        # Core workflow agents - enable by default for improved performance
         register_workflow(
             AgentType.PLANNER,
             PlannerAgentWorkflow,
-            enable_by_default=False  # Start with opt-in for safety
+            enable_by_default=True  # Enable by default for enhanced planning
         )
         
-        # Register LangGraph workflows for optimization agents
+        register_workflow(
+            AgentType.RESEARCHER,
+            ResearcherAgentWorkflow,
+            enable_by_default=True  # Enable by default for enhanced research
+        )
+        
+        register_workflow(
+            AgentType.WRITER,
+            WriterAgentLangGraph,
+            enable_by_default=True  # Enable by default for enhanced writing
+        )
+        
+        register_workflow(
+            AgentType.EDITOR,
+            EditorAgentWorkflow,
+            enable_by_default=True  # Enable by default for enhanced editing
+        )
+        
+        # Optimization agents - enable by default for enhanced capabilities
         register_workflow(
             AgentType.SEO,
             SEOAgentWorkflow,
@@ -661,7 +840,75 @@ def _initialize_default_agents():
             enable_by_default=True  # Enable by default for enhanced AI optimization
         )
         
-        logger.info("Successfully registered specialized agents and LangGraph workflows")
+        # Additional specialized workflows
+        register_workflow(
+            AgentType.CONTENT_REPURPOSER,
+            ContentRepurposerWorkflow,
+            enable_by_default=True  # Enable by default for enhanced repurposing
+        )
+        
+        register_workflow(
+            AgentType.DOCUMENT_PROCESSOR,
+            DocumentProcessorWorkflow,
+            enable_by_default=True  # Enable by default for enhanced document processing
+        )
+        
+        register_workflow(
+            AgentType.AI_CONTENT_GENERATOR,
+            AIContentGeneratorWorkflow,
+            enable_by_default=True  # Enable by default for enhanced content generation
+        )
+        
+        register_workflow(
+            AgentType.CONTENT_BRIEF,
+            ContentBriefAgentWorkflow,
+            enable_by_default=True  # Enable by default for enhanced briefing
+        )
+        
+        register_workflow(
+            AgentType.CAMPAIGN_MANAGER,
+            CampaignManagerWorkflow,
+            enable_by_default=True  # Enable by default for enhanced campaign management
+        )
+        
+        register_workflow(
+            AgentType.SEARCH,
+            SearchAgentWorkflow,
+            enable_by_default=True  # Enable by default for enhanced search
+        )
+        
+        register_workflow(
+            AgentType.CONTENT_AGENT,
+            ContentAgentWorkflow,
+            enable_by_default=True  # Enable by default for enhanced content operations
+        )
+        
+        register_workflow(
+            AgentType.TASK_SCHEDULER,
+            TaskSchedulerWorkflow,
+            enable_by_default=True  # Enable by default for enhanced task scheduling
+        )
+        
+        register_workflow(
+            AgentType.DISTRIBUTION_AGENT,
+            DistributionAgentWorkflow,
+            enable_by_default=True  # Enable by default for enhanced distribution
+        )
+        
+        # New prompt generation agents
+        register_workflow(
+            AgentType.IMAGE_PROMPT,
+            ImagePromptAgentLangGraph,
+            enable_by_default=True  # Enable by default for enhanced image prompt generation
+        )
+        
+        register_workflow(
+            AgentType.VIDEO_PROMPT,
+            VideoPromptAgentLangGraph,
+            enable_by_default=True  # Enable by default for enhanced video prompt generation
+        )
+        
+        logger.info("Successfully registered all specialized agents and LangGraph workflows with enhanced capabilities")
         
     except ImportError as e:
         logger.warning(f"Failed to register some specialized agents: {e}")

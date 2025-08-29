@@ -20,7 +20,7 @@ from ..core.langgraph_base import (
 )
 from ..core.base_agent import AgentType, AgentResult, AgentExecutionContext
 from .search_agent import WebSearchAgent
-from ...config.database import DatabaseConnection
+# from ...config.database import DatabaseConnection  # Temporarily disabled
 
 
 class ResearchType(str, Enum):

@@ -22,7 +22,7 @@ from .ai_content_generator import (
     AIContentGeneratorAgent, ContentGenerationRequest, GeneratedContent,
     ContentType, ContentChannel
 )
-from ...config.database import DatabaseConnection
+# from ...config.database import DatabaseConnection  # Temporarily disabled
 
 
 @dataclass

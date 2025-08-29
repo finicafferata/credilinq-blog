@@ -1,0 +1,25 @@
+# Railway configuration for CrediLinq Frontend Service
+# React/TypeScript/Vite application
+
+[build]
+builder = "nixpacks"
+buildCommand = "npm run build"
+
+[deploy]
+startCommand = "npm run preview"
+healthcheckPath = "/"
+healthcheckTimeout = 60
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+# Resource configuration for frontend
+memoryLimit = "512MB"
+cpuLimit = "500m"
+
+[environments.production]
+memoryLimit = "1GB"
+cpuLimit = "1000m"
+
+[environments.staging] 
+memoryLimit = "512MB"
+cpuLimit = "500m"

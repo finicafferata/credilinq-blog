@@ -20,7 +20,7 @@ from ..core.langgraph_base import (
 )
 from ..core.base_agent import AgentType, AgentResult, AgentExecutionContext
 from .content_agent import ContentGenerationAgent
-from ...config.database import DatabaseConnection
+# from ...config.database import DatabaseConnection  # Temporarily disabled
 
 
 class ContentFormat(str, Enum):

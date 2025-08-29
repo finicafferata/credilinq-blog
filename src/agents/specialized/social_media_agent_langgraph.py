@@ -99,7 +99,7 @@ class SocialMediaState(TypedDict):
     warnings: List[str]
 
 
-class SocialMediaAgentWorkflow(LangGraphWorkflowBase):
+class SocialMediaAgentWorkflow(LangGraphWorkflowBase[SocialMediaState]):
     """
     LangGraph-based SocialMediaAgent with comprehensive platform adaptation.
     """
@@ -107,6 +107,7 @@ class SocialMediaAgentWorkflow(LangGraphWorkflowBase):
     def __init__(
         self,
         llm: Optional[ChatOpenAI] = None,
+        workflow_name: str = "social_media_agent_workflow",
         checkpoint_strategy: CheckpointStrategy = CheckpointStrategy.DATABASE_PERSISTENT
     ):
         """
@@ -114,13 +115,9 @@ class SocialMediaAgentWorkflow(LangGraphWorkflowBase):
         
         Args:
             llm: Language model for content adaptation
+            workflow_name: Name of the workflow
             checkpoint_strategy: When to save checkpoints
         """
-        super().__init__(
-            name="SocialMediaAgentWorkflow",
-            checkpoint_strategy=checkpoint_strategy
-        )
-        
         self.llm = llm
         self.security_validator = SecurityValidator()
         
@@ -178,11 +175,14 @@ class SocialMediaAgentWorkflow(LangGraphWorkflowBase):
             )
         }
         
-        # Build the workflow graph
-        self._build_graph()
+        # Initialize base class
+        super().__init__(
+            workflow_name=workflow_name,
+            checkpoint_strategy=checkpoint_strategy
+        )
     
-    def _build_graph(self):
-        """Build the LangGraph workflow graph."""
+    def _create_workflow_graph(self) -> StateGraph:
+        """Create and configure the LangGraph workflow structure."""
         workflow = StateGraph(SocialMediaState)
         
         # Add nodes for each phase
@@ -205,9 +205,57 @@ class SocialMediaAgentWorkflow(LangGraphWorkflowBase):
         workflow.add_edge("scheduling_optimization", "final_review")
         workflow.add_edge("final_review", END)
         
-        # Compile with memory
-        memory = MemorySaver()
-        self.graph = workflow.compile(checkpointer=memory)
+        return workflow
+    
+    def _create_initial_state(self, input_data: Dict[str, Any]) -> SocialMediaState:
+        """Create the initial state for the workflow."""
+        return SocialMediaState(
+            # Input data
+            content=input_data.get("content", ""),
+            blog_title=input_data.get("blog_title", ""),
+            outline=input_data.get("outline", []),
+            target_platforms=input_data.get("target_platforms", ["linkedin", "twitter", "facebook"]),
+            target_audience=input_data.get("target_audience", "professionals"),
+            brand_voice=input_data.get("brand_voice", "professional"),
+            content_goals=input_data.get("content_goals", ["awareness", "engagement"]),
+            
+            # Content analysis - will be filled during workflow
+            key_points=[],
+            content_themes=[],
+            call_to_actions=[],
+            visual_suggestions=[],
+            
+            # Platform adaptations - will be filled during workflow
+            platform_posts={},
+            post_variations={},
+            thread_versions={},
+            
+            # Hashtag research - will be filled during workflow
+            platform_hashtags={},
+            trending_hashtags={},
+            branded_hashtags=[],
+            
+            # Engagement optimization - will be filled during workflow
+            engagement_strategies={},
+            optimal_posting_times={},
+            audience_targeting={},
+            
+            # Scheduling and campaign - will be filled during workflow
+            posting_schedule={},
+            campaign_strategy={},
+            cross_promotion={},
+            
+            # Results - will be filled during workflow
+            social_media_score=0.0,
+            performance_predictions={},
+            optimization_recommendations=[],
+            
+            # Workflow metadata
+            current_phase=SocialMediaPhase.INITIALIZATION,
+            adaptation_quality="pending",
+            errors=[],
+            warnings=[]
+        )
     
     def initialization_node(self, state: SocialMediaState) -> SocialMediaState:
         """Initialize social media workflow."""

@@ -10,9 +10,9 @@ from pathlib import Path
 import mimetypes
 
 from langchain_openai import OpenAIEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.document_loaders import TextLoader, UnstructuredPDFLoader
-from langchain.schema import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import TextLoader, UnstructuredPDFLoader
+from langchain_core.documents import Document
 
 from ..core.base_agent import BaseAgent, AgentResult, AgentExecutionContext, AgentMetadata, AgentType
 from ...core.security import SecurityValidator

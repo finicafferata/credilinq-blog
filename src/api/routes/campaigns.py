@@ -2691,13 +2691,13 @@ async def rerun_campaign_agents(campaign_id: str):
             )
             
             # The campaign manager will save new tasks to the existing campaign
-            logger.info(f"Successfully generated {len(new_campaign_plan.get(\"content_tasks\", []))} new tasks for campaign {campaign_id}")
+            logger.info(f"Successfully generated {len(new_campaign_plan.get('content_tasks', []))} new tasks for campaign {campaign_id}")
             
             return {
                 "success": True,
-                "message": f"Successfully generated {len(new_campaign_plan.get(\"content_tasks\", []))} new tasks",
+                "message": f"Successfully generated {len(new_campaign_plan.get('content_tasks', []))} new tasks",
                 "campaign_id": campaign_id,
-                "new_tasks_count": len(new_campaign_plan.get("content_tasks", [])),
+                "new_tasks_count": len(new_campaign_plan.get('content_tasks', [])),
                 "strategy_enhanced": True
             }
             

@@ -22,7 +22,7 @@ from ..core.base_agent import AgentType, AgentResult, AgentExecutionContext
 from .distribution_agent import (
     DistributionAgent, PlatformConfig, PublishedPost
 )
-from ...config.database import DatabaseConnection
+# from ...config.database import DatabaseConnection  # Temporarily disabled
 
 
 class DistributionMode(str, Enum):

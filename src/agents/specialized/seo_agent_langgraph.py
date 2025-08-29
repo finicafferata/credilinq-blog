@@ -96,7 +96,7 @@ class SEOState(TypedDict):
     warnings: List[str]
 
 
-class SEOAgentWorkflow(LangGraphWorkflowBase):
+class SEOAgentWorkflow(LangGraphWorkflowBase[SEOState]):
     """
     LangGraph-based SEOAgent with comprehensive optimization workflows.
     """
@@ -104,6 +104,7 @@ class SEOAgentWorkflow(LangGraphWorkflowBase):
     def __init__(
         self,
         llm: Optional[ChatOpenAI] = None,
+        workflow_name: str = "seo_agent_workflow",
         checkpoint_strategy: CheckpointStrategy = CheckpointStrategy.DATABASE_PERSISTENT,
         analysis_depth: str = "comprehensive"
     ):
@@ -112,14 +113,10 @@ class SEOAgentWorkflow(LangGraphWorkflowBase):
         
         Args:
             llm: Language model for SEO analysis
+            workflow_name: Name of the workflow
             checkpoint_strategy: When to save checkpoints
             analysis_depth: shallow, standard, comprehensive
         """
-        super().__init__(
-            name="SEOAgentWorkflow",
-            checkpoint_strategy=checkpoint_strategy
-        )
-        
         self.llm = llm
         self.analysis_depth = analysis_depth
         self.security_validator = SecurityValidator()
@@ -133,11 +130,14 @@ class SEOAgentWorkflow(LangGraphWorkflowBase):
             "heading_ratios": {"h1": 1, "h2": (3, 6), "h3": (0, 12)}
         }
         
-        # Build the workflow graph
-        self._build_graph()
+        # Initialize base class
+        super().__init__(
+            workflow_name=workflow_name,
+            checkpoint_strategy=checkpoint_strategy
+        )
     
-    def _build_graph(self):
-        """Build the LangGraph workflow graph."""
+    def _create_workflow_graph(self) -> StateGraph:
+        """Create and configure the LangGraph workflow structure."""
         workflow = StateGraph(SEOState)
         
         # Add nodes for each phase
@@ -160,9 +160,56 @@ class SEOAgentWorkflow(LangGraphWorkflowBase):
         workflow.add_edge("schema_generation", "final_scoring")
         workflow.add_edge("final_scoring", END)
         
-        # Compile with memory
-        memory = MemorySaver()
-        self.graph = workflow.compile(checkpointer=memory)
+        return workflow
+    
+    def _create_initial_state(self, input_data: Dict[str, Any]) -> SEOState:
+        """Create the initial state for the workflow."""
+        return SEOState(
+            # Input data
+            content=input_data.get("content", ""),
+            blog_title=input_data.get("blog_title", ""),
+            outline=input_data.get("outline", []),
+            target_keywords=input_data.get("target_keywords", []),
+            content_type=input_data.get("content_type", "blog"),
+            seo_strategy="",
+            
+            # Technical analysis - will be filled during workflow
+            technical_metrics={},
+            readability_analysis={},
+            heading_structure={},
+            url_analysis={},
+            
+            # Keyword analysis - will be filled during workflow
+            keyword_research={},
+            semantic_keywords=[],
+            keyword_density={},
+            search_intent="",
+            
+            # Content optimization - will be filled during workflow
+            optimization_suggestions=[],
+            content_gaps=[],
+            title_variations=[],
+            meta_suggestions={},
+            
+            # Competitive insights - will be filled during workflow
+            competitive_analysis={},
+            ranking_opportunities=[],
+            
+            # Schema and structured data - will be filled during workflow
+            schema_markup={},
+            structured_data={},
+            
+            # Final results - will be filled during workflow
+            seo_score=0.0,
+            optimization_priority="medium",
+            implementation_plan=[],
+            
+            # Workflow metadata
+            current_phase=SEOPhase.INITIALIZATION,
+            analysis_depth=self.analysis_depth,
+            errors=[],
+            warnings=[]
+        )
     
     def initialization_node(self, state: SEOState) -> SEOState:
         """Initialize SEO workflow and determine strategy."""
