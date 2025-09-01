@@ -22,7 +22,7 @@ from src.services.campaign_progress_service import campaign_progress_service
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/campaigns", tags=["campaigns"])
+router = APIRouter(tags=["campaigns"])
 
 # Helper function for updating campaign metadata
 async def _update_campaign_metadata(campaign_id: str, scheduled_start: Optional[str], 
