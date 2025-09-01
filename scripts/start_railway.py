@@ -73,9 +73,9 @@ def main():
     # Validate and configure environment
     port, is_railway = validate_railway_environment()
     
-    # Use Railway-optimized app module
-    app_module = 'src.main_railway:app'
-    logger.info("🚂 Using Railway-optimized application module")
+    # Use Railway-simple app module with hardcoded routes for debugging
+    app_module = 'src.main_railway_simple:app'
+    logger.info("🚂 Using Railway SIMPLE application module (hardcoded routes for debugging)")
     
     # Build uvicorn command with Railway optimizations
     cmd = [
