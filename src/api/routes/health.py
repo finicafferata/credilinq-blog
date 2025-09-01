@@ -1,5 +1,6 @@
 """Health check and monitoring endpoints with comprehensive system status."""
 
+import os
 import psutil
 import time
 import asyncio
@@ -11,6 +12,54 @@ from ...config.settings import settings
 from ...core.metrics import get_metrics_response, metrics
 
 router = APIRouter()
+
+@router.get("/health/railway")
+async def railway_health():
+    """Railway-optimized health check endpoint."""
+    try:
+        # Quick database check
+        db_status = "unknown"
+        try:
+            db_health = db_config.health_check()
+            db_status = db_health.get("status", "unknown")
+        except Exception:
+            db_status = "error"
+        
+        # Railway environment info
+        railway_info = {
+            "service": os.getenv('RAILWAY_SERVICE_NAME', 'unknown'),
+            "environment": os.getenv('RAILWAY_ENVIRONMENT', 'unknown'),
+            "replica_id": os.getenv('RAILWAY_REPLICA_ID', 'unknown'),
+            "deployment_id": os.getenv('RAILWAY_DEPLOYMENT_ID', 'unknown')
+        }
+        
+        # Quick memory check
+        try:
+            memory = psutil.virtual_memory()
+            memory_status = "healthy" if memory.percent < 85 else "warning"
+        except Exception:
+            memory_status = "unknown"
+        
+        overall_status = "healthy"
+        if db_status == "error" or memory_status == "warning":
+            overall_status = "degraded"
+        
+        return {
+            "status": overall_status,
+            "timestamp": datetime.utcnow().isoformat(),
+            "service": "credilinq-ai-platform",
+            "version": "2.0.0-railway",
+            "database": {"status": db_status},
+            "memory": {"status": memory_status},
+            "railway": railway_info
+        }
+        
+    except Exception as e:
+        return Response(
+            content=f'{{"status": "error", "error": "{str(e)}"}}',
+            status_code=500,
+            media_type="application/json"
+        )
 
 # Track application start time
 APP_START_TIME = datetime.utcnow()

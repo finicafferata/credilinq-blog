@@ -3,7 +3,7 @@ builder = "dockerfile"
 dockerfile = "Dockerfile"
 
 [deploy]
-healthcheckPath = "/health/live"
+healthcheckPath = "/health/railway"
 healthcheckTimeout = 120  # 2 minutes - optimized for Railway
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 5  # Increased retries for Railway stability
@@ -13,7 +13,7 @@ memoryLimit = "1GB"  # Reduced but sufficient for optimized version
 cpuLimit = "1000m"   # Railway-appropriate CPU allocation
 
 # Startup configuration - Railway optimized
-startCommand = "python /app/scripts/start.py"
+startCommand = "python /app/scripts/start_railway.py"
 
 # Environment-specific overrides
 [environments.production]

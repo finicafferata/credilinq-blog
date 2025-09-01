@@ -17,8 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /build
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy Railway-optimized requirements first for better caching
+COPY requirements-railway.txt ./requirements.txt
 
 # Install Python dependencies with no warnings
 RUN pip install --no-cache-dir --user --no-warn-script-location -r requirements.txt
@@ -55,8 +55,8 @@ COPY --from=builder --chown=credilinq:credilinq /root/.local /home/credilinq/.lo
 # Copy application code
 COPY --chown=credilinq:credilinq . .
 
-# Make startup script executable
-RUN chmod +x /app/scripts/start.py
+# Make startup scripts executable
+RUN chmod +x /app/scripts/start.py /app/scripts/start_railway.py
 
 # Copy Prisma schema and generate client
 COPY --chown=credilinq:credilinq prisma ./prisma
@@ -84,4 +84,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 EXPOSE 8000
 
 # Run the application using our Railway-optimized startup script
-CMD ["python", "/app/scripts/start.py"]
+CMD ["python", "/app/scripts/start_railway.py"]

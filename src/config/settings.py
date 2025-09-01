@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     
     # Server Configuration
     host: str = Field("0.0.0.0", env="HOST")
-    port: int = Field(8000, env="PORT")
+    port: int = Field(8080, env="PORT")  # Railway uses 8080 by default
     
     # ========================================
     # DATABASE CONFIGURATION - REQUIRED
@@ -186,6 +186,16 @@ class Settings(BaseSettings):
     def max_retries(self) -> int:
         """Backward compatibility for db_max_retries."""
         return self.db_max_retries
+    
+    @property
+    def is_railway(self) -> bool:
+        """Detect if running in Railway environment."""
+        return bool(os.getenv('RAILWAY_ENVIRONMENT'))
+    
+    @property
+    def is_railway_optimized(self) -> bool:
+        """Check if Railway optimizations should be enabled."""
+        return self.is_railway or os.getenv('RAILWAY_OPTIMIZED', '').lower() == 'true'
     
     @property
     def OPENAI_API_KEY(self) -> str:
