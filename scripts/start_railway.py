@@ -181,6 +181,33 @@ def main():
     logger.info("🔍 Testing application imports...")
     try:
         if 'src.main:app' in app_module:
+            # Run detailed import diagnostics first
+            logger.info("🔬 Running detailed import diagnostics...")
+            try:
+                # Test basic dependencies
+                import fastapi, uvicorn, pydantic, psycopg2, openai
+                logger.info("✅ Basic dependencies imported successfully")
+                
+                # Test core modules
+                from src.config.settings import settings
+                from src.config.database import db_config
+                logger.info("✅ Core configuration modules imported")
+                
+                # Test agent factory
+                from src.agents.core.agent_factory import AgentFactory
+                logger.info("✅ Agent factory imported")
+                
+                # Test LangGraph compatibility
+                from src.agents.core.langgraph_compat import StateGraph, START, END
+                logger.info(f"✅ LangGraph compatibility layer: START={repr(START)}, END={repr(END)}")
+                
+            except Exception as diag_e:
+                logger.error(f"❌ Detailed diagnostics failed: {diag_e}")
+                logger.error(f"   Error type: {type(diag_e).__name__}")
+                import traceback
+                logger.error(f"   Traceback: {traceback.format_exc()}")
+            
+            # Now test full app import
             from src.main import app as test_app
             logger.info("✅ Main application imports successful")
         else:
@@ -188,6 +215,14 @@ def main():
             logger.info("✅ Simple application imports successful")
     except Exception as e:
         logger.error(f"❌ Import test failed: {e}")
+        logger.error(f"   Error type: {type(e).__name__}")
+        # Print the full traceback for debugging
+        import traceback
+        tb_lines = traceback.format_exc().split('\n')
+        for i, line in enumerate(tb_lines):
+            if line.strip():
+                logger.error(f"   TB[{i:2d}]: {line}")
+                
         if 'src.main:app' in app_module:
             logger.warning("🔄 Main app failed, falling back to simple mode...")
             app_module = 'src.main_railway_simple:app'
