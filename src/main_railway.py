@@ -101,42 +101,164 @@ def load_api_routes_sync():
     """Load API routes synchronously during app initialization."""
     global api_routes_loaded
     
+    print("🔍 [RAILWAY DEBUG] Starting API routes loading...")
+    logger.info("🔍 [RAILWAY DEBUG] Starting API routes loading...")
+    
     if api_routes_loaded:
+        print("ℹ️ [RAILWAY DEBUG] API routes already loaded - skipping")
+        logger.info("ℹ️ [RAILWAY DEBUG] API routes already loaded - skipping")
         return
         
     try:
-        # Import routes
-        from .api.routes import health, blogs, campaigns, analytics, documents
+        print("🔍 [RAILWAY DEBUG] Attempting to import route modules...")
+        logger.info("🔍 [RAILWAY DEBUG] Attempting to import route modules...")
         
-        # Include routes immediately
-        app.include_router(health.router, tags=["health"])
-        app.include_router(blogs.router, prefix="/api/v2", tags=["blogs"])
-        app.include_router(campaigns.router, prefix="/api/v2", tags=["campaigns"]) 
-        app.include_router(analytics.router, prefix="/api/v2", tags=["analytics"])
-        app.include_router(documents.router, prefix="/api/v2", tags=["documents"])
+        # Import routes with individual error handling
+        try:
+            from .api.routes import health
+            print("✅ [RAILWAY DEBUG] Health routes imported successfully")
+            logger.info("✅ [RAILWAY DEBUG] Health routes imported successfully")
+        except Exception as e:
+            print(f"❌ [RAILWAY DEBUG] Health routes import failed: {e}")
+            logger.error(f"❌ [RAILWAY DEBUG] Health routes import failed: {e}")
+            
+        try:
+            from .api.routes import blogs
+            print("✅ [RAILWAY DEBUG] Blog routes imported successfully")
+            logger.info("✅ [RAILWAY DEBUG] Blog routes imported successfully")
+        except Exception as e:
+            print(f"❌ [RAILWAY DEBUG] Blog routes import failed: {e}")
+            logger.error(f"❌ [RAILWAY DEBUG] Blog routes import failed: {e}")
+            
+        try:
+            from .api.routes import campaigns
+            print("✅ [RAILWAY DEBUG] Campaign routes imported successfully")
+            logger.info("✅ [RAILWAY DEBUG] Campaign routes imported successfully")
+        except Exception as e:
+            print(f"❌ [RAILWAY DEBUG] Campaign routes import failed: {e}")
+            logger.error(f"❌ [RAILWAY DEBUG] Campaign routes import failed: {e}")
+            
+        try:
+            from .api.routes import analytics
+            print("✅ [RAILWAY DEBUG] Analytics routes imported successfully")
+            logger.info("✅ [RAILWAY DEBUG] Analytics routes imported successfully")
+        except Exception as e:
+            print(f"❌ [RAILWAY DEBUG] Analytics routes import failed: {e}")
+            logger.error(f"❌ [RAILWAY DEBUG] Analytics routes import failed: {e}")
+            
+        try:
+            from .api.routes import documents
+            print("✅ [RAILWAY DEBUG] Document routes imported successfully")
+            logger.info("✅ [RAILWAY DEBUG] Document routes imported successfully")
+        except Exception as e:
+            print(f"❌ [RAILWAY DEBUG] Document routes import failed: {e}")
+            logger.error(f"❌ [RAILWAY DEBUG] Document routes import failed: {e}")
+        
+        print("🔍 [RAILWAY DEBUG] Starting to include routers in FastAPI app...")
+        logger.info("🔍 [RAILWAY DEBUG] Starting to include routers in FastAPI app...")
+        
+        # Include routes immediately with error handling
+        try:
+            app.include_router(health.router, tags=["health"])
+            print("✅ [RAILWAY DEBUG] Health router included")
+            logger.info("✅ [RAILWAY DEBUG] Health router included")
+        except Exception as e:
+            print(f"❌ [RAILWAY DEBUG] Health router include failed: {e}")
+            logger.error(f"❌ [RAILWAY DEBUG] Health router include failed: {e}")
+            
+        try:
+            app.include_router(blogs.router, prefix="/api/v2", tags=["blogs"])
+            print("✅ [RAILWAY DEBUG] Blog router included with prefix /api/v2")
+            logger.info("✅ [RAILWAY DEBUG] Blog router included with prefix /api/v2")
+        except Exception as e:
+            print(f"❌ [RAILWAY DEBUG] Blog router include failed: {e}")
+            logger.error(f"❌ [RAILWAY DEBUG] Blog router include failed: {e}")
+            
+        try:
+            app.include_router(campaigns.router, prefix="/api/v2", tags=["campaigns"])
+            print("✅ [RAILWAY DEBUG] Campaign router included with prefix /api/v2")
+            logger.info("✅ [RAILWAY DEBUG] Campaign router included with prefix /api/v2")
+        except Exception as e:
+            print(f"❌ [RAILWAY DEBUG] Campaign router include failed: {e}")
+            logger.error(f"❌ [RAILWAY DEBUG] Campaign router include failed: {e}")
+            
+        try:
+            app.include_router(analytics.router, prefix="/api/v2", tags=["analytics"])
+            print("✅ [RAILWAY DEBUG] Analytics router included with prefix /api/v2")
+            logger.info("✅ [RAILWAY DEBUG] Analytics router included with prefix /api/v2")
+        except Exception as e:
+            print(f"❌ [RAILWAY DEBUG] Analytics router include failed: {e}")
+            logger.error(f"❌ [RAILWAY DEBUG] Analytics router include failed: {e}")
+            
+        try:
+            app.include_router(documents.router, prefix="/api/v2", tags=["documents"])
+            print("✅ [RAILWAY DEBUG] Document router included with prefix /api/v2")
+            logger.info("✅ [RAILWAY DEBUG] Document router included with prefix /api/v2")
+        except Exception as e:
+            print(f"❌ [RAILWAY DEBUG] Document router include failed: {e}")
+            logger.error(f"❌ [RAILWAY DEBUG] Document router include failed: {e}")
+        
+        # Check final route count
+        total_routes = len(app.routes)
+        api_routes = [route for route in app.routes if hasattr(route, 'path') and '/api/v2' in route.path]
+        
+        print(f"🔍 [RAILWAY DEBUG] Final route count: {total_routes} total, {len(api_routes)} API routes")
+        logger.info(f"🔍 [RAILWAY DEBUG] Final route count: {total_routes} total, {len(api_routes)} API routes")
+        
+        # List first 10 API routes for verification
+        for i, route in enumerate(api_routes[:10]):
+            route_path = route.path if hasattr(route, 'path') else 'unknown'
+            print(f"🔍 [RAILWAY DEBUG] API Route {i+1}: {route_path}")
+            logger.info(f"🔍 [RAILWAY DEBUG] API Route {i+1}: {route_path}")
         
         api_routes_loaded = True
-        logger.info("✅ API routes loaded during app initialization")
+        print("✅ [RAILWAY DEBUG] API routes loading completed successfully")
+        logger.info("✅ [RAILWAY DEBUG] API routes loading completed successfully")
         
     except Exception as e:
-        logger.error(f"❌ API routes loading failed during app init: {e}")
+        print(f"❌ [RAILWAY DEBUG] CRITICAL: API routes loading failed: {e}")
+        logger.error(f"❌ [RAILWAY DEBUG] CRITICAL: API routes loading failed: {e}")
+        import traceback
+        tb = traceback.format_exc()
+        print(f"❌ [RAILWAY DEBUG] Full traceback: {tb}")
+        logger.error(f"❌ [RAILWAY DEBUG] Full traceback: {tb}")
         # Don't fail app startup
         pass
 
 # Load routes immediately
+print("🚀 [RAILWAY DEBUG] Calling load_api_routes_sync()...")
+logger.info("🚀 [RAILWAY DEBUG] Calling load_api_routes_sync()...")
 load_api_routes_sync()
+print("🏁 [RAILWAY DEBUG] load_api_routes_sync() completed")
+logger.info("🏁 [RAILWAY DEBUG] load_api_routes_sync() completed")
 
 # Simple root endpoint
 @app.get("/")
 async def railway_root():
     """Railway root endpoint with configuration info."""
+    print("🔍 [RAILWAY DEBUG] Root endpoint called")
+    logger.info("🔍 [RAILWAY DEBUG] Root endpoint called")
+    
     await lazy_load_config()
-    return {
+    
+    # Count current routes for debugging
+    total_routes = len(app.routes)
+    api_routes = [route for route in app.routes if hasattr(route, 'path') and '/api/v2' in route.path]
+    
+    print(f"🔍 [RAILWAY DEBUG] Current route status: {total_routes} total, {len(api_routes)} API routes")
+    logger.info(f"🔍 [RAILWAY DEBUG] Current route status: {total_routes} total, {len(api_routes)} API routes")
+    
+    response_data = {
         "message": "CrediLinq AI Platform (Railway Optimized)",
         "version": "2.0.0-railway",
         "status": "operational",
         "environment": getattr(settings, 'environment', 'unknown') if settings else 'config-loading',
         "optimization": "railway-progressive",
+        "debug_info": {
+            "total_routes": total_routes,
+            "api_routes_count": len(api_routes),
+            "api_routes_loaded_flag": api_routes_loaded
+        },
         "features": {
             "database": db_config is not None,
             "api_routes": api_routes_loaded,
@@ -147,6 +269,11 @@ async def railway_root():
             )
         }
     }
+    
+    print(f"🔍 [RAILWAY DEBUG] Root response: {response_data}")
+    logger.info(f"🔍 [RAILWAY DEBUG] Root response: {response_data}")
+    
+    return response_data
 
 # Simple ping endpoint for Railway health checks
 @app.get("/ping")
