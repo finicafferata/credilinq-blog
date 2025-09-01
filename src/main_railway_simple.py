@@ -5,6 +5,8 @@ Connects to real database but bypasses complex agent imports.
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from typing import List, Optional
 import logging
 import os
 import json
@@ -241,18 +243,159 @@ async def upload_documents():
         "service": "railway-simple"
     }
 
+# Company Profile Models and Functions
+class LinkItem(BaseModel):
+    label: str = Field(..., max_length=200)
+    url: str = Field(..., max_length=1000)
+
+class CompanyProfile(BaseModel):
+    companyName: Optional[str] = Field(None, max_length=200)
+    companyContext: str = Field(..., max_length=10000)
+    brandVoice: Optional[str] = Field(None, max_length=5000)
+    valueProposition: Optional[str] = Field(None, max_length=5000)
+    industries: List[str] = Field(default_factory=list, max_items=10)
+    targetAudiences: List[str] = Field(default_factory=list, max_items=10)
+    tonePresets: List[str] = Field(default_factory=list, max_items=10)
+    keywords: List[str] = Field(default_factory=list, max_items=50)
+    styleGuidelines: Optional[str] = Field(None, max_length=10000)
+    prohibitedTopics: List[str] = Field(default_factory=list, max_items=50)
+    complianceNotes: Optional[str] = Field(None, max_length=10000)
+    links: List[LinkItem] = Field(default_factory=list, max_items=20)
+    defaultCTA: Optional[str] = Field(None, max_length=1000)
+    updatedAt: Optional[str] = None
+
+def _ensure_settings_table():
+    """Create the app_settings table if it doesn't exist."""
+    if not db_config:
+        return
+    try:
+        with db_config.get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    key TEXT PRIMARY KEY,
+                    value JSONB NOT NULL,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Error ensuring settings table: {e}")
+
+def _get_setting(key: str) -> Optional[dict]:
+    """Get a setting from the database."""
+    if not db_config:
+        return None
+    _ensure_settings_table()
+    try:
+        with db_config.get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT value FROM app_settings WHERE key = %s", (key,))
+            row = cur.fetchone()
+            if not row:
+                return None
+            raw = row[0] if isinstance(row, tuple) else row.get("value")
+            try:
+                return raw if isinstance(raw, dict) else json.loads(raw)
+            except Exception:
+                return {}
+    except Exception as e:
+        logger.error(f"Error getting setting {key}: {e}")
+        return None
+
 @app.get("/api/settings/company-profile")
-async def company_profile():
-    """Company profile settings."""
-    return {
-        "profile": {
-            "name": "CrediLinq",
-            "industry": "Financial Services",
-            "website": "https://credilinq.com"
-        },
-        "message": "Company profile endpoint working",
-        "service": "railway-simple"
-    }
+async def get_company_profile():
+    """Get company profile from database."""
+    try:
+        data = _get_setting("company_profile") or {}
+        # Provide minimal defaults so frontend can prefill
+        if "companyContext" not in data:
+            data["companyContext"] = ""
+        return CompanyProfile(**data)
+    except Exception as e:
+        logger.error(f"Error getting company profile: {e}")
+        # Fallback to basic profile if database fails
+        return CompanyProfile(
+            companyName="CrediLinq.ai",
+            companyContext="AI-powered content management platform",
+            industries=[],
+            targetAudiences=[],
+            tonePresets=[],
+            keywords=[],
+            prohibitedTopics=[],
+            links=[]
+        )
+
+def _upsert_setting(key: str, value: dict):
+    """Update or insert a setting in the database."""
+    if not db_config:
+        return
+    _ensure_settings_table()
+    try:
+        with db_config.get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO app_settings(key, value, updated_at)
+                VALUES (%s, %s, NOW())
+                ON CONFLICT (key)
+                DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+                """,
+                (key, json.dumps(value)),
+            )
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Error upserting setting {key}: {e}")
+        raise
+
+def _normalize_profile_dict(data: dict) -> dict:
+    """Normalize user-provided data."""
+    def _clean_list(values):
+        if not isinstance(values, list):
+            return []
+        cleaned = []
+        for v in values:
+            if isinstance(v, str) and v.strip():
+                cleaned.append(v.strip())
+        return cleaned
+
+    # Normalize arrays
+    for key in ["industries", "targetAudiences", "tonePresets", "keywords", "prohibitedTopics"]:
+        data[key] = _clean_list(data.get(key, []))
+
+    # Links: filter invalid and add https:// if missing
+    links = []
+    for link in data.get("links", []) or []:
+        try:
+            label = (link.get("label") or "").strip()
+            url = (link.get("url") or "").strip()
+            if label and url:
+                if not url.startswith("http://") and not url.startswith("https://"):
+                    url = "https://" + url
+                links.append({"label": label, "url": url})
+        except Exception:
+            continue
+    data["links"] = links
+
+    # Strings: trim
+    for key in ["companyName", "companyContext", "brandVoice", "valueProposition", "styleGuidelines", "complianceNotes", "defaultCTA"]:
+        if key in data and isinstance(data[key], str):
+            data[key] = data[key].strip()
+    return data
+
+@app.put("/api/settings/company-profile")
+async def update_company_profile(profile: CompanyProfile):
+    """Update company profile in database."""
+    try:
+        payload = _normalize_profile_dict(profile.model_dump())
+        payload["updatedAt"] = datetime.utcnow().isoformat()
+        _upsert_setting("company_profile", payload)
+        return {"message": "Company profile updated", "updatedAt": payload["updatedAt"]}
+    except Exception as e:
+        logger.error(f"Error updating company profile: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update profile: {str(e)}")
 
 # Additional common endpoints
 @app.get("/api/v2/blogs/{blog_id}")
