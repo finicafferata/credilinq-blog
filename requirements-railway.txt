@@ -21,7 +21,10 @@ pydantic-settings>=2.0.0
 # Core AI capabilities - minimal set
 openai>=1.10.0,<2.0.0
 langchain>=0.1.0
+langgraph==0.0.20
 langchain_openai>=0.0.5
+langchain-google-genai==0.0.6
+langchain_community>=0.0.10
 
 # File upload support
 python-multipart==0.0.6

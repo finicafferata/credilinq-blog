@@ -109,6 +109,13 @@ def load_api_routes_sync():
         logger.info("ℹ️ [RAILWAY DEBUG] API routes already loaded - skipping")
         return
         
+    # Initialize route modules as None
+    health = None
+    blogs = None
+    campaigns = None
+    analytics = None
+    documents = None
+    
     try:
         print("🔍 [RAILWAY DEBUG] Attempting to import route modules...")
         logger.info("🔍 [RAILWAY DEBUG] Attempting to import route modules...")
@@ -121,6 +128,7 @@ def load_api_routes_sync():
         except Exception as e:
             print(f"❌ [RAILWAY DEBUG] Health routes import failed: {e}")
             logger.error(f"❌ [RAILWAY DEBUG] Health routes import failed: {e}")
+            health = None
             
         try:
             from .api.routes import blogs
@@ -129,6 +137,7 @@ def load_api_routes_sync():
         except Exception as e:
             print(f"❌ [RAILWAY DEBUG] Blog routes import failed: {e}")
             logger.error(f"❌ [RAILWAY DEBUG] Blog routes import failed: {e}")
+            blogs = None
             
         try:
             from .api.routes import campaigns
@@ -137,6 +146,7 @@ def load_api_routes_sync():
         except Exception as e:
             print(f"❌ [RAILWAY DEBUG] Campaign routes import failed: {e}")
             logger.error(f"❌ [RAILWAY DEBUG] Campaign routes import failed: {e}")
+            campaigns = None
             
         try:
             from .api.routes import analytics
@@ -145,6 +155,7 @@ def load_api_routes_sync():
         except Exception as e:
             print(f"❌ [RAILWAY DEBUG] Analytics routes import failed: {e}")
             logger.error(f"❌ [RAILWAY DEBUG] Analytics routes import failed: {e}")
+            analytics = None
             
         try:
             from .api.routes import documents
@@ -153,50 +164,71 @@ def load_api_routes_sync():
         except Exception as e:
             print(f"❌ [RAILWAY DEBUG] Document routes import failed: {e}")
             logger.error(f"❌ [RAILWAY DEBUG] Document routes import failed: {e}")
+            documents = None
         
         print("🔍 [RAILWAY DEBUG] Starting to include routers in FastAPI app...")
         logger.info("🔍 [RAILWAY DEBUG] Starting to include routers in FastAPI app...")
         
-        # Include routes immediately with error handling
-        try:
-            app.include_router(health.router, tags=["health"])
-            print("✅ [RAILWAY DEBUG] Health router included")
-            logger.info("✅ [RAILWAY DEBUG] Health router included")
-        except Exception as e:
-            print(f"❌ [RAILWAY DEBUG] Health router include failed: {e}")
-            logger.error(f"❌ [RAILWAY DEBUG] Health router include failed: {e}")
+        # Include routes only if successfully imported
+        if health is not None:
+            try:
+                app.include_router(health.router, tags=["health"])
+                print("✅ [RAILWAY DEBUG] Health router included")
+                logger.info("✅ [RAILWAY DEBUG] Health router included")
+            except Exception as e:
+                print(f"❌ [RAILWAY DEBUG] Health router include failed: {e}")
+                logger.error(f"❌ [RAILWAY DEBUG] Health router include failed: {e}")
+        else:
+            print("⏭️ [RAILWAY DEBUG] Skipping health router (import failed)")
+            logger.info("⏭️ [RAILWAY DEBUG] Skipping health router (import failed)")
             
-        try:
-            app.include_router(blogs.router, prefix="/api/v2", tags=["blogs"])
-            print("✅ [RAILWAY DEBUG] Blog router included with prefix /api/v2")
-            logger.info("✅ [RAILWAY DEBUG] Blog router included with prefix /api/v2")
-        except Exception as e:
-            print(f"❌ [RAILWAY DEBUG] Blog router include failed: {e}")
-            logger.error(f"❌ [RAILWAY DEBUG] Blog router include failed: {e}")
+        if blogs is not None:
+            try:
+                app.include_router(blogs.router, prefix="/api/v2", tags=["blogs"])
+                print("✅ [RAILWAY DEBUG] Blog router included with prefix /api/v2")
+                logger.info("✅ [RAILWAY DEBUG] Blog router included with prefix /api/v2")
+            except Exception as e:
+                print(f"❌ [RAILWAY DEBUG] Blog router include failed: {e}")
+                logger.error(f"❌ [RAILWAY DEBUG] Blog router include failed: {e}")
+        else:
+            print("⏭️ [RAILWAY DEBUG] Skipping blog router (import failed)")
+            logger.info("⏭️ [RAILWAY DEBUG] Skipping blog router (import failed)")
             
-        try:
-            app.include_router(campaigns.router, prefix="/api/v2", tags=["campaigns"])
-            print("✅ [RAILWAY DEBUG] Campaign router included with prefix /api/v2")
-            logger.info("✅ [RAILWAY DEBUG] Campaign router included with prefix /api/v2")
-        except Exception as e:
-            print(f"❌ [RAILWAY DEBUG] Campaign router include failed: {e}")
-            logger.error(f"❌ [RAILWAY DEBUG] Campaign router include failed: {e}")
+        if campaigns is not None:
+            try:
+                app.include_router(campaigns.router, prefix="/api/v2", tags=["campaigns"])
+                print("✅ [RAILWAY DEBUG] Campaign router included with prefix /api/v2")
+                logger.info("✅ [RAILWAY DEBUG] Campaign router included with prefix /api/v2")
+            except Exception as e:
+                print(f"❌ [RAILWAY DEBUG] Campaign router include failed: {e}")
+                logger.error(f"❌ [RAILWAY DEBUG] Campaign router include failed: {e}")
+        else:
+            print("⏭️ [RAILWAY DEBUG] Skipping campaign router (import failed)")
+            logger.info("⏭️ [RAILWAY DEBUG] Skipping campaign router (import failed)")
             
-        try:
-            app.include_router(analytics.router, prefix="/api/v2", tags=["analytics"])
-            print("✅ [RAILWAY DEBUG] Analytics router included with prefix /api/v2")
-            logger.info("✅ [RAILWAY DEBUG] Analytics router included with prefix /api/v2")
-        except Exception as e:
-            print(f"❌ [RAILWAY DEBUG] Analytics router include failed: {e}")
-            logger.error(f"❌ [RAILWAY DEBUG] Analytics router include failed: {e}")
+        if analytics is not None:
+            try:
+                app.include_router(analytics.router, prefix="/api/v2", tags=["analytics"])
+                print("✅ [RAILWAY DEBUG] Analytics router included with prefix /api/v2")
+                logger.info("✅ [RAILWAY DEBUG] Analytics router included with prefix /api/v2")
+            except Exception as e:
+                print(f"❌ [RAILWAY DEBUG] Analytics router include failed: {e}")
+                logger.error(f"❌ [RAILWAY DEBUG] Analytics router include failed: {e}")
+        else:
+            print("⏭️ [RAILWAY DEBUG] Skipping analytics router (import failed)")
+            logger.info("⏭️ [RAILWAY DEBUG] Skipping analytics router (import failed)")
             
-        try:
-            app.include_router(documents.router, prefix="/api/v2", tags=["documents"])
-            print("✅ [RAILWAY DEBUG] Document router included with prefix /api/v2")
-            logger.info("✅ [RAILWAY DEBUG] Document router included with prefix /api/v2")
-        except Exception as e:
-            print(f"❌ [RAILWAY DEBUG] Document router include failed: {e}")
-            logger.error(f"❌ [RAILWAY DEBUG] Document router include failed: {e}")
+        if documents is not None:
+            try:
+                app.include_router(documents.router, prefix="/api/v2", tags=["documents"])
+                print("✅ [RAILWAY DEBUG] Document router included with prefix /api/v2")
+                logger.info("✅ [RAILWAY DEBUG] Document router included with prefix /api/v2")
+            except Exception as e:
+                print(f"❌ [RAILWAY DEBUG] Document router include failed: {e}")
+                logger.error(f"❌ [RAILWAY DEBUG] Document router include failed: {e}")
+        else:
+            print("⏭️ [RAILWAY DEBUG] Skipping document router (import failed)")
+            logger.info("⏭️ [RAILWAY DEBUG] Skipping document router (import failed)")
         
         # Check final route count
         total_routes = len(app.routes)
