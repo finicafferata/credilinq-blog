@@ -38,8 +38,7 @@ from .core.request_validation import RequestValidationMiddleware, VALIDATION_CON
 from .core.enhanced_logging import enhanced_logger, RequestTrackingMiddleware
 from .services.scheduler import ci_scheduler
 
-# Import agents to trigger registration
-from .agents import specialized
+# Agents will be lazy-loaded on first request to avoid startup delays
 
 # Configure logging
 logging.basicConfig(

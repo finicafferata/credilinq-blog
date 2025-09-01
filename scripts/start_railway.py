@@ -177,57 +177,28 @@ def main():
     
     logger.info("✅ Pre-flight checks completed")
     
-    # Test imports before starting uvicorn
-    logger.info("🔍 Testing application imports...")
+    # Skip heavy import testing on Railway - let the app lazy load
+    logger.info("🔍 Skipping heavy import tests - using lazy loading for Railway...")
     try:
         if 'src.main:app' in app_module:
-            # Run detailed import diagnostics first
-            logger.info("🔬 Running enhanced import diagnostics...")
+            # Only test critical imports for fast startup
+            logger.info("  📦 Testing critical dependencies only...")
+            import fastapi, uvicorn
+            logger.info("  ✅ Critical dependencies available")
             
-            # Test basic dependencies
-            logger.info("  📦 Testing basic dependencies...")
-            import fastapi, uvicorn, pydantic, psycopg2, openai
-            logger.info("  ✅ Basic dependencies: fastapi, uvicorn, pydantic, psycopg2, openai")
-            
-            # Test core configuration
-            logger.info("  ⚙️ Testing core configuration...")
-            from src.config.settings import settings
+            # Test database health quickly
+            logger.info("  ⚙️ Testing database connection...")
             from src.config.database import db_config
-            logger.info(f"  ✅ Settings loaded - Environment: {settings.environment}")
-            
-            # Test database health
             db_health = db_config.health_check()
             if db_health.get("status") == "healthy":
                 logger.info("  ✅ Database connection healthy")
             else:
                 logger.warning(f"  ⚠️ Database health issue: {db_health}")
             
-            # Test LangGraph compatibility
-            logger.info("  🔗 Testing LangGraph compatibility...")
-            from src.agents.core.langgraph_compat import StateGraph, START, END
-            logger.info(f"  ✅ LangGraph: START={repr(START)}, END={repr(END)}")
-            
-            # Test agent factory
-            logger.info("  🤖 Testing agent factory...")
-            from src.agents.core.agent_factory import AgentFactory
-            logger.info("  ✅ Agent factory imported")
-            
-            # Test specialized agents (this triggers registration)
-            logger.info("  🎯 Testing specialized agents registration...")
-            from src.agents import specialized
-            factory = AgentFactory()
-            agent_types = factory.get_available_types()
-            logger.info(f"  ✅ {len(agent_types)} agent types registered successfully")
-            
-            # Now test full app import
-            logger.info("  🚀 Testing main application import...")
-            from src.main import app as test_app
-            logger.info("  ✅ Main application imported successfully")
-            logger.info(f"  📊 App: {test_app.title} v{test_app.version}")
+            logger.info("  🚀 Main app will lazy-load agents on first request...")
             
         else:
-            from src.main_railway_simple import app as test_app
-            logger.info("✅ Simple application imports successful")
+            logger.info("✅ Using simple application - no heavy loading needed")
     except Exception as e:
         logger.error(f"❌ Import test failed: {e}")
         logger.error(f"   Error type: {type(e).__name__}")

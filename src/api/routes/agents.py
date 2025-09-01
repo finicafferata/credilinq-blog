@@ -13,8 +13,8 @@ import inspect
 from pathlib import Path
 
 from src.agents.core.base_agent import BaseAgent
-from src.agents.core.agent_factory import AgentFactory
 from src.agents.core.database_service import DatabaseService
+from src.core.lazy_agent_loader import lazy_agent_loader
 
 router = APIRouter()
 
@@ -115,7 +115,7 @@ async def get_agent_factory():
         _agent_factory = AgentFactory()
     return _agent_factory
 
-async def discover_available_agents():
+async def discover_available_agents(factory=None):
     """Discover all available agent classes from the agents directory."""
     agents_info = []
     
@@ -235,11 +235,13 @@ async def _generate_capabilities_for_agent(agent_type: str) -> List[AgentCapabil
     ])
 
 async def initialize_agent_registry():
-    """Initialize the agent registry with discovered agents."""
+    """Initialize the agent registry with lazy-loaded agents."""
     global _agent_registry
     
     if not _agent_registry:
-        discovered_agents = await discover_available_agents()
+        # Use lazy loader to ensure agents are loaded
+        factory = await lazy_agent_loader.ensure_agents_loaded()
+        discovered_agents = await discover_available_agents(factory)
         for agent in discovered_agents:
             _agent_registry[agent.id] = agent
     

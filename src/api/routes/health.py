@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, status, Response
 from ...config.database import db_config, secure_db
 from ...config.settings import settings
 from ...core.metrics import get_metrics_response, metrics
+from ...core.lazy_agent_loader import lazy_agent_loader
 
 router = APIRouter()
 
@@ -33,6 +34,13 @@ async def railway_health():
             "deployment_id": os.getenv('RAILWAY_DEPLOYMENT_ID', 'unknown')
         }
         
+        # Agent loading status (without triggering initialization)
+        agent_status = {
+            "lazy_loading_enabled": True,
+            "agents_loaded": lazy_agent_loader.is_loaded,
+            "factory_available": lazy_agent_loader.get_factory_if_loaded() is not None
+        }
+        
         # Quick memory check
         try:
             memory = psutil.virtual_memory()
@@ -51,6 +59,7 @@ async def railway_health():
             "version": "2.0.0-railway",
             "database": {"status": db_status},
             "memory": {"status": memory_status},
+            "agents": agent_status,
             "railway": railway_info
         }
         
@@ -168,9 +177,14 @@ async def health_check():
     app_metrics = get_application_metrics()
     health_status["checks"]["application"] = app_metrics
     
-    # Check critical services
+    # Check critical services (with lazy loading awareness)
     services_status = {
-        "ai_agents": "healthy",  # Simplified - would check agent pool in production
+        "ai_agents": {
+            "status": "healthy" if lazy_agent_loader.is_loaded else "lazy_loaded",
+            "loaded": lazy_agent_loader.is_loaded,
+            "factory_available": lazy_agent_loader.get_factory_if_loaded() is not None,
+            "lazy_loading_enabled": True
+        },
         "cache": "healthy" if settings.environment == "development" else "not_configured",
         "webhooks": "healthy",
         "monitoring": "healthy"
