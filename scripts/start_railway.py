@@ -48,9 +48,7 @@ def validate_railway_environment():
     os.environ.setdefault('WORKERS', '1')  # Single worker for Railway
     os.environ.setdefault('ENVIRONMENT', 'production')
     
-    # Set minimal configuration
-    os.environ.setdefault('ENABLE_ANALYTICS', 'false')
-    os.environ.setdefault('ENABLE_PERFORMANCE_TRACKING', 'false')
+    # Basic defaults (will be overridden based on application mode)
     os.environ.setdefault('ENABLE_CACHE', 'false')
     os.environ.setdefault('DEBUG', 'false')
     
@@ -73,9 +71,26 @@ def main():
     # Validate and configure environment
     port, is_railway = validate_railway_environment()
     
-    # Use Railway-simple app module with hardcoded routes for debugging
-    app_module = 'src.main_railway_simple:app'
-    logger.info("🚂 Using Railway SIMPLE application module (hardcoded routes for debugging)")
+    # Determine which application module to use
+    use_full_system = os.environ.get('RAILWAY_FULL', '').lower() == 'true'
+    enable_agents = os.environ.get('ENABLE_AGENT_LOADING', '').lower() == 'true'
+    
+    if use_full_system or enable_agents:
+        app_module = 'src.main:app'
+        logger.info("🚂 Using FULL APPLICATION with AI agents and complete feature set")
+        logger.info("   ✅ All AI agents will be loaded")
+        logger.info("   ✅ Complete workflow orchestration")
+        logger.info("   ✅ Advanced content generation")
+        # Increase memory settings for full system
+        os.environ.setdefault('ENABLE_ANALYTICS', 'true')
+        os.environ.setdefault('ENABLE_PERFORMANCE_TRACKING', 'true')
+    else:
+        app_module = 'src.main_railway_simple:app'
+        logger.info("🚂 Using Railway SIMPLE application module (hardcoded routes for debugging)")
+        logger.info("   ⚠️  Limited functionality - agents disabled")
+        # Keep minimal settings
+        os.environ.setdefault('ENABLE_ANALYTICS', 'false')
+        os.environ.setdefault('ENABLE_PERFORMANCE_TRACKING', 'false')
     
     # Build uvicorn command with Railway optimizations
     cmd = [
