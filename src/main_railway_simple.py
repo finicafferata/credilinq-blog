@@ -269,6 +269,75 @@ async def get_campaign(campaign_id: str):
 @app.get("/api/v2/campaigns/orchestration/campaigns/{campaign_id}/scheduled-content")
 async def get_scheduled_content(campaign_id: str):
     """Get scheduled content for campaign."""
+    if db_config:
+        try:
+            with db_config.get_db_connection() as conn:
+                cur = conn.cursor()
+                
+                # Get actual tasks as scheduled content
+                cur.execute("""
+                    SELECT id, task_type, target_format, target_asset, status, 
+                           result, created_at, completed_at, priority
+                    FROM campaign_tasks 
+                    WHERE campaign_id = %s
+                    ORDER BY priority DESC, created_at DESC
+                """, (campaign_id,))
+                
+                scheduled_content = []
+                calendar_events = []
+                
+                for row in cur.fetchall():
+                    task_id, task_type, target_format, target_asset, status, result, created_at, completed_at, priority = row
+                    
+                    # Create scheduled content item
+                    content_item = {
+                        "id": task_id,
+                        "title": f"{task_type} - {target_format}" if target_format else task_type,
+                        "type": task_type,
+                        "format": target_format,
+                        "asset": target_asset,
+                        "status": status,
+                        "result": result,
+                        "priority": priority,
+                        "created_at": created_at.isoformat() if created_at else None,
+                        "completed_at": completed_at.isoformat() if completed_at else None,
+                        "scheduled_date": created_at.isoformat() if created_at else None
+                    }
+                    scheduled_content.append(content_item)
+                    
+                    # Create calendar event
+                    if created_at:
+                        calendar_events.append({
+                            "id": task_id,
+                            "title": content_item["title"],
+                            "date": created_at.isoformat(),
+                            "status": status,
+                            "type": "task"
+                        })
+                
+                logger.info(f"🔍 Scheduled content for {campaign_id}: {len(scheduled_content)} items")
+                
+                return {
+                    "scheduled_content": scheduled_content,
+                    "calendar": {
+                        "events": calendar_events,
+                        "timeline": calendar_events
+                    },
+                    "campaign_id": campaign_id,
+                    "total": len(scheduled_content),
+                    "service": "railway-simple"
+                }
+                
+        except Exception as e:
+            logger.error(f"Database error getting scheduled content: {e}")
+            return {
+                "scheduled_content": [],
+                "calendar": {"events": [], "timeline": []},
+                "campaign_id": campaign_id,
+                "error": str(e),
+                "service": "railway-simple"
+            }
+    
     return {
         "scheduled_content": [],
         "calendar": {
@@ -276,7 +345,7 @@ async def get_scheduled_content(campaign_id: str):
             "timeline": []
         },
         "campaign_id": campaign_id,
-        "message": "Scheduled content endpoint working",
+        "message": "No database connection",
         "service": "railway-simple"
     }
 
