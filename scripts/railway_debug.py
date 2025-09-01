@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 """
-Railway deployment debugging script.
-Run this to identify potential issues before deployment.
+Enhanced Railway debugging script to identify agent system loading issues.
+Run this locally or on Railway to identify the exact import/initialization failure.
 """
 import os
 import sys
-import psutil
+import time
 import logging
-import asyncio
-import psycopg2
-from typing import Dict, List, Any
+import traceback
+from contextlib import contextmanager
 
-logging.basicConfig(level=logging.INFO)
+# Add project root to path
+sys.path.insert(0, '/app' if os.path.exists('/app') else os.getcwd())
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - [%(levelname)s] - %(name)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 def check_environment_variables() -> Dict[str, Any]:

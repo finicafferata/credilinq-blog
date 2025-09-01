@@ -31,8 +31,8 @@ class HealthStatus(Enum):
 @dataclass
 class AgentInstance:
     """Information about a running agent instance."""
-    instance_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     agent: BaseAgent
+    instance_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     specification_id: str = ""
     process_id: Optional[int] = None
     started_at: datetime = field(default_factory=datetime.utcnow)

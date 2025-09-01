@@ -182,57 +182,85 @@ def main():
     try:
         if 'src.main:app' in app_module:
             # Run detailed import diagnostics first
-            logger.info("🔬 Running detailed import diagnostics...")
-            try:
-                # Test basic dependencies
-                import fastapi, uvicorn, pydantic, psycopg2, openai
-                logger.info("✅ Basic dependencies imported successfully")
-                
-                # Test core modules
-                from src.config.settings import settings
-                from src.config.database import db_config
-                logger.info("✅ Core configuration modules imported")
-                
-                # Test agent factory
-                from src.agents.core.agent_factory import AgentFactory
-                logger.info("✅ Agent factory imported")
-                
-                # Test LangGraph compatibility
-                from src.agents.core.langgraph_compat import StateGraph, START, END
-                logger.info(f"✅ LangGraph compatibility layer: START={repr(START)}, END={repr(END)}")
-                
-            except Exception as diag_e:
-                logger.error(f"❌ Detailed diagnostics failed: {diag_e}")
-                logger.error(f"   Error type: {type(diag_e).__name__}")
-                import traceback
-                logger.error(f"   Traceback: {traceback.format_exc()}")
+            logger.info("🔬 Running enhanced import diagnostics...")
+            
+            # Test basic dependencies
+            logger.info("  📦 Testing basic dependencies...")
+            import fastapi, uvicorn, pydantic, psycopg2, openai
+            logger.info("  ✅ Basic dependencies: fastapi, uvicorn, pydantic, psycopg2, openai")
+            
+            # Test core configuration
+            logger.info("  ⚙️ Testing core configuration...")
+            from src.config.settings import settings
+            from src.config.database import db_config
+            logger.info(f"  ✅ Settings loaded - Environment: {settings.environment}")
+            
+            # Test database health
+            db_health = db_config.health_check()
+            if db_health.get("status") == "healthy":
+                logger.info("  ✅ Database connection healthy")
+            else:
+                logger.warning(f"  ⚠️ Database health issue: {db_health}")
+            
+            # Test LangGraph compatibility
+            logger.info("  🔗 Testing LangGraph compatibility...")
+            from src.agents.core.langgraph_compat import StateGraph, START, END
+            logger.info(f"  ✅ LangGraph: START={repr(START)}, END={repr(END)}")
+            
+            # Test agent factory
+            logger.info("  🤖 Testing agent factory...")
+            from src.agents.core.agent_factory import AgentFactory
+            logger.info("  ✅ Agent factory imported")
+            
+            # Test specialized agents (this triggers registration)
+            logger.info("  🎯 Testing specialized agents registration...")
+            from src.agents import specialized
+            factory = AgentFactory()
+            agent_types = factory.get_available_types()
+            logger.info(f"  ✅ {len(agent_types)} agent types registered successfully")
             
             # Now test full app import
+            logger.info("  🚀 Testing main application import...")
             from src.main import app as test_app
-            logger.info("✅ Main application imports successful")
+            logger.info("  ✅ Main application imported successfully")
+            logger.info(f"  📊 App: {test_app.title} v{test_app.version}")
+            
         else:
             from src.main_railway_simple import app as test_app
             logger.info("✅ Simple application imports successful")
     except Exception as e:
         logger.error(f"❌ Import test failed: {e}")
         logger.error(f"   Error type: {type(e).__name__}")
+        logger.error(f"   Error module: {getattr(e, '__module__', 'unknown')}")
+        
         # Print the full traceback for debugging
         import traceback
         tb_lines = traceback.format_exc().split('\n')
+        logger.error("   Full traceback:")
         for i, line in enumerate(tb_lines):
             if line.strip():
                 logger.error(f"   TB[{i:2d}]: {line}")
                 
+        # Try to identify the specific failing import
+        if "ModuleNotFoundError" in str(e):
+            logger.error(f"   🔍 Missing module detected: Check Railway environment has all dependencies")
+        elif "ImportError" in str(e):
+            logger.error(f"   🔍 Import error detected: Check module compatibility and versions")
+        elif "AttributeError" in str(e):
+            logger.error(f"   🔍 Attribute error detected: Check method/class names and versions")
+        
         if 'src.main:app' in app_module:
             logger.warning("🔄 Main app failed, falling back to simple mode...")
             app_module = 'src.main_railway_simple:app'
             logger.info("🚂 Switched to SIMPLE application mode due to import failure")
+            
             # Test simple mode imports
             try:
                 from src.main_railway_simple import app as simple_app
-                logger.info("✅ Simple mode imports successful")
+                logger.info("✅ Simple mode imports successful - proceeding with limited functionality")
             except Exception as simple_e:
                 logger.error(f"❌ Simple mode also failed: {simple_e}")
+                logger.error(f"❌ Both full and simple modes failed - cannot start application")
                 sys.exit(1)
     
     try:
