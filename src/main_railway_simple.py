@@ -410,6 +410,60 @@ async def get_user_profile():
         "service": "railway-simple"
     }
 
+# Debug endpoint to check campaign data
+@app.get("/api/debug/campaign/{campaign_id}")
+async def debug_campaign(campaign_id: str):
+    """Debug campaign data to see what exists in database."""
+    if not db_config:
+        return {"error": "No database connection"}
+    
+    debug_info = {"campaign_id": campaign_id, "queries": []}
+    
+    try:
+        with db_config.get_db_connection() as conn:
+            cur = conn.cursor()
+            
+            # Check campaign exists
+            cur.execute("SELECT * FROM campaigns WHERE id = %s", (campaign_id,))
+            campaign = cur.fetchone()
+            debug_info["queries"].append({
+                "query": "campaigns table",
+                "found": campaign is not None,
+                "data": campaign if campaign else None
+            })
+            
+            # Check briefings in main schema
+            cur.execute("SELECT * FROM briefings WHERE campaign_id = %s", (campaign_id,))
+            briefing = cur.fetchone()
+            debug_info["queries"].append({
+                "query": "briefings table (main schema)",
+                "found": briefing is not None,
+                "data": briefing if briefing else None
+            })
+            
+            # Check campaign tasks
+            cur.execute("SELECT COUNT(*), status FROM campaign_tasks WHERE campaign_id = %s GROUP BY status", (campaign_id,))
+            tasks = cur.fetchall()
+            debug_info["queries"].append({
+                "query": "campaign_tasks counts by status", 
+                "found": len(tasks) > 0,
+                "data": tasks
+            })
+            
+            # Check blog posts linked to campaign
+            cur.execute("SELECT * FROM blog_posts WHERE id = (SELECT blog_post_id FROM campaigns WHERE id = %s)", (campaign_id,))
+            blog_post = cur.fetchone()
+            debug_info["queries"].append({
+                "query": "linked blog_post",
+                "found": blog_post is not None,
+                "data": blog_post[:5] if blog_post else None  # First 5 columns only
+            })
+            
+            return debug_info
+            
+    except Exception as e:
+        return {"error": str(e), "campaign_id": campaign_id}
+
 print("✅ [RAILWAY DEBUG] Simple Railway app created with essential API routes")
 logger.info("✅ [RAILWAY DEBUG] Simple Railway app created with essential API routes")
 
