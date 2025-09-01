@@ -198,9 +198,9 @@ async def get_campaign(campaign_id: str):
             with db_config.get_db_connection() as conn:
                 cur = conn.cursor()
                 
-                # Get campaign details
+                # Get campaign details with metadata
                 cur.execute("""
-                    SELECT id, name, status, created_at, updated_at, blog_post_id
+                    SELECT id, name, status, created_at, updated_at, blog_post_id, metadata
                     FROM campaigns 
                     WHERE id = %s
                 """, (campaign_id,))
@@ -208,6 +208,9 @@ async def get_campaign(campaign_id: str):
                 campaign_row = cur.fetchone()
                 if not campaign_row:
                     raise HTTPException(status_code=404, detail="Campaign not found")
+                
+                # Extract metadata JSON
+                metadata = campaign_row[6] if campaign_row[6] else {}
                 
                 # Get campaign tasks count
                 cur.execute("""
@@ -221,16 +224,6 @@ async def get_campaign(campaign_id: str):
                 total_tasks = task_stats[0] if task_stats else 0
                 completed_tasks = task_stats[1] if task_stats else 0
                 
-                # Get briefing if exists
-                cur.execute("""
-                    SELECT campaign_name, marketing_objective, target_audience, 
-                           channels, desired_tone, language, company_context
-                    FROM briefings 
-                    WHERE campaign_id = %s
-                """, (campaign_id,))
-                
-                briefing_row = cur.fetchone()
-                
                 return {
                     "id": campaign_row[0],
                     "name": campaign_row[1],
@@ -239,13 +232,18 @@ async def get_campaign(campaign_id: str):
                     "created_at": campaign_row[3].isoformat() if campaign_row[3] else None,
                     "updated_at": campaign_row[4].isoformat() if campaign_row[4] else None,
                     "blog_post_id": campaign_row[5],
-                    # Map actual briefing data to expected frontend fields
-                    "target_market": briefing_row[2] if briefing_row else "Direct Merchants",  # target_audience
-                    "campaign_type": briefing_row[1] if briefing_row else "Lead Generation",   # marketing_objective  
-                    "focus": briefing_row[6] if briefing_row else "Business Growth",          # company_context
-                    "desired_tone": briefing_row[4] if briefing_row else "Professional",     # desired_tone
-                    "language": briefing_row[5] if briefing_row else "English",              # language
-                    "channels": briefing_row[3] if briefing_row else [],                     # channels
+                    # Extract data from JSON metadata
+                    "target_market": metadata.get("target_audience", "Companies interested in embedded finance"),
+                    "campaign_type": metadata.get("strategy_type", "product_launch").replace("_", " ").title(),
+                    "focus": metadata.get("company_context", "Agentic AI marketing and lead analysis"),
+                    "description": metadata.get("description", ""),
+                    "priority": metadata.get("priority", "high"),
+                    "timeline_weeks": metadata.get("timeline_weeks", 2),
+                    "distribution_channels": metadata.get("distribution_channels", []),
+                    "success_metrics": metadata.get("success_metrics", {}),
+                    "progress": metadata.get("progress", 0.0),
+                    "rerun_count": metadata.get("rerun_count", 0),
+                    "content_pieces": metadata.get("success_metrics", {}).get("content_pieces", 0),
                     "total_tasks": total_tasks,
                     "completed_tasks": completed_tasks,
                     "scheduled_count": 0,  # Will add this later
