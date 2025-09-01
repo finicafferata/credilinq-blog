@@ -201,6 +201,108 @@ async def get_campaign(campaign_id: str):
         "service": "railway-simple"
     }
 
+# Campaign orchestration endpoints
+@app.get("/api/v2/campaigns/orchestration/campaigns/{campaign_id}/scheduled-content")
+async def get_scheduled_content(campaign_id: str):
+    """Get scheduled content for campaign."""
+    return {
+        "scheduled_content": [],
+        "calendar": {
+            "events": [],
+            "timeline": []
+        },
+        "campaign_id": campaign_id,
+        "message": "Scheduled content endpoint working",
+        "service": "railway-simple"
+    }
+
+@app.get("/api/v2/campaigns/orchestration/campaigns/{campaign_id}/feedback-analytics")
+async def get_feedback_analytics(campaign_id: str):
+    """Get feedback analytics for campaign."""
+    return {
+        "analytics": {
+            "engagement": {"likes": 0, "shares": 0, "comments": 0},
+            "reach": {"impressions": 0, "unique_users": 0},
+            "conversion": {"clicks": 0, "conversions": 0, "rate": 0}
+        },
+        "feedback": [],
+        "campaign_id": campaign_id,
+        "message": "Feedback analytics endpoint working",
+        "service": "railway-simple"
+    }
+
+# Settings endpoints
+@app.get("/api/settings")
+async def get_settings():
+    """Get application settings."""
+    return {
+        "settings": {
+            "notifications": {"email": True, "push": False},
+            "theme": "light",
+            "language": "en",
+            "timezone": "UTC"
+        },
+        "message": "Settings endpoint working",
+        "service": "railway-simple"
+    }
+
+@app.get("/api/knowledge-base")
+async def get_knowledge_base():
+    """Get knowledge base documents."""
+    return {
+        "documents": [],
+        "categories": ["General", "Marketing", "Finance", "Technology"],
+        "total": 0,
+        "message": "Knowledge base endpoint working",
+        "service": "railway-simple"
+    }
+
+@app.get("/api/knowledge-base/documents")
+async def get_knowledge_documents():
+    """Get knowledge base documents list."""
+    return {
+        "documents": [],
+        "total": 0,
+        "message": "Knowledge base documents endpoint working",
+        "service": "railway-simple"
+    }
+
+# Additional orchestration endpoints
+@app.get("/api/v2/campaigns/orchestration/campaigns/{campaign_id}/tasks")
+async def get_campaign_tasks(campaign_id: str):
+    """Get tasks for campaign."""
+    return {
+        "tasks": [],
+        "campaign_id": campaign_id,
+        "message": "Campaign tasks endpoint working",
+        "service": "railway-simple"
+    }
+
+@app.get("/api/v2/campaigns/orchestration/campaigns/{campaign_id}/content")
+async def get_campaign_content(campaign_id: str):
+    """Get content for campaign."""
+    return {
+        "content": [],
+        "campaign_id": campaign_id,
+        "message": "Campaign content endpoint working",
+        "service": "railway-simple"
+    }
+
+# User and profile endpoints
+@app.get("/api/user/profile")
+async def get_user_profile():
+    """Get user profile."""
+    return {
+        "user": {
+            "id": "user-123",
+            "name": "Demo User",
+            "email": "demo@credilinq.com",
+            "role": "admin"
+        },
+        "message": "User profile endpoint working",
+        "service": "railway-simple"
+    }
+
 print("✅ [RAILWAY DEBUG] Simple Railway app created with essential API routes")
 logger.info("✅ [RAILWAY DEBUG] Simple Railway app created with essential API routes")
 
