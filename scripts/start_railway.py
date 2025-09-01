@@ -72,10 +72,14 @@ def main():
     port, is_railway = validate_railway_environment()
     
     # Determine which application module to use
+    # Default to full system in production environment
+    environment = os.environ.get('ENVIRONMENT', 'production').lower()
     use_full_system = os.environ.get('RAILWAY_FULL', '').lower() == 'true'
     enable_agents = os.environ.get('ENABLE_AGENT_LOADING', '').lower() == 'true'
+    force_simple = os.environ.get('RAILWAY_SIMPLE', '').lower() == 'true'
     
-    if use_full_system or enable_agents:
+    # Use full system by default in production unless explicitly disabled
+    if (use_full_system or enable_agents or environment == 'production') and not force_simple:
         app_module = 'src.main:app'
         logger.info("🚂 Using FULL APPLICATION with AI agents and complete feature set")
         logger.info("   ✅ All AI agents will be loaded")
