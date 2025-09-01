@@ -22,6 +22,7 @@ db_config = None
 settings = None
 enhanced_logger = None
 agent_system_loaded = False
+api_routes_loaded = False
 
 async def lazy_load_config():
     """Lazy load configuration to avoid startup delays."""
@@ -59,6 +60,14 @@ async def railway_lifespan(app: FastAPI):
                 logger.warning(f"⚠️ Database health: {db_health}")
         except Exception as e:
             logger.warning(f"⚠️ Database check failed: {e}")
+    
+    # Load API routes automatically for Railway production
+    if config_loaded:
+        try:
+            await add_api_routes()
+            logger.info("✅ API routes loaded automatically")
+        except Exception as e:
+            logger.warning(f"⚠️ API routes loading failed: {e}")
     
     logger.info("🚀 Railway deployment started successfully")
     
@@ -108,7 +117,7 @@ async def railway_root():
         "optimization": "railway-progressive",
         "features": {
             "database": db_config is not None,
-            "api_routes": True,
+            "api_routes": api_routes_loaded,
             "agent_system": agent_system_loaded,
             "agent_system_enabled": (
                 os.environ.get('RAILWAY_FULL', '').lower() == 'true' or
@@ -162,6 +171,12 @@ async def health_live():
 # Add API routes dynamically
 async def add_api_routes():
     """Add API routes with lazy loading."""
+    global api_routes_loaded
+    
+    if api_routes_loaded:
+        logger.info("ℹ️ API routes already loaded")
+        return True
+        
     try:
         await lazy_load_config()
         
@@ -175,6 +190,7 @@ async def add_api_routes():
         app.include_router(analytics.router, prefix="/api/v2", tags=["analytics"])
         app.include_router(documents.router, prefix="/api/v2", tags=["documents"])
         
+        api_routes_loaded = True
         logger.info("✅ API routes loaded successfully")
         return True
     except Exception as e:
