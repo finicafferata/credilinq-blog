@@ -402,21 +402,116 @@ async def get_settings():
 @app.get("/api/knowledge-base")
 async def get_knowledge_base():
     """Get knowledge base documents."""
+    if db_config:
+        try:
+            with db_config.get_db_connection() as conn:
+                cur = conn.cursor()
+                
+                # Check for documents table
+                cur.execute("""
+                    SELECT table_name FROM information_schema.tables 
+                    WHERE table_schema = 'public' AND table_name IN ('documents', 'document_chunks')
+                """)
+                tables = [row[0] for row in cur.fetchall()]
+                
+                documents = []
+                categories = set()
+                
+                # If we have documents table, query it
+                if 'documents' in tables:
+                    cur.execute("""
+                        SELECT id, title, content, metadata, created_at, updated_at
+                        FROM documents 
+                        ORDER BY created_at DESC
+                        LIMIT 100
+                    """)
+                    
+                    for row in cur.fetchall():
+                        doc_id, title, content, metadata, created_at, updated_at = row
+                        metadata = metadata or {}
+                        category = metadata.get("category", "General")
+                        categories.add(category)
+                        
+                        documents.append({
+                            "id": doc_id,
+                            "title": title,
+                            "content": content[:500] + "..." if content and len(content) > 500 else content or "",
+                            "category": category,
+                            "created_at": created_at.isoformat() if created_at else None,
+                            "updated_at": updated_at.isoformat() if updated_at else None,
+                            "metadata": metadata
+                        })
+                
+                # If we have document_chunks table, also query that
+                if 'document_chunks' in tables:
+                    cur.execute("""
+                        SELECT document_id, chunk_text, metadata
+                        FROM document_chunks 
+                        ORDER BY document_id, chunk_index
+                        LIMIT 50
+                    """)
+                    
+                    chunk_docs = {}
+                    for row in cur.fetchall():
+                        doc_id, chunk_text, metadata = row
+                        metadata = metadata or {}
+                        
+                        if doc_id not in chunk_docs:
+                            chunk_docs[doc_id] = {
+                                "id": f"chunk-doc-{doc_id}",
+                                "title": f"Document {doc_id} (Chunked)",
+                                "content": "",
+                                "category": metadata.get("category", "Knowledge Base"),
+                                "created_at": None,
+                                "updated_at": None,
+                                "metadata": {"type": "chunked_document", "source_id": doc_id}
+                            }
+                            categories.add("Knowledge Base")
+                        
+                        chunk_docs[doc_id]["content"] += chunk_text + "\n\n"
+                    
+                    # Add chunk documents to main documents list
+                    for doc in chunk_docs.values():
+                        if len(doc["content"]) > 500:
+                            doc["content"] = doc["content"][:500] + "..."
+                        documents.append(doc)
+                
+                logger.info(f"🔍 Knowledge base: {len(documents)} documents found")
+                
+                return {
+                    "documents": documents,
+                    "categories": list(categories) if categories else ["General", "Marketing", "Finance", "Technology"],
+                    "total": len(documents),
+                    "service": "railway-simple"
+                }
+                
+        except Exception as e:
+            logger.error(f"Database error getting knowledge base: {e}")
+            return {
+                "documents": [],
+                "categories": ["General", "Marketing", "Finance", "Technology"],
+                "total": 0,
+                "error": str(e),
+                "service": "railway-simple"
+            }
+    
     return {
         "documents": [],
         "categories": ["General", "Marketing", "Finance", "Technology"],
         "total": 0,
-        "message": "Knowledge base endpoint working",
+        "message": "No database connection",
         "service": "railway-simple"
     }
 
 @app.get("/api/knowledge-base/documents")
 async def get_knowledge_documents():
     """Get knowledge base documents list."""
+    # Reuse the same logic from get_knowledge_base
+    knowledge_base_result = await get_knowledge_base()
+    
     return {
-        "documents": [],
-        "total": 0,
-        "message": "Knowledge base documents endpoint working",
+        "documents": knowledge_base_result.get("documents", []),
+        "total": knowledge_base_result.get("total", 0),
         "service": "railway-simple"
     }
 
