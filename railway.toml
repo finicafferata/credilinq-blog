@@ -15,6 +15,11 @@ cpuLimit = "1000m"   # Railway-appropriate CPU allocation
 # Startup configuration - Railway optimized
 startCommand = "python /app/scripts/start_railway.py"
 
+# Force environment variable for agent loading
+[environments.production.variables]
+RAILWAY_FULL = "true"
+ENABLE_AGENT_LOADING = "true"
+
 # Environment-specific overrides
 [environments.production]
 memoryLimit = "2GB"   # Production with more resources
