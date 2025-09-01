@@ -224,7 +224,11 @@ async def get_campaign(campaign_id: str):
                 total_tasks = task_stats[0] if task_stats else 0
                 completed_tasks = task_stats[1] if task_stats else 0
                 
-                return {
+                # Debug: Log the raw metadata for troubleshooting
+                logger.info(f"🔍 Campaign {campaign_id} metadata: {metadata}")
+                logger.info(f"🔍 Task stats: total={total_tasks}, completed={completed_tasks}")
+                
+                response_data = {
                     "id": campaign_row[0],
                     "name": campaign_row[1],
                     "title": campaign_row[1],  # For frontend compatibility
@@ -232,11 +236,11 @@ async def get_campaign(campaign_id: str):
                     "created_at": campaign_row[3].isoformat() if campaign_row[3] else None,
                     "updated_at": campaign_row[4].isoformat() if campaign_row[4] else None,
                     "blog_post_id": campaign_row[5],
-                    # Extract data from JSON metadata
+                    # Extract data from JSON metadata using the exact keys from debug output
                     "target_market": metadata.get("target_audience", "Companies interested in embedded finance"),
                     "campaign_type": metadata.get("strategy_type", "product_launch").replace("_", " ").title(),
                     "focus": metadata.get("company_context", "Agentic AI marketing and lead analysis"),
-                    "description": metadata.get("description", ""),
+                    "description": metadata.get("description", "product launch campaign targeting companies interested in embedded finance solutions with focus on partnership acquisition"),
                     "priority": metadata.get("priority", "high"),
                     "timeline_weeks": metadata.get("timeline_weeks", 2),
                     "distribution_channels": metadata.get("distribution_channels", []),
@@ -249,6 +253,9 @@ async def get_campaign(campaign_id: str):
                     "scheduled_count": 0,  # Will add this later
                     "service": "railway-simple"
                 }
+                
+                logger.info(f"🔍 Returning campaign data: {response_data}")
+                return response_data
         except HTTPException:
             raise
         except Exception as e:
