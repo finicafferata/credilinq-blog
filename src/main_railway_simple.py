@@ -212,17 +212,36 @@ async def get_campaign(campaign_id: str):
                 # Extract metadata JSON
                 metadata = campaign_row[6] if campaign_row[6] else {}
                 
-                # Get campaign tasks count
+                # Get campaign tasks with full details
                 cur.execute("""
-                    SELECT COUNT(*) as total_tasks,
-                           COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_tasks
+                    SELECT id, task_type, target_format, target_asset, status, 
+                           result, image_url, error, priority, created_at, 
+                           updated_at, started_at, completed_at
                     FROM campaign_tasks 
                     WHERE campaign_id = %s
+                    ORDER BY priority DESC, created_at DESC
                 """, (campaign_id,))
                 
-                task_stats = cur.fetchone()
-                total_tasks = task_stats[0] if task_stats else 0
-                completed_tasks = task_stats[1] if task_stats else 0
+                tasks = []
+                for row in cur.fetchall():
+                    tasks.append({
+                        "id": row[0],
+                        "task_type": row[1],
+                        "target_format": row[2],
+                        "target_asset": row[3],
+                        "status": row[4],
+                        "result": row[5],
+                        "image_url": row[6],
+                        "error": row[7],
+                        "priority": row[8],
+                        "created_at": row[9].isoformat() if row[9] else None,
+                        "updated_at": row[10].isoformat() if row[10] else None,
+                        "started_at": row[11].isoformat() if row[11] else None,
+                        "completed_at": row[12].isoformat() if row[12] else None,
+                    })
+                
+                total_tasks = len(tasks)
+                completed_tasks = len([t for t in tasks if t["status"] == "completed"])
                 
                 # Debug: Log the raw metadata for troubleshooting
                 logger.info(f"🔍 Campaign {campaign_id} metadata: {metadata}")
@@ -251,6 +270,7 @@ async def get_campaign(campaign_id: str):
                     "total_tasks": total_tasks,
                     "completed_tasks": completed_tasks,
                     "scheduled_count": 0,  # Will add this later
+                    "tasks": tasks,  # Include full tasks array for frontend
                     "service": "railway-simple"
                 }
                 
