@@ -192,14 +192,69 @@ async def get_blog(blog_id: str):
 
 @app.get("/api/v2/campaigns/{campaign_id}")  
 async def get_campaign(campaign_id: str):
-    """Get specific campaign."""
-    return {
-        "id": campaign_id,
-        "title": f"Campaign {campaign_id}",
-        "status": "active", 
-        "message": "Campaign detail endpoint working",
-        "service": "railway-simple"
-    }
+    """Get specific campaign from database."""
+    if db_config:
+        try:
+            with db_config.get_db_connection() as conn:
+                cur = conn.cursor()
+                
+                # Get campaign details
+                cur.execute("""
+                    SELECT id, name, status, created_at, updated_at, blog_post_id
+                    FROM campaigns 
+                    WHERE id = %s
+                """, (campaign_id,))
+                
+                campaign_row = cur.fetchone()
+                if not campaign_row:
+                    raise HTTPException(status_code=404, detail="Campaign not found")
+                
+                # Get campaign tasks count
+                cur.execute("""
+                    SELECT COUNT(*) as total_tasks,
+                           COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_tasks
+                    FROM campaign_tasks 
+                    WHERE campaign_id = %s
+                """, (campaign_id,))
+                
+                task_stats = cur.fetchone()
+                total_tasks = task_stats[0] if task_stats else 0
+                completed_tasks = task_stats[1] if task_stats else 0
+                
+                # Get briefing if exists
+                cur.execute("""
+                    SELECT target_market, campaign_type, focus_area, content_pillars
+                    FROM briefings 
+                    WHERE campaign_id = %s
+                """, (campaign_id,))
+                
+                briefing_row = cur.fetchone()
+                
+                return {
+                    "id": campaign_row[0],
+                    "name": campaign_row[1],
+                    "title": campaign_row[1],  # For frontend compatibility
+                    "status": campaign_row[2],
+                    "created_at": campaign_row[3].isoformat() if campaign_row[3] else None,
+                    "updated_at": campaign_row[4].isoformat() if campaign_row[4] else None,
+                    "blog_post_id": campaign_row[5],
+                    "target_market": briefing_row[0] if briefing_row else "Direct Merchants",
+                    "campaign_type": briefing_row[1] if briefing_row else "Lead Generation", 
+                    "focus": briefing_row[2] if briefing_row else "Business Growth",
+                    "content_pillars": briefing_row[3] if briefing_row else [],
+                    "total_tasks": total_tasks,
+                    "completed_tasks": completed_tasks,
+                    "scheduled_count": 0,  # Will add this later
+                    "service": "railway-simple"
+                }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Database error getting campaign {campaign_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    
+    # Fallback if no database
+    raise HTTPException(status_code=503, detail="Database not available")
 
 # Campaign orchestration endpoints
 @app.get("/api/v2/campaigns/orchestration/campaigns/{campaign_id}/scheduled-content")
@@ -270,11 +325,59 @@ async def get_knowledge_documents():
 # Additional orchestration endpoints
 @app.get("/api/v2/campaigns/orchestration/campaigns/{campaign_id}/tasks")
 async def get_campaign_tasks(campaign_id: str):
-    """Get tasks for campaign."""
+    """Get tasks for campaign from database."""
+    if db_config:
+        try:
+            with db_config.get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT id, task_type, target_format, target_asset, status, 
+                           result, image_url, error, priority, created_at, 
+                           updated_at, started_at, completed_at
+                    FROM campaign_tasks 
+                    WHERE campaign_id = %s
+                    ORDER BY priority DESC, created_at DESC
+                """, (campaign_id,))
+                
+                tasks = []
+                for row in cur.fetchall():
+                    tasks.append({
+                        "id": row[0],
+                        "task_type": row[1],
+                        "target_format": row[2],
+                        "target_asset": row[3],
+                        "status": row[4],
+                        "result": row[5],
+                        "image_url": row[6],
+                        "error": row[7],
+                        "priority": row[8],
+                        "created_at": row[9].isoformat() if row[9] else None,
+                        "updated_at": row[10].isoformat() if row[10] else None,
+                        "started_at": row[11].isoformat() if row[11] else None,
+                        "completed_at": row[12].isoformat() if row[12] else None,
+                    })
+                
+                return {
+                    "tasks": tasks,
+                    "total": len(tasks),
+                    "campaign_id": campaign_id,
+                    "service": "railway-simple"
+                }
+        except Exception as e:
+            logger.error(f"Database error getting campaign tasks: {e}")
+            return {
+                "tasks": [],
+                "total": 0,
+                "campaign_id": campaign_id,
+                "error": str(e),
+                "service": "railway-simple"
+            }
+    
     return {
         "tasks": [],
+        "total": 0,
         "campaign_id": campaign_id,
-        "message": "Campaign tasks endpoint working",
+        "message": "No database connection",
         "service": "railway-simple"
     }
 
