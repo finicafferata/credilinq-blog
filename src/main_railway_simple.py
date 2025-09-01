@@ -489,6 +489,147 @@ async def get_campaign_content(campaign_id: str):
         "service": "railway-simple"
     }
 
+# Content deliverables endpoints (for Content Narrative tab)
+@app.get("/api/v2/deliverables/campaign/{campaign_id}")
+async def get_campaign_deliverables(campaign_id: str):
+    """Get all content deliverables for a campaign."""
+    if db_config:
+        try:
+            with db_config.get_db_connection() as conn:
+                cur = conn.cursor()
+                
+                # Convert campaign tasks to deliverables format
+                cur.execute("""
+                    SELECT id, task_type, target_format, target_asset, status, 
+                           result, created_at, completed_at, priority
+                    FROM campaign_tasks 
+                    WHERE campaign_id = %s
+                    ORDER BY priority DESC, created_at DESC
+                """, (campaign_id,))
+                
+                deliverables = []
+                for row in cur.fetchall():
+                    task_id, task_type, target_format, target_asset, status, result, created_at, completed_at, priority = row
+                    
+                    # Map task to deliverable format
+                    deliverables.append({
+                        "id": task_id,
+                        "campaign_id": campaign_id,
+                        "title": f"{task_type.replace('_', ' ').title()}" + (f" - {target_format}" if target_format else ""),
+                        "content": result if isinstance(result, str) else str(result) if result else "",
+                        "summary": (result[:200] + "..." if isinstance(result, str) and len(result) > 200 else result) if result else "",
+                        "content_type": "blog_post" if "content" in task_type else "social_media_post" if "social" in task_type else "email_campaign" if "email" in task_type else "blog_post",
+                        "format": target_format or "text",
+                        "status": "published" if status == "completed" else "draft" if status == "pending" else "in_review",
+                        "narrative_order": priority or 1,
+                        "target_audience": "Financial services professionals",
+                        "tone": "professional",
+                        "platform": target_format or "general",
+                        "word_count": len(result.split()) if isinstance(result, str) else 0,
+                        "reading_time": max(1, len(result.split()) // 200) if isinstance(result, str) else 1,
+                        "created_at": created_at.isoformat() if created_at else None,
+                        "updated_at": completed_at.isoformat() if completed_at else created_at.isoformat() if created_at else None,
+                        "created_by": "AI Agent",
+                        "metadata": {
+                            "task_type": task_type,
+                            "original_status": status,
+                            "priority": priority
+                        }
+                    })
+                
+                logger.info(f"🔍 Campaign deliverables for {campaign_id}: {len(deliverables)} items")
+                return deliverables
+                
+        except Exception as e:
+            logger.error(f"Database error getting campaign deliverables: {e}")
+            return []
+    
+    return []
+
+@app.get("/api/v2/deliverables/campaign/{campaign_id}/narrative")
+async def get_campaign_narrative(campaign_id: str):
+    """Get the content narrative for a campaign."""
+    if db_config:
+        try:
+            with db_config.get_db_connection() as conn:
+                cur = conn.cursor()
+                
+                # Get campaign info
+                cur.execute("""
+                    SELECT name, metadata, created_at, updated_at
+                    FROM campaigns 
+                    WHERE id = %s
+                """, (campaign_id,))
+                
+                campaign_row = cur.fetchone()
+                if not campaign_row:
+                    raise HTTPException(status_code=404, detail="Campaign not found")
+                
+                name, metadata, created_at, updated_at = campaign_row
+                metadata = metadata or {}
+                
+                # Get task count
+                cur.execute("""
+                    SELECT COUNT(*) as total, COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed
+                    FROM campaign_tasks 
+                    WHERE campaign_id = %s
+                """, (campaign_id,))
+                
+                task_stats = cur.fetchone()
+                total_pieces = task_stats[0] if task_stats else 0
+                completed_pieces = task_stats[1] if task_stats else 0
+                
+                # Build narrative based on campaign metadata
+                narrative = {
+                    "id": f"narrative-{campaign_id}",
+                    "campaign_id": campaign_id,
+                    "title": f"{name} - Content Strategy Narrative",
+                    "description": metadata.get("description", "AI-powered content campaign focused on lead generation and partnership acquisition"),
+                    "narrative_theme": metadata.get("strategy_type", "lead_generation").replace("_", " ").title(),
+                    "key_story_arc": [
+                        "Market Analysis & Opportunity Identification",
+                        "Audience Engagement & Thought Leadership",
+                        "Solution Positioning & Value Proposition",
+                        "Partnership Development & Lead Generation",
+                        "Conversion Optimization & Relationship Building"
+                    ],
+                    "content_flow": {
+                        "phase_1": {
+                            "title": "Foundation Building",
+                            "description": "Establish thought leadership and market presence",
+                            "content_types": ["blog_post", "email_campaign"],
+                            "pieces_count": total_pieces // 3 if total_pieces > 0 else 0
+                        },
+                        "phase_2": {
+                            "title": "Engagement Expansion", 
+                            "description": "Amplify reach through social channels and partnerships",
+                            "content_types": ["social_media_post", "email_campaign"],
+                            "pieces_count": total_pieces // 3 if total_pieces > 0 else 0
+                        },
+                        "phase_3": {
+                            "title": "Conversion Focus",
+                            "description": "Drive qualified leads and partnership opportunities",
+                            "content_types": ["blog_post", "social_media_post", "email_campaign"],
+                            "pieces_count": total_pieces - (2 * (total_pieces // 3)) if total_pieces > 0 else 0
+                        }
+                    },
+                    "total_pieces": total_pieces,
+                    "completed_pieces": completed_pieces,
+                    "created_at": created_at.isoformat() if created_at else None,
+                    "updated_at": updated_at.isoformat() if updated_at else None
+                }
+                
+                logger.info(f"🔍 Campaign narrative for {campaign_id}: {narrative['title']}")
+                return narrative
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Database error getting campaign narrative: {e}")
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    
+    raise HTTPException(status_code=503, detail="Database not available")
+
 # User and profile endpoints
 @app.get("/api/user/profile")
 async def get_user_profile():
