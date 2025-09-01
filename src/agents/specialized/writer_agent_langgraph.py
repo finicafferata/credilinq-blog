@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 # LangGraph imports
-from langgraph.graph import StateGraph, START, END
+from ..core.langgraph_compat import StateGraph, START, END
 from typing_extensions import TypedDict
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage

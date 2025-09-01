@@ -17,7 +17,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 # LangGraph imports
-from langgraph.graph import StateGraph, START, END
+from .langgraph_compat import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from typing_extensions import TypedDict, Annotated
 

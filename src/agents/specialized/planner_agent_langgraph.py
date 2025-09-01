@@ -12,7 +12,7 @@ import json
 import ast
 import re
 
-from langgraph.graph import StateGraph, START, END
+from ..core.langgraph_compat import StateGraph, START, END
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
 

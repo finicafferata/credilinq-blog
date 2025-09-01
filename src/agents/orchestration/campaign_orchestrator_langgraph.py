@@ -19,7 +19,7 @@ from enum import Enum
 import concurrent.futures
 
 # LangGraph imports
-from langgraph.graph import StateGraph, START, END
+from ..core.langgraph_compat import StateGraph, START, END
 from typing_extensions import TypedDict
 
 # Internal imports

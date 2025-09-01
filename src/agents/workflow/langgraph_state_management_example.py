@@ -17,7 +17,7 @@ import logging
 from typing import Dict, Any, TypedDict
 from dataclasses import asdict
 
-from langgraph.graph import StateGraph, START, END
+from ..core.langgraph_compat import StateGraph, START, END
 from langgraph.graph.message import add_messages
 
 from ..core.langgraph_base import (
