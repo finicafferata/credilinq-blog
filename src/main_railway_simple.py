@@ -223,7 +223,8 @@ async def get_campaign(campaign_id: str):
                 
                 # Get briefing if exists
                 cur.execute("""
-                    SELECT target_market, campaign_type, focus_area, content_pillars
+                    SELECT campaign_name, marketing_objective, target_audience, 
+                           channels, desired_tone, language, company_context
                     FROM briefings 
                     WHERE campaign_id = %s
                 """, (campaign_id,))
@@ -238,10 +239,13 @@ async def get_campaign(campaign_id: str):
                     "created_at": campaign_row[3].isoformat() if campaign_row[3] else None,
                     "updated_at": campaign_row[4].isoformat() if campaign_row[4] else None,
                     "blog_post_id": campaign_row[5],
-                    "target_market": briefing_row[0] if briefing_row else "Direct Merchants",
-                    "campaign_type": briefing_row[1] if briefing_row else "Lead Generation", 
-                    "focus": briefing_row[2] if briefing_row else "Business Growth",
-                    "content_pillars": briefing_row[3] if briefing_row else [],
+                    # Map actual briefing data to expected frontend fields
+                    "target_market": briefing_row[2] if briefing_row else "Direct Merchants",  # target_audience
+                    "campaign_type": briefing_row[1] if briefing_row else "Lead Generation",   # marketing_objective  
+                    "focus": briefing_row[6] if briefing_row else "Business Growth",          # company_context
+                    "desired_tone": briefing_row[4] if briefing_row else "Professional",     # desired_tone
+                    "language": briefing_row[5] if briefing_row else "English",              # language
+                    "channels": briefing_row[3] if briefing_row else [],                     # channels
                     "total_tasks": total_tasks,
                     "completed_tasks": completed_tasks,
                     "scheduled_count": 0,  # Will add this later
