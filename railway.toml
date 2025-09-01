@@ -19,8 +19,8 @@ startCommand = "python /app/scripts/start.py"
 [environments.production]
 memoryLimit = "2GB"   # Production with more resources
 cpuLimit = "1500m"
-# Use full mode in production if desired
-# RAILWAY_FULL = "true"
+# Use full mode in production with all features
+RAILWAY_FULL = "true"
 
 [environments.staging] 
 memoryLimit = "1GB"   # Staging uses optimized mode

@@ -134,9 +134,9 @@ def main():
             app_module = 'src.main:app'
             logger.info("🚂 Using Railway FULL mode (all features, agents, settings)")
         else:
-            # DEFAULT: Use optimized mode (all features, reliable startup)
-            app_module = 'src.main_railway_optimized:app'
-            logger.info("🚂 Using Railway OPTIMIZED mode (all features, reliable startup)")
+            # DEFAULT: Use main module (all features, reliable startup)
+            app_module = 'src.main:app'
+            logger.info("🚂 Using Railway DEFAULT mode (all features, reliable startup)")
     else:
         app_module = 'src.main:app'
         logger.info("💻 Using full development mode")
