@@ -278,8 +278,8 @@ def main():
         # Enhanced error collection for debugging
         startup_errors = []
         
-        # Monitor startup with shorter timeout for Railway
-        startup_timeout = 30  # 30 seconds for Railway
+        # Monitor startup with extended timeout for agent loading
+        startup_timeout = 180  # 3 minutes for full agent system
         startup_time = time.time()
         startup_successful = False
         

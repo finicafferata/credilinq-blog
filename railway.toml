@@ -4,9 +4,9 @@ dockerfile = "Dockerfile"
 
 [deploy]
 healthcheckPath = "/health/railway"
-healthcheckTimeout = 120  # 2 minutes - optimized for Railway
+healthcheckTimeout = 300  # 5 minutes - extended for agent loading
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 5  # Increased retries for Railway stability
+restartPolicyMaxRetries = 3  # Reduced retries to prevent endless loops
 
 # Memory and resource limits - Railway optimized for full features
 memoryLimit = "1GB"  # Reduced but sufficient for optimized version
