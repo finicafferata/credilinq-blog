@@ -58,6 +58,35 @@ def validate_railway_environment():
     
     return port, is_railway
 
+def start_simple_mode():
+    """Start the simple Railway app as a fallback."""
+    logger.info("🚂 Starting SIMPLE MODE as fallback")
+    
+    # Build simple mode command
+    port = os.environ.get('PORT', '8080')
+    cmd = [
+        'uvicorn',
+        'src.main_railway_simple:app',
+        '--host', '0.0.0.0',
+        '--port', str(port),
+        '--workers', '1',
+        '--access-log',
+        '--log-level', 'info',
+        '--timeout-keep-alive', '30',
+        '--timeout-graceful-shutdown', '30',
+        '--no-use-colors',
+    ]
+    
+    logger.info(f"📝 Simple mode command: {' '.join(cmd)}")
+    
+    try:
+        # Execute simple mode directly
+        import subprocess
+        subprocess.run(cmd, check=True)
+    except Exception as e:
+        logger.error(f"❌ Simple mode also failed: {e}")
+        sys.exit(1)
+
 def main():
     """Start the Railway-optimized application."""
     global app_process
@@ -65,6 +94,20 @@ def main():
     # Set up signal handlers
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
+    
+    # Ensure correct working directory and Python path for Railway
+    app_dir = '/app'  # Railway default app directory
+    if os.path.exists(app_dir):
+        os.chdir(app_dir)
+        # Add app directory to Python path for module imports
+        if app_dir not in sys.path:
+            sys.path.insert(0, app_dir)
+        logger.info(f"📁 Set working directory to: {app_dir}")
+    else:
+        logger.warning(f"⚠️ Railway app directory {app_dir} not found, using current directory")
+        current_dir = os.getcwd()
+        if current_dir not in sys.path:
+            sys.path.insert(0, current_dir)
     
     logger.info("🚂 Starting CrediLinq AI Platform (Railway Optimized)")
     
@@ -134,6 +177,29 @@ def main():
     
     logger.info("✅ Pre-flight checks completed")
     
+    # Test imports before starting uvicorn
+    logger.info("🔍 Testing application imports...")
+    try:
+        if 'src.main:app' in app_module:
+            from src.main import app as test_app
+            logger.info("✅ Main application imports successful")
+        else:
+            from src.main_railway_simple import app as test_app
+            logger.info("✅ Simple application imports successful")
+    except Exception as e:
+        logger.error(f"❌ Import test failed: {e}")
+        if 'src.main:app' in app_module:
+            logger.warning("🔄 Main app failed, falling back to simple mode...")
+            app_module = 'src.main_railway_simple:app'
+            logger.info("🚂 Switched to SIMPLE application mode due to import failure")
+            # Test simple mode imports
+            try:
+                from src.main_railway_simple import app as simple_app
+                logger.info("✅ Simple mode imports successful")
+            except Exception as simple_e:
+                logger.error(f"❌ Simple mode also failed: {simple_e}")
+                sys.exit(1)
+    
     try:
         # Start the application
         logger.info("🚀 Starting Railway application server...")
@@ -145,6 +211,9 @@ def main():
             universal_newlines=True,
             bufsize=1
         )
+        
+        # Enhanced error collection for debugging
+        startup_errors = []
         
         # Monitor startup with shorter timeout for Railway
         startup_timeout = 30  # 30 seconds for Railway
@@ -177,6 +246,7 @@ def main():
                 
                 if any(error in line.lower() for error in error_indicators):
                     logger.error(f"❌ Startup error: {line.strip()}")
+                    startup_errors.append(line.strip())
             
             # Timeout check
             if time.time() - startup_time > startup_timeout:
@@ -210,10 +280,22 @@ def main():
                 app_process.terminate()
                 app_process.wait(timeout=10)
         else:
-            # Startup failed
+            # Startup failed - try fallback to simple mode if using full system
             return_code = app_process.returncode
             logger.error(f"❌ Railway application failed to start (code: {return_code})")
-            sys.exit(return_code or 1)
+            
+            # Print collected errors for debugging
+            if startup_errors:
+                logger.error("Collected startup errors:")
+                for error in startup_errors:
+                    logger.error(f"  {error}")
+            
+            # Attempt fallback to simple mode if we were trying full system
+            if 'src.main:app' in app_module:
+                logger.warning("🔄 Attempting fallback to simple mode due to startup failure...")
+                return start_simple_mode()
+            else:
+                sys.exit(return_code or 1)
         
     except Exception as e:
         logger.error(f"❌ Railway deployment error: {e}")
