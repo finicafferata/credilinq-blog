@@ -10,8 +10,8 @@ from typing import Dict, List, Any, Optional, TypedDict, Annotated
 from dataclasses import dataclass, field
 from enum import Enum
 
-from langgraph.graph import StateGraph, END
-from langgraph.graph.message import add_messages
+# Import LangGraph components with version compatibility
+from src.agents.core.langgraph_compat import StateGraph, END, add_messages
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
 from ..core.langgraph_base import (
@@ -821,7 +821,9 @@ class ContentAgentWorkflow(LangGraphWorkflowBase[ContentAgentState]):
         # For now, ensure basic structure elements are present
         
         if not content.startswith('# '):
-            optimized_content = f"# {content.split('\n')[0]}\n\n{content}"
+            newline = '\n'
+            first_line = content.split(newline)[0]
+            optimized_content = f"# {first_line}{newline}{newline}{content}"
         
         return optimized_content
     
@@ -1014,10 +1016,11 @@ class ContentAgentWorkflow(LangGraphWorkflowBase[ContentAgentState]):
                     if line.strip() and not line.startswith('#'):
                         key_points.append(line.strip()[:100])
                 
-                linkedin_post = f"{title}\n\n"
+                newline = '\n'
+                linkedin_post = f"{title}{newline}{newline}"
                 linkedin_post += "Key insights:\n"
                 for i, point in enumerate(key_points[:3], 1):
-                    linkedin_post += f"{i}. {point}\n"
+                    linkedin_post += f"{i}. {point}{newline}"
                 
                 linkedin_post += "\nWhat's your experience with this? 👇\n\n#Business #Strategy #Growth"
                 
@@ -1028,7 +1031,7 @@ class ContentAgentWorkflow(LangGraphWorkflowBase[ContentAgentState]):
                 lines = original_content.split('\n')
                 title = lines[0].replace('# ', '')
                 
-                summary = f"# Executive Summary: {title}\n\n"
+                summary = f"# Executive Summary: {title}{newline}{newline}"
                 summary += "## Key Points\n\n"
                 summary += "• Strategic insights for business leaders\n"
                 summary += "• Actionable recommendations for implementation\n"
@@ -1043,9 +1046,9 @@ class ContentAgentWorkflow(LangGraphWorkflowBase[ContentAgentState]):
                 lines = original_content.split('\n')
                 title = lines[0].replace('# ', '')
                 
-                email = f"Subject: {title} - Key Insights\n\n"
-                email += f"Hi there,\n\n"
-                email += f"I wanted to share some key insights about {title.lower()}:\n\n"
+                email = f"Subject: {title} - Key Insights{newline}{newline}"
+                email += f"Hi there,{newline}{newline}"
+                email += f"I wanted to share some key insights about {title.lower()}:{newline}{newline}"
                 email += "• Important industry developments\n"
                 email += "• Actionable strategies for your business\n"
                 email += "• Next steps for implementation\n\n"
@@ -1056,7 +1059,7 @@ class ContentAgentWorkflow(LangGraphWorkflowBase[ContentAgentState]):
             
             else:
                 # Default: create a summary version
-                return f"Summary of {original_format.value}:\n\n{original_content[:500]}..."
+                return f"Summary of {original_format.value}:{newline}{newline}{original_content[:500]}..."
                 
         except Exception as e:
             self._log_error(f"Content variant creation failed: {str(e)}")

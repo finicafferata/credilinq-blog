@@ -24,7 +24,8 @@ from .campaign_database_service import CampaignDatabaseService
 from .workflow_state_manager import WorkflowStateManager, CampaignWorkflowState
 from ..core.agent_factory import AgentFactory
 from langchain_core.runnables import RunnableConfig
-from langgraph.graph import StateGraph, END
+# Import LangGraph components with version compatibility
+from src.agents.core.langgraph_compat import StateGraph, END
 
 logger = logging.getLogger(__name__)
 

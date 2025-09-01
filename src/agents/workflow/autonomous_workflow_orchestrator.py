@@ -12,9 +12,9 @@ from typing import Dict, List, Optional, Any, TypedDict
 from dataclasses import dataclass
 from enum import Enum
 
-# LangGraph imports with fallback
+# LangGraph imports with enhanced compatibility
 try:
-    from langgraph.graph import StateGraph, END
+    from src.agents.core.langgraph_compat import StateGraph, END
     from langgraph.checkpoint.sqlite import SqliteSaver
     LANGGRAPH_AVAILABLE = True
 except ImportError:

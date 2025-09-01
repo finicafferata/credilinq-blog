@@ -13,8 +13,8 @@ from pathlib import Path
 import mimetypes
 import uuid
 
-from langgraph.graph import StateGraph, END
-from langgraph.graph.message import add_messages
+# Import LangGraph components with version compatibility
+from src.agents.core.langgraph_compat import StateGraph, END, add_messages
 from langgraph.checkpoint.memory import MemorySaver
 try:
     from langgraph.checkpoint.postgres import PostgresSaver

@@ -24,8 +24,8 @@ from typing_extensions import Annotated
 from dataclasses import dataclass, field
 from enum import Enum
 
-from langgraph.graph import StateGraph, END
-from langgraph.graph.state import CompiledStateGraph
+# Import LangGraph components with version compatibility
+from src.agents.core.langgraph_compat import StateGraph, END, CompiledStateGraph
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_openai import ChatOpenAI
 

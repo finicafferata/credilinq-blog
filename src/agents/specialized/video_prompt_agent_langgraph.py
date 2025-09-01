@@ -58,7 +58,7 @@ class VideoPromptAgentLangGraph(LangGraphWorkflowBase[VideoPromptAgentState]):
     
     def _create_workflow_graph(self):
         """Create the LangGraph workflow structure."""
-        from langgraph.graph import StateGraph
+        from src.agents.core.langgraph_compat import StateGraph
         
         workflow = StateGraph(VideoPromptAgentState)
         

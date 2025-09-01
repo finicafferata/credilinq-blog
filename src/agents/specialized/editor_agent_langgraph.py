@@ -7,7 +7,8 @@ from enum import Enum
 import json
 from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
-from langgraph.graph import StateGraph, END
+# Import LangGraph components with version compatibility
+from src.agents.core.langgraph_compat import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
 from ..core.langgraph_base import (
