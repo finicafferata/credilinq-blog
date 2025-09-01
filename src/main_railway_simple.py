@@ -83,7 +83,7 @@ async def list_campaigns():
             with db_config.get_db_connection() as conn:
                 cur = conn.cursor()
                 cur.execute("""
-                    SELECT id, title, status, created_at, updated_at, priority, description
+                    SELECT id, name, status, created_at, updated_at
                     FROM campaigns 
                     ORDER BY created_at DESC
                 """)
@@ -91,12 +91,12 @@ async def list_campaigns():
                 for row in cur.fetchall():
                     campaigns.append({
                         "id": row[0],
-                        "title": row[1],
+                        "name": row[1],
+                        "title": row[1],  # Use name as title for frontend compatibility
                         "status": row[2],
                         "created_at": row[3].isoformat() if row[3] else None,
                         "updated_at": row[4].isoformat() if row[4] else None,
-                        "priority": row[5],
-                        "description": row[6]
+                        "description": row[1] or "No description"  # Use name as fallback
                     })
                 
                 return {
