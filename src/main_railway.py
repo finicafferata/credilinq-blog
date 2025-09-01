@@ -61,14 +61,6 @@ async def railway_lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"⚠️ Database check failed: {e}")
     
-    # Load API routes automatically for Railway production
-    if config_loaded:
-        try:
-            await add_api_routes()
-            logger.info("✅ API routes loaded automatically")
-        except Exception as e:
-            logger.warning(f"⚠️ API routes loading failed: {e}")
-    
     logger.info("🚀 Railway deployment started successfully")
     
     yield
@@ -103,6 +95,36 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Load API routes immediately during app initialization
+def load_api_routes_sync():
+    """Load API routes synchronously during app initialization."""
+    global api_routes_loaded
+    
+    if api_routes_loaded:
+        return
+        
+    try:
+        # Import routes
+        from .api.routes import health, blogs, campaigns, analytics, documents
+        
+        # Include routes immediately
+        app.include_router(health.router, tags=["health"])
+        app.include_router(blogs.router, prefix="/api/v2", tags=["blogs"])
+        app.include_router(campaigns.router, prefix="/api/v2", tags=["campaigns"]) 
+        app.include_router(analytics.router, prefix="/api/v2", tags=["analytics"])
+        app.include_router(documents.router, prefix="/api/v2", tags=["documents"])
+        
+        api_routes_loaded = True
+        logger.info("✅ API routes loaded during app initialization")
+        
+    except Exception as e:
+        logger.error(f"❌ API routes loading failed during app init: {e}")
+        # Don't fail app startup
+        pass
+
+# Load routes immediately
+load_api_routes_sync()
 
 # Simple root endpoint
 @app.get("/")
