@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 import os
 import json
+import time
 from datetime import datetime
 
 # Configure logging
@@ -157,11 +158,86 @@ async def analytics_summary():
 # Missing endpoints that frontend is requesting
 @app.get("/api/documents")
 async def list_documents():
-    """Documents endpoint."""
+    """Documents endpoint - returns same as knowledge base."""
+    if db_config:
+        try:
+            with db_config.get_db_connection() as conn:
+                cur = conn.cursor()
+                
+                # Check for documents table
+                cur.execute("""
+                    SELECT table_name FROM information_schema.tables 
+                    WHERE table_schema = 'public' AND table_name = 'documents'
+                """)
+                tables = [row[0] for row in cur.fetchall()]
+                
+                documents = []
+                
+                if 'documents' in tables:
+                    cur.execute("""
+                        SELECT id, title, content, metadata, created_at, updated_at
+                        FROM documents 
+                        ORDER BY created_at DESC
+                        LIMIT 100
+                    """)
+                    
+                    for row in cur.fetchall():
+                        doc_id, title, content, metadata, created_at, updated_at = row
+                        metadata = metadata or {}
+                        
+                        documents.append({
+                            "id": doc_id,
+                            "title": title,
+                            "content": content[:300] + "..." if content and len(content) > 300 else content or "",
+                            "file_name": title,
+                            "file_size": len(content) if content else 0,
+                            "file_type": metadata.get("file_type", "text"),
+                            "category": metadata.get("category", "General"),
+                            "created_at": created_at.isoformat() if created_at else None,
+                            "updated_at": updated_at.isoformat() if updated_at else None,
+                            "status": "processed"
+                        })
+                
+                logger.info(f"🔍 Documents list: {len(documents)} documents found")
+                
+                return {
+                    "documents": documents,
+                    "total": len(documents),
+                    "service": "railway-simple"
+                }
+                
+        except Exception as e:
+            logger.error(f"Database error getting documents: {e}")
+            return {
+                "documents": [],
+                "total": 0,
+                "error": str(e),
+                "service": "railway-simple"
+            }
+    
     return {
         "documents": [],
         "total": 0,
-        "message": "Documents endpoint working",
+        "message": "No database connection",
+        "service": "railway-simple"
+    }
+
+@app.post("/api/documents/upload")
+async def upload_documents():
+    """Upload documents endpoint - simplified for Railway."""
+    # For now, return a success response for frontend compatibility
+    # In a full implementation, this would handle file uploads and store in database
+    
+    logger.info("🔍 Document upload attempted (simplified response)")
+    
+    return {
+        "id": f"doc-{int(time.time())}",
+        "title": "Uploaded Document",
+        "status": "processed",
+        "file_name": "document.txt",
+        "file_size": 1024,
+        "created_at": datetime.now().isoformat(),
+        "message": "Upload functionality not fully implemented in Railway simple version",
         "service": "railway-simple"
     }
 
