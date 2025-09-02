@@ -27,6 +27,9 @@ langchain_community>=0.0.10
 # File upload support
 python-multipart==0.0.6
 
+# RSS and feed parsing for competitor intelligence
+feedparser>=6.0.0
+
 # System monitoring (lightweight)
 psutil>=5.9.0
 prometheus_client>=0.19.0
