@@ -249,7 +249,7 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
       const response = await campaignApi.createOrchestrationCampaign({
         campaign_name: wizardData.campaign_name,
         company_context: wizardData.company_context,
-        description: `${wizardData.campaign_objective.replace('_', ' ')} campaign targeting ${wizardData.target_market === 'direct_merchants' ? 'businesses seeking credit access' : 'companies interested in embedded finance solutions'}${wizardData.industry ? ` with focus on ${wizardData.industry.replace(/_/g, ' ')}` : ''}`,
+        description: `${wizardData.campaign_objective?.replace('_', ' ') || 'lead generation'} campaign targeting ${wizardData.target_market === 'direct_merchants' ? 'businesses seeking credit access' : 'companies interested in embedded finance solutions'}${wizardData.industry ? ` with focus on ${wizardData.industry.replace(/_/g, ' ')}` : ''}`,
         strategy_type: wizardData.campaign_objective,
         priority: 'high',
         target_audience: wizardData.target_personas.map(p => p.name).join(', '),
@@ -525,7 +525,7 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
                       >
                         <div className="font-medium text-purple-800">✨ Use Campaign-Optimized Messaging</div>
                         <div className="text-purple-600 text-xs">
-                          {wizardData.target_market === 'direct_merchants' ? 'Direct merchant' : 'Embedded partner'} + {wizardData.industry.replace(/_/g, ' ')} focus
+                          {wizardData.target_market === 'direct_merchants' ? 'Direct merchant' : 'Embedded partner'} + {wizardData.industry?.replace(/_/g, ' ') || 'business'} focus
                         </div>
                       </button>
                     </div>
@@ -676,7 +676,7 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
                     </span>
                   </div>
                   <p className="text-blue-800 text-sm mb-2">
-                    Based on your {wizardData.campaign_objective.replace('_', ' ')} objective and {wizardData.campaign_duration_weeks}-week timeline,
+                    Based on your {wizardData.campaign_objective?.replace('_', ' ') || 'campaign'} objective and {wizardData.campaign_duration_weeks}-week timeline,
                     I recommend {aiSuggestions.recommended_content_mix ? Object.values(aiSuggestions.recommended_content_mix).reduce((a, b) => a + b, 0) : 0} total content pieces
                     across {aiSuggestions.optimal_channels?.length || 0} channels.
                   </p>
@@ -938,7 +938,7 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
                       <div>Duration: <span className="font-medium">{wizardData.campaign_duration_weeks} weeks</span></div>
                       <div>Content pieces: <span className="font-medium">{wizardData.content_mix ? Object.values(wizardData.content_mix).reduce((a, b) => a + b, 0) : 0}</span></div>
                       <div>Channels: <span className="font-medium">{wizardData.distribution_channels.length}</span></div>
-                      <div>Frequency: <span className="font-medium capitalize">{wizardData.content_frequency.replace('_', ' ')}</span></div>
+                      <div>Frequency: <span className="font-medium capitalize">{wizardData.content_frequency?.replace('_', ' ') || 'weekly'}</span></div>
                     </div>
                   </div>
                 </div>
@@ -964,7 +964,7 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
                     </div>
                     <div>
                       <span className="font-medium text-gray-700">Objective:</span>
-                      <p className="text-gray-600 capitalize">{wizardData.campaign_objective.replace('_', ' ')}</p>
+                      <p className="text-gray-600 capitalize">{wizardData.campaign_objective?.replace('_', ' ') || 'lead generation'}</p>
                     </div>
                     <div>
                       <span className="font-medium text-gray-700">Duration:</span>

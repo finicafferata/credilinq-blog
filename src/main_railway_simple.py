@@ -194,6 +194,7 @@ async def get_ai_recommendations():
             "email_campaign": 2
         },
         "optimal_channels": ["linkedin", "email", "blog"],
+        "recommended_posting_frequency": "weekly",
         "ai_reasoning": "Based on your campaign objectives, this content mix provides optimal engagement across professional channels.",
         "suggested_themes": [
             "Financial Technology Innovation",
