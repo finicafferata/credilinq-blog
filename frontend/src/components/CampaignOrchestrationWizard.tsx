@@ -257,7 +257,7 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
         timeline_weeks: wizardData.campaign_duration_weeks,
         success_metrics: {
           campaign_objective: wizardData.campaign_objective,
-          content_pieces: Object.values(wizardData.content_mix).reduce((a, b) => a + b, 0),
+          content_pieces: wizardData.content_mix ? Object.values(wizardData.content_mix).reduce((a, b) => a + b, 0) : 0,
           target_channels: wizardData.distribution_channels.length,
           content_themes_count: wizardData.content_themes.length
         },
@@ -677,8 +677,8 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
                   </div>
                   <p className="text-blue-800 text-sm mb-2">
                     Based on your {wizardData.campaign_objective.replace('_', ' ')} objective and {wizardData.campaign_duration_weeks}-week timeline,
-                    I recommend {Object.values(aiSuggestions.recommended_content_mix).reduce((a, b) => a + b, 0)} total content pieces
-                    across {aiSuggestions.optimal_channels.length} channels.
+                    I recommend {aiSuggestions.recommended_content_mix ? Object.values(aiSuggestions.recommended_content_mix).reduce((a, b) => a + b, 0) : 0} total content pieces
+                    across {aiSuggestions.optimal_channels?.length || 0} channels.
                   </p>
                   {aiSuggestions.ai_reasoning && (
                     <div className="mt-2 p-2 bg-blue-100 rounded text-xs text-blue-700">
@@ -821,7 +821,7 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
                   <div className="mt-6 bg-gray-50 rounded-lg p-4">
                     <h5 className="font-medium text-gray-900 mb-2">📊 Content Planning Summary</h5>
                     <div className="text-sm text-gray-600 space-y-1">
-                      <div>Total content pieces: <span className="font-medium">{Object.values(wizardData.content_mix).reduce((a, b) => a + b, 0)}</span></div>
+                      <div>Total content pieces: <span className="font-medium">{wizardData.content_mix ? Object.values(wizardData.content_mix).reduce((a, b) => a + b, 0) : 0}</span></div>
                       <div>Content themes: <span className="font-medium">{wizardData.content_themes.length}</span></div>
                       <div>Tone: <span className="font-medium capitalize">{wizardData.content_tone}</span></div>
                     </div>
@@ -936,7 +936,7 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
                     <h4 className="font-medium text-green-900 mb-2">📈 Campaign Timeline</h4>
                     <div className="text-green-800 text-sm space-y-1">
                       <div>Duration: <span className="font-medium">{wizardData.campaign_duration_weeks} weeks</span></div>
-                      <div>Content pieces: <span className="font-medium">{Object.values(wizardData.content_mix).reduce((a, b) => a + b, 0)}</span></div>
+                      <div>Content pieces: <span className="font-medium">{wizardData.content_mix ? Object.values(wizardData.content_mix).reduce((a, b) => a + b, 0) : 0}</span></div>
                       <div>Channels: <span className="font-medium">{wizardData.distribution_channels.length}</span></div>
                       <div>Frequency: <span className="font-medium capitalize">{wizardData.content_frequency.replace('_', ' ')}</span></div>
                     </div>
@@ -972,7 +972,7 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
                     </div>
                     <div>
                       <span className="font-medium text-gray-700">Content Pieces:</span>
-                      <p className="text-gray-600">{Object.values(wizardData.content_mix).reduce((a, b) => a + b, 0)} total</p>
+                      <p className="text-gray-600">{wizardData.content_mix ? Object.values(wizardData.content_mix).reduce((a, b) => a + b, 0) : 0} total</p>
                     </div>
                     <div>
                       <span className="font-medium text-gray-700">Channels:</span>

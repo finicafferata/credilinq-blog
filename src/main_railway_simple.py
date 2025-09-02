@@ -187,6 +187,20 @@ async def get_ai_recommendations():
                 "type": "distribution"
             }
         ],
+        # Add the expected structure for the frontend
+        "recommended_content_mix": {
+            "blog_post": 3,
+            "social_media_post": 5,
+            "email_campaign": 2
+        },
+        "optimal_channels": ["linkedin", "email", "blog"],
+        "ai_reasoning": "Based on your campaign objectives, this content mix provides optimal engagement across professional channels.",
+        "suggested_themes": [
+            "Financial Technology Innovation",
+            "Digital Transformation in Finance",
+            "Partnership Opportunities"
+        ],
+        "generated_by": "railway-simple",
         "total": 2,
         "message": "AI recommendations (hardcoded)",
         "service": "railway-simple"
