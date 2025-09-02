@@ -529,25 +529,11 @@ class BlogWorkflowAgentFactory(AgentFactory):
 def _initialize_default_agents():
     """Initialize registration of all specialized agents with LangGraph workflows."""
     try:
-        # Import all regular agents
-        from ..specialized.planner_agent import PlannerAgent
-        from ..specialized.researcher_agent import ResearcherAgent
-        from ..specialized.writer_agent import WriterAgent
-        from ..specialized.editor_agent import EditorAgent
-        from ..specialized.image_prompt_agent import ImagePromptAgent
-        from ..specialized.video_prompt_agent import VideoPromptAgent
-        from ..specialized.campaign_manager import CampaignManagerAgent
-        from ..specialized.content_repurposer import ContentRepurposer
-        from ..specialized.content_brief_agent import ContentBriefAgent
-        from ..specialized.seo_agent import SEOAgent
-        from ..specialized.social_media_agent import SocialMediaAgent
-        from ..specialized.geo_analysis_agent import GEOAnalysisAgent
-        from ..specialized.distribution_agent import DistributionAgent
-        from ..specialized.task_scheduler import TaskSchedulerAgent
-        from ..specialized.document_processor import DocumentProcessorAgent
-        from ..specialized.content_agent import ContentGenerationAgent
-        from ..specialized.ai_content_generator import AIContentGeneratorAgent
-        from ..specialized.search_agent import WebSearchAgent
+        # TEMPORARILY DISABLED during Railway debugging - agents causing startup failure
+        logger.warning("⚠️ Agent registration temporarily disabled during Railway debugging")
+        return
+        
+        # Import only LangGraph-based agents (deleted non-LangGraph versions)
         
         # Import all LangGraph workflows
         from ..specialized.planner_agent_langgraph import PlannerAgentWorkflow
