@@ -38,18 +38,28 @@ app.add_middleware(
 # Try to connect to database
 db_config = None
 try:
-    from .config import db_config as _db_config
+    from src.config.database import db_config as _db_config
     db_config = _db_config
     print("✅ [RAILWAY DEBUG] Database connection loaded")
     logger.info("✅ [RAILWAY DEBUG] Database connection loaded")
 except Exception as e:
     print(f"⚠️ [RAILWAY DEBUG] Database connection failed: {e}")
     logger.warning(f"⚠️ [RAILWAY DEBUG] Database connection failed: {e}")
+    
+    # Try alternative import paths
+    try:
+        from .config.database import db_config as _db_config
+        db_config = _db_config
+        print("✅ [RAILWAY DEBUG] Database connection loaded (alternative path)")
+        logger.info("✅ [RAILWAY DEBUG] Database connection loaded (alternative path)")
+    except Exception as e2:
+        print(f"⚠️ [RAILWAY DEBUG] Alternative database import also failed: {e2}")
+        logger.warning(f"⚠️ [RAILWAY DEBUG] Alternative database import also failed: {e2}")
 
 # Initialize AI content service
 ai_content_service = None
 try:
-    from .services.ai_content_service import ai_content_service as _ai_service
+    from src.services.ai_content_service import ai_content_service as _ai_service
     ai_content_service = _ai_service
     if ai_content_service.is_available():
         print("✅ [RAILWAY DEBUG] AI content service loaded with Google Gemini")
