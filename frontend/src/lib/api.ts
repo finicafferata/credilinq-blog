@@ -16,8 +16,13 @@ const isProduction = import.meta.env.PROD;
 
 // Use VITE_API_BASE_URL environment variable if available, otherwise determine based on environment
 // In production, use relative URLs for Vercel proxy; in dev, use direct backend
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 
+let apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 
   (isDev ? 'http://localhost:8000' : '');
+
+// Force HTTPS in production if a full URL is provided
+if (isProduction && apiBaseUrl && apiBaseUrl.startsWith('http://')) {
+  apiBaseUrl = apiBaseUrl.replace('http://', 'https://');
+}
 
 // Note: avoid noisy console logs in production; use network tab if needed
 
