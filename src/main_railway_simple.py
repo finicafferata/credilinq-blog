@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import logging
 import os
+import sys
 import json
 import time
 from datetime import datetime
@@ -35,26 +36,58 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Try to connect to database
+# Try to connect to database - with extensive debugging
 db_config = None
-try:
-    from src.config.database import db_config as _db_config
-    db_config = _db_config
-    print("✅ [RAILWAY DEBUG] Database connection loaded")
-    logger.info("✅ [RAILWAY DEBUG] Database connection loaded")
-except Exception as e:
-    print(f"⚠️ [RAILWAY DEBUG] Database connection failed: {e}")
-    logger.warning(f"⚠️ [RAILWAY DEBUG] Database connection failed: {e}")
-    
-    # Try alternative import paths
+print(f"🔍 [RAILWAY DEBUG] Current working directory: {os.getcwd()}")
+print(f"🔍 [RAILWAY DEBUG] Python path: {sys.path[:3]}...")  # Show first 3 paths
+print(f"🔍 [RAILWAY DEBUG] __file__: {__file__ if '__file__' in globals() else 'not defined'}")
+
+import sys
+if '.' not in sys.path:
+    sys.path.insert(0, '.')
+    print("🔍 [RAILWAY DEBUG] Added '.' to Python path")
+
+if '/app' not in sys.path and os.path.exists('/app'):
+    sys.path.insert(0, '/app')
+    print("🔍 [RAILWAY DEBUG] Added '/app' to Python path")
+
+# Try multiple import strategies
+import_attempts = [
+    ("src.config.database", "db_config"),
+    ("config.database", "db_config"), 
+    (".config.database", "db_config"),
+]
+
+for module_path, attr_name in import_attempts:
     try:
-        from .config.database import db_config as _db_config
-        db_config = _db_config
-        print("✅ [RAILWAY DEBUG] Database connection loaded (alternative path)")
-        logger.info("✅ [RAILWAY DEBUG] Database connection loaded (alternative path)")
-    except Exception as e2:
-        print(f"⚠️ [RAILWAY DEBUG] Alternative database import also failed: {e2}")
-        logger.warning(f"⚠️ [RAILWAY DEBUG] Alternative database import also failed: {e2}")
+        print(f"🔍 [RAILWAY DEBUG] Trying to import {attr_name} from {module_path}")
+        module = __import__(module_path, fromlist=[attr_name])
+        db_config = getattr(module, attr_name)
+        print(f"✅ [RAILWAY DEBUG] Successfully imported db_config from {module_path}")
+        print(f"✅ [RAILWAY DEBUG] db_config type: {type(db_config)}")
+        logger.info(f"✅ [RAILWAY DEBUG] Database connection loaded from {module_path}")
+        break
+    except Exception as e:
+        print(f"⚠️ [RAILWAY DEBUG] Failed to import from {module_path}: {e}")
+        logger.warning(f"⚠️ [RAILWAY DEBUG] Failed to import from {module_path}: {e}")
+
+if db_config is None:
+    print("❌ [RAILWAY DEBUG] All database import attempts failed!")
+    logger.error("❌ [RAILWAY DEBUG] All database import attempts failed!")
+    
+    # List available modules for debugging
+    try:
+        import os
+        if os.path.exists('/app/src'):
+            print("🔍 [RAILWAY DEBUG] Contents of /app/src:")
+            for item in os.listdir('/app/src'):
+                print(f"    {item}")
+        if os.path.exists('/app/src/config'):
+            print("🔍 [RAILWAY DEBUG] Contents of /app/src/config:")
+            for item in os.listdir('/app/src/config'):
+                print(f"    {item}")
+    except Exception as dir_e:
+        print(f"⚠️ [RAILWAY DEBUG] Could not list directories: {dir_e}")
 
 # Initialize AI content service
 ai_content_service = None
