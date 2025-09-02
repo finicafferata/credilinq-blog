@@ -119,6 +119,79 @@ async def list_campaigns():
         "service": "railway-simple"
     }
 
+# Add missing POST endpoint for campaign creation
+@app.post("/api/v2/campaigns/")
+async def create_campaign():
+    """Create a new campaign - simplified for Railway."""
+    try:
+        if db_config:
+            with db_config.get_db_connection() as conn:
+                cur = conn.cursor()
+                
+                # Create a simple campaign
+                import uuid
+                campaign_id = str(uuid.uuid4())
+                campaign_name = f"Campaign {campaign_id[:8]}"
+                
+                cur.execute("""
+                    INSERT INTO campaigns (id, name, status, created_at, updated_at)
+                    VALUES (%s, %s, %s, NOW(), NOW())
+                    RETURNING id, name, status, created_at
+                """, (campaign_id, campaign_name, "active"))
+                
+                new_campaign = cur.fetchone()
+                conn.commit()
+                
+                return {
+                    "id": new_campaign[0],
+                    "name": new_campaign[1],
+                    "status": new_campaign[2], 
+                    "created_at": new_campaign[3].isoformat() if new_campaign[3] else None,
+                    "message": "Campaign created successfully",
+                    "service": "railway-simple"
+                }
+        
+        # Fallback without database
+        import uuid
+        return {
+            "id": str(uuid.uuid4()),
+            "name": f"Campaign {int(time.time())}",
+            "status": "active",
+            "created_at": datetime.now().isoformat(),
+            "message": "Campaign created (no database)",
+            "service": "railway-simple"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error creating campaign: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create campaign: {str(e)}")
+
+# Add missing POST endpoint for AI recommendations
+@app.post("/api/v2/campaigns/ai-recommendations")
+async def get_ai_recommendations():
+    """Get AI recommendations - simplified for Railway."""
+    return {
+        "recommendations": [
+            {
+                "id": "rec-1",
+                "title": "Content Strategy Optimization",
+                "description": "Optimize your content strategy for better engagement",
+                "priority": "high",
+                "type": "strategy"
+            },
+            {
+                "id": "rec-2", 
+                "title": "Social Media Amplification",
+                "description": "Expand reach through targeted social media campaigns",
+                "priority": "medium",
+                "type": "distribution"
+            }
+        ],
+        "total": 2,
+        "message": "AI recommendations (hardcoded)",
+        "service": "railway-simple"
+    }
+
 @app.get("/api/v2/campaigns/orchestration/dashboard")
 async def orchestration_dashboard():
     """Hardcoded orchestration dashboard endpoint."""
