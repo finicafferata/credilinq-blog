@@ -17,7 +17,9 @@ from .api.routes import blogs, campaigns, analytics, health, documents, api_anal
 from .api.routes import comments as comments_router
 from .api.routes import suggestions as suggestions_router
 from .api.routes import db_debug as db_debug_router
-from .api.routes import workflow_fixed, images_debug, content_workflows, agents, auth
+from .api.routes import workflow_fixed, images_debug, agents, auth
+# Temporarily disabled due to missing agent dependencies during migration
+# from .api.routes import content_workflows
 from .core.api_docs import configure_api_docs, custom_openapi_schema
 # from .core.database_pool import connection_pool_maintenance
 from .core.versioning import create_versioned_app, VersionCompatibilityMiddleware
