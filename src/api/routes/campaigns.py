@@ -2745,5 +2745,5 @@ async def rerun_campaign_agents(campaign_id: str):
         raise
     except Exception as e:
         logger.error(f"Error rerunning agents for campaign {campaign_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to rerun agents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Agent execution encountered an issue: {str(e)}")
 

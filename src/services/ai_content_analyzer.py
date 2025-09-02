@@ -47,9 +47,16 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum
 
-from langchain_openai import ChatOpenAI
-from langchain.schema import HumanMessage, SystemMessage
-import tiktoken
+try:
+    from langchain_openai import ChatOpenAI
+    from langchain.schema import HumanMessage, SystemMessage
+    import tiktoken
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    LANGCHAIN_AVAILABLE = False
+    ChatOpenAI = None
+    HumanMessage = None
+    SystemMessage = None
 
 from ..config.settings import get_settings
 
@@ -130,19 +137,20 @@ class AIContentAnalyzer:
     """AI-powered content analysis service."""
     
     def __init__(self):
-        try:
-            self.llm = ChatOpenAI(
-                model="gpt-4",
-                temperature=0.1,
-                max_tokens=2000
-            )
-            self.encoding = tiktoken.encoding_for_model("gpt-4")
-        except Exception as e:
-            # Fallback for when OpenAI API key is not available
+        if not LANGCHAIN_AVAILABLE:
             self.llm = None
+            self.encoding = None
+        else:
             try:
+                self.llm = ChatOpenAI(
+                    model="gpt-4",
+                    temperature=0.1,
+                    max_tokens=2000
+                )
                 self.encoding = tiktoken.encoding_for_model("gpt-4")
-            except:
+            except Exception as e:
+                # Fallback for when OpenAI API key is not available
+                self.llm = None
                 self.encoding = None
         self.max_content_length = 8000  # tokens
         

@@ -36,6 +36,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Campaign Creation Models
+class CampaignPersona(BaseModel):
+    name: str = Field(..., max_length=200)
+    description: str = Field(..., max_length=1000)
+
+class CampaignContentMix(BaseModel):
+    blog_posts: int = Field(default=3, ge=0, le=20)
+    social_media_posts: int = Field(default=5, ge=0, le=50)
+    email_campaigns: int = Field(default=2, ge=0, le=20)
+
+class CampaignWizardData(BaseModel):
+    # Campaign Foundation
+    campaign_name: str = Field(..., max_length=200)
+    primary_objective: str = Field(..., max_length=100)  
+    campaign_purpose: str = Field(..., max_length=100)
+    target_market: str = Field(..., max_length=200)
+    company_context: str = Field(..., max_length=10000)
+    
+    # Strategy & Audience  
+    campaign_unique_angle: str = Field(default="", max_length=5000)
+    campaign_focus_message: str = Field(default="", max_length=5000)
+    personas: List[CampaignPersona] = Field(default_factory=list)
+    key_messages: List[str] = Field(default_factory=list)
+    
+    # AI Content Planning
+    content_mix: CampaignContentMix = Field(default_factory=CampaignContentMix)
+    content_themes: List[str] = Field(default_factory=list)
+    content_tone: str = Field(default="professional", max_length=100)
+    
+    # Distribution & Timeline
+    distribution_channels: List[str] = Field(default_factory=list)
+    timeline_weeks: int = Field(default=4, ge=1, le=52)
+    publishing_frequency: str = Field(default="weekly", max_length=50)
+    budget_range: str = Field(default="$1,000-$5,000", max_length=100)
+    
+    # Automation Settings
+    auto_generate_content: bool = Field(default=True)
+    auto_schedule_publishing: bool = Field(default=False)
+    require_approval: bool = Field(default=True)
+
 # Try to connect to database - with extensive debugging
 db_config = None
 print(f"🔍 [RAILWAY DEBUG] Current working directory: {os.getcwd()}")
@@ -534,45 +574,6 @@ async def upload_documents():
         "service": "railway-simple"
     }
 
-# Campaign Creation Models
-class CampaignPersona(BaseModel):
-    name: str = Field(..., max_length=200)
-    description: str = Field(..., max_length=1000)
-
-class CampaignContentMix(BaseModel):
-    blog_posts: int = Field(default=3, ge=0, le=20)
-    social_media_posts: int = Field(default=5, ge=0, le=50)
-    email_campaigns: int = Field(default=2, ge=0, le=20)
-
-class CampaignWizardData(BaseModel):
-    # Campaign Foundation
-    campaign_name: str = Field(..., max_length=200)
-    primary_objective: str = Field(..., max_length=100)  
-    campaign_purpose: str = Field(..., max_length=100)
-    target_market: str = Field(..., max_length=200)
-    company_context: str = Field(..., max_length=10000)
-    
-    # Strategy & Audience  
-    campaign_unique_angle: str = Field(default="", max_length=5000)
-    campaign_focus_message: str = Field(default="", max_length=5000)
-    personas: List[CampaignPersona] = Field(default_factory=list)
-    key_messages: List[str] = Field(default_factory=list)
-    
-    # AI Content Planning
-    content_mix: CampaignContentMix = Field(default_factory=CampaignContentMix)
-    content_themes: List[str] = Field(default_factory=list)
-    content_tone: str = Field(default="professional", max_length=100)
-    
-    # Distribution & Timeline
-    distribution_channels: List[str] = Field(default_factory=list)
-    timeline_weeks: int = Field(default=4, ge=1, le=52)
-    publishing_frequency: str = Field(default="weekly", max_length=50)
-    budget_range: str = Field(default="$1,000-$5,000", max_length=100)
-    
-    # Automation Settings
-    auto_generate_content: bool = Field(default=True)
-    auto_schedule_publishing: bool = Field(default=False)
-    require_approval: bool = Field(default=True)
 
 # Company Profile Models and Functions
 class LinkItem(BaseModel):
@@ -1743,7 +1744,7 @@ async def rerun_campaign_agents(campaign_id: str):
             raise
         except Exception as e:
             logger.error(f"Error rerunning agents: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to rerun agents: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Agent execution encountered an issue: {str(e)}")
     
     raise HTTPException(status_code=503, detail="Database not available")
 

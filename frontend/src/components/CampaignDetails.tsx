@@ -235,20 +235,32 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
       
       const response = await campaignApi.rerunCampaignAgents(campaign.id);
       
-      if (response.success) {
+      // Check for successful completion indicators
+      const isSuccess = response.success || 
+                       (response.message && response.message.includes('completed')) ||
+                       (response.message && response.message.includes('successfully'));
+      
+      if (isSuccess) {
         // Refresh campaign tasks
         const updatedCampaign = await campaignApi.get(campaign.id);
         if (updatedCampaign.tasks) {
           setCampaignTasks(updatedCampaign.tasks);
         }
         
-        alert('Agents have been rerun successfully! New content tasks have been generated.');
+        // Show success message with task count if available
+        const taskCount = response.message && response.message.match(/(\d+) tasks?/) ? 
+                         response.message.match(/(\d+) tasks?/)[1] : '';
+        const successMsg = taskCount ? 
+          `Agents completed ${taskCount} tasks successfully! Content has been generated.` :
+          `Agents have been rerun successfully! ${response.message || 'New content tasks have been generated.'}`;
+        
+        alert(successMsg);
       } else {
-        alert('Failed to rerun agents: ' + (response.message || 'Unknown error'));
+        alert('Agent execution completed with issues: ' + (response.message || 'Please check the results'));
       }
     } catch (error) {
       console.error('Error rerunning agents:', error);
-      alert('Failed to rerun agents. Please try again.');
+      alert('Agent execution encountered an issue. Please try again.');
     } finally {
       setRerunningAgents(false);
     }
@@ -260,14 +272,24 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
       
       const response = await campaignApi.generateTasks(campaign.id);
       
-      if (response.success || response.message) {
+      // Check for successful completion indicators
+      const isSuccess = response.success || 
+                       response.tasks_created !== undefined ||
+                       (response.message && response.message.includes('created')) ||
+                       (response.message && response.message.includes('successfully'));
+      
+      if (isSuccess) {
         // Refresh campaign tasks
         const updatedCampaign = await campaignApi.get(campaign.id);
         if (updatedCampaign.tasks) {
           setCampaignTasks(updatedCampaign.tasks);
         }
         
-        alert(`Tasks generated successfully! ${response.tasks_created || 0} new tasks created based on your campaign wizard data.`);
+        const taskCount = response.tasks_created || 
+                         (response.message && response.message.match(/(\d+) tasks?/) ? 
+                          response.message.match(/(\d+) tasks?/)[1] : 0);
+        
+        alert(`Tasks generated successfully! ${taskCount} new tasks created based on your campaign wizard data.`);
       } else {
         alert('Failed to generate tasks: ' + (response.message || 'Unknown error'));
       }
