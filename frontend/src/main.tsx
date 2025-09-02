@@ -29,7 +29,17 @@ try {
       <App />
     </StrictMode>,
   );
-  console.log('React app rendered successfully - v1.1');
+  console.log('React app rendered successfully - v1.2 - Cache Clear');
+  
+  // Clear any cached API responses that might have HTTP URLs
+  if ('caches' in window) {
+    caches.keys().then(names => {
+      names.forEach(name => {
+        caches.delete(name);
+        console.log('🧹 Cleared cache:', name);
+      });
+    });
+  }
 } catch (error) {
   console.error('Failed to render React app:', error);
   // Fallback: show error on page
