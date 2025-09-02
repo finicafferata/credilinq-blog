@@ -16,6 +16,7 @@ PyJWT>=2.8.0
 # Essential Pydantic
 pydantic==2.5.0
 pydantic-settings>=2.0.0
+email-validator>=2.0.0  # Required for Pydantic email validation in auth.py
 
 # Core AI capabilities - minimal set with Google Gemini
 google-generativeai>=0.3.0
