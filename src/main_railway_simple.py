@@ -1148,7 +1148,6 @@ async def generate_campaign_tasks(campaign_id: str):
                 
                 # Generate realistic AI-ready tasks for the campaign
                 import uuid
-                from datetime import datetime
                 
                 campaign_metadata = campaign[1] or {}
                 
@@ -1359,7 +1358,6 @@ async def rerun_campaign_agents(campaign_id: str):
                 elif len(all_tasks) == 0:
                     logger.info("🚀 No tasks exist for campaign, creating new tasks")
                     import uuid
-                    from datetime import datetime
                     
                     new_tasks = [
                         {
@@ -1476,11 +1474,11 @@ async def rerun_campaign_agents(campaign_id: str):
                         
                     except Exception as task_error:
                         logger.error(f"Error generating content for task {task_id}: {task_error}")
-                        # Mark task as failed with error info
+                        # Mark task as failed with error info (using 'pending' since 'failed' is not a valid enum)
                         cur.execute("""
                             UPDATE campaign_tasks 
                             SET result = %s,
-                                status = 'failed',
+                                status = 'pending',
                                 error = %s,
                                 updated_at = NOW()
                             WHERE id = %s
