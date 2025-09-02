@@ -3,7 +3,7 @@ Writer Agent - Generates content based on outline and research.
 """
 
 from typing import Dict, Any, Optional
-from langchain_openai import ChatOpenAI
+from src.core.llm_client import create_llm
 from langchain_core.messages import SystemMessage
 
 from ..core.base_agent import BaseAgent, AgentResult, AgentExecutionContext, AgentMetadata, AgentType
@@ -41,10 +41,10 @@ class WriterAgent(BaseAgent[Dict[str, Any]]):
             from ...config.settings import get_settings
             settings = get_settings()
             
-            self.llm = ChatOpenAI(
+            self.llm = create_llm(
                 model="gpt-3.5-turbo",
                 temperature=0.7,
-                openai_api_key=settings.OPENAI_API_KEY
+                api_key=settings.OPENAI_API_KEY
             )
             
             self.logger.info("WriterAgent initialized successfully")

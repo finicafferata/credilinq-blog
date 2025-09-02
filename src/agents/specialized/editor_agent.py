@@ -3,7 +3,7 @@ Editor Agent - Reviews and refines content for quality and consistency.
 """
 
 from typing import Dict, Any, Optional, List
-from langchain_openai import ChatOpenAI
+from src.core.llm_client import create_llm
 from langchain_core.messages import SystemMessage
 
 from ..core.base_agent import BaseAgent, AgentResult, AgentExecutionContext, AgentMetadata, AgentType
@@ -42,10 +42,10 @@ class EditorAgent(BaseAgent[Dict[str, Any]]):
             from ...config.settings import get_settings
             settings = get_settings()
             
-            self.llm = ChatOpenAI(
+            self.llm = create_llm(
                 model="gpt-3.5-turbo",
                 temperature=0.3,  # Lower temperature for more consistent editing
-                openai_api_key=settings.OPENAI_API_KEY
+                api_key=settings.OPENAI_API_KEY
             )
             
             self.logger.info("EditorAgent initialized successfully")

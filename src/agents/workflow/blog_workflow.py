@@ -5,7 +5,7 @@ from typing_extensions import Annotated
 # Import LangGraph components with version compatibility
 from src.agents.core.langgraph_compat import StateGraph, END
 from langchain_core.messages import SystemMessage
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from src.core.llm_client import create_llm, create_embeddings
 from dotenv import load_dotenv
 import ast
 import psycopg2
@@ -63,8 +63,8 @@ class BlogWriterState(TypedDict):
     final_post: str
 
 # --- 2. Shared Tools for the Agent Team ---
-llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7, openai_api_key=OPENAI_API_KEY)
-embeddings_model = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+llm = create_llm(model="gpt-3.5-turbo", temperature=0.7, api_key=OPENAI_API_KEY)
+embeddings_model = create_embeddings(api_key=OPENAI_API_KEY)
 
 # --- 3. Node Functions ---
 

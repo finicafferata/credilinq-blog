@@ -5,7 +5,7 @@ Planner Agent - Creates structured outlines for content generation.
 from typing import List, Dict, Any, Optional
 import ast
 import re  # Added for robust parsing
-from langchain_openai import ChatOpenAI
+from src.core.llm_client import create_llm
 from langchain_core.messages import SystemMessage
 
 from ..core.base_agent import BaseAgent, AgentResult, AgentExecutionContext, AgentMetadata, AgentType
@@ -44,10 +44,10 @@ class PlannerAgent(BaseAgent[Dict[str, Any]]):
             from ...config.settings import get_settings
             settings = get_settings()
             
-            self.llm = ChatOpenAI(
+            self.llm = create_llm(
                 model="gpt-3.5-turbo",
                 temperature=0.7,
-                openai_api_key=settings.OPENAI_API_KEY
+                api_key=settings.OPENAI_API_KEY
             )
             self.logger.info("PlannerAgent initialized successfully")
         except Exception as e:

@@ -5,7 +5,7 @@ Researcher Agent - Performs knowledge base research and information gathering.
 from typing import List, Dict, Any, Optional
 import os
 import time
-from langchain_openai import OpenAIEmbeddings
+from src.core.llm_client import create_embeddings
 
 from ..core.base_agent import BaseAgent, AgentResult, AgentExecutionContext, AgentMetadata, AgentType
 from ...core.security import SecurityValidator
@@ -28,8 +28,8 @@ class ResearcherAgent(BaseAgent[Dict[str, Any]]):
             
             # Initialize embeddings model immediately
             from ...config.settings import settings
-            self.embeddings_model = OpenAIEmbeddings(
-                openai_api_key=settings.openai_api_key
+            self.embeddings_model = create_embeddings(
+                api_key=settings.openai_api_key
             )
             # Initialize database service immediately
             self.db_service = get_db_service()
