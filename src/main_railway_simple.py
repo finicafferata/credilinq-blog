@@ -12,6 +12,7 @@ import os
 import json
 import time
 from datetime import datetime
+import asyncio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -44,6 +45,21 @@ try:
 except Exception as e:
     print(f"⚠️ [RAILWAY DEBUG] Database connection failed: {e}")
     logger.warning(f"⚠️ [RAILWAY DEBUG] Database connection failed: {e}")
+
+# Initialize AI content service
+ai_content_service = None
+try:
+    from .services.ai_content_service import ai_content_service as _ai_service
+    ai_content_service = _ai_service
+    if ai_content_service.is_available():
+        print("✅ [RAILWAY DEBUG] AI content service loaded with Google Gemini")
+        logger.info("✅ [RAILWAY DEBUG] AI content service loaded with Google Gemini")
+    else:
+        print("⚠️ [RAILWAY DEBUG] AI content service loaded but Gemini not available (missing GOOGLE_API_KEY)")
+        logger.warning("⚠️ [RAILWAY DEBUG] AI content service loaded but Gemini not available (missing GOOGLE_API_KEY)")
+except Exception as e:
+    print(f"⚠️ [RAILWAY DEBUG] AI content service failed to load: {e}")
+    logger.warning(f"⚠️ [RAILWAY DEBUG] AI content service failed to load: {e}")
 
 print("🚀 [RAILWAY DEBUG] Creating simple Railway app with essential routes")
 logger.info("🚀 [RAILWAY DEBUG] Creating simple Railway app with essential routes")
@@ -1063,9 +1079,11 @@ async def generate_campaign_tasks(campaign_id: str):
                 if not campaign:
                     raise HTTPException(status_code=404, detail="Campaign not found")
                 
-                # Generate sample tasks for the campaign
+                # Generate realistic AI-ready tasks for the campaign
                 import uuid
                 from datetime import datetime
+                
+                campaign_metadata = campaign[1] or {}
                 
                 tasks = [
                     {
@@ -1073,7 +1091,7 @@ async def generate_campaign_tasks(campaign_id: str):
                         "campaign_id": campaign_id,
                         "task_type": "content_repurposing",  # Valid enum value
                         "target_format": "blog_post",
-                        "target_asset": "Lead Generation Blog Post",
+                        "target_asset": "Embedded Finance Solutions for Modern Businesses",
                         "status": "pending",
                         "priority": 3,
                         "created_at": datetime.now(),
@@ -1084,7 +1102,7 @@ async def generate_campaign_tasks(campaign_id: str):
                         "campaign_id": campaign_id,
                         "task_type": "content_repurposing",  # Valid enum value
                         "target_format": "linkedin_post",
-                        "target_asset": "Partnership Announcement",
+                        "target_asset": "Why Financial Partnerships Drive Innovation",
                         "status": "pending",
                         "priority": 2,
                         "created_at": datetime.now(),
@@ -1095,7 +1113,29 @@ async def generate_campaign_tasks(campaign_id: str):
                         "campaign_id": campaign_id,
                         "task_type": "content_repurposing",  # Valid enum value
                         "target_format": "email_sequence",
-                        "target_asset": "Partner Onboarding Email",
+                        "target_asset": "Strategic Partnership Opportunity in Embedded Finance",
+                        "status": "pending",
+                        "priority": 2,
+                        "created_at": datetime.now(),
+                        "updated_at": datetime.now()
+                    },
+                    {
+                        "id": str(uuid.uuid4()),
+                        "campaign_id": campaign_id,
+                        "task_type": "content_repurposing",  # Valid enum value
+                        "target_format": "twitter_post",
+                        "target_asset": "The Future of Fintech Integration",
+                        "status": "pending",
+                        "priority": 1,
+                        "created_at": datetime.now(),
+                        "updated_at": datetime.now()
+                    },
+                    {
+                        "id": str(uuid.uuid4()),
+                        "campaign_id": campaign_id,
+                        "task_type": "content_repurposing",  # Valid enum value
+                        "target_format": "blog_post",
+                        "target_asset": "Building Trust Through Financial Technology",
                         "status": "pending",
                         "priority": 1,
                         "created_at": datetime.now(),
@@ -1167,41 +1207,213 @@ async def list_agents():
 
 @app.post("/api/v2/campaigns/{campaign_id}/rerun-agents")
 async def rerun_campaign_agents(campaign_id: str):
-    """Rerun agents for a campaign - simplified version."""
+    """Rerun agents for a campaign - REAL AI content generation."""
     if db_config:
         try:
             with db_config.get_db_connection() as conn:
                 cur = conn.cursor()
                 
-                # Verify campaign exists
-                cur.execute("SELECT name FROM campaigns WHERE id = %s", (campaign_id,))
+                # Verify campaign exists and get context
+                cur.execute("SELECT name, metadata FROM campaigns WHERE id = %s", (campaign_id,))
                 campaign = cur.fetchone()
                 if not campaign:
                     raise HTTPException(status_code=404, detail="Campaign not found")
                 
-                # Generate new content for existing tasks
+                campaign_name, metadata = campaign
+                metadata = metadata or {}
+                
+                # Get pending tasks and debug existing tasks
                 cur.execute("""
-                    UPDATE campaign_tasks 
-                    SET result = 'AI-generated content: ' || target_asset || ' - ' || 
-                                 'This content was created for lead generation and partnership acquisition. ' ||
-                                 'Focus on embedded finance solutions and API integration benefits.',
-                        status = 'completed',
-                        completed_at = NOW(),
-                        updated_at = NOW()
+                    SELECT id, task_type, target_format, target_asset, status
+                    FROM campaign_tasks 
+                    WHERE campaign_id = %s
+                """, (campaign_id,))
+                
+                all_tasks = cur.fetchall()
+                logger.info(f"🔍 DEBUG: Found {len(all_tasks)} total tasks for campaign {campaign_id}")
+                
+                # Log task statuses
+                for task in all_tasks:
+                    logger.info(f"   Task {task[0]}: {task[1]} | {task[2]} | {task[3]} | Status: {task[4]}")
+                
+                # Get only pending tasks
+                cur.execute("""
+                    SELECT id, task_type, target_format, target_asset
+                    FROM campaign_tasks 
                     WHERE campaign_id = %s AND status = 'pending'
                 """, (campaign_id,))
                 
-                updated_count = cur.rowcount
+                pending_tasks = cur.fetchall()
+                updated_count = 0
+                
+                logger.info(f"🤖 Processing {len(pending_tasks)} PENDING tasks with REAL AI for campaign {campaign_id}")
+                
+                # If no pending tasks, reset all tasks to pending so they can be reprocessed
+                if len(pending_tasks) == 0 and len(all_tasks) > 0:
+                    logger.info("🔄 No pending tasks found, resetting all tasks to pending for reprocessing")
+                    cur.execute("""
+                        UPDATE campaign_tasks 
+                        SET status = 'pending', 
+                            result = NULL, 
+                            error = NULL,
+                            completed_at = NULL,
+                            updated_at = NOW()
+                        WHERE campaign_id = %s
+                    """, (campaign_id,))
+                    
+                    # Get the newly reset tasks
+                    cur.execute("""
+                        SELECT id, task_type, target_format, target_asset
+                        FROM campaign_tasks 
+                        WHERE campaign_id = %s AND status = 'pending'
+                    """, (campaign_id,))
+                    
+                    pending_tasks = cur.fetchall()
+                    logger.info(f"🔄 Reset {len(pending_tasks)} tasks to pending status")
+                
+                # If still no tasks at all, create new ones
+                elif len(all_tasks) == 0:
+                    logger.info("🚀 No tasks exist for campaign, creating new tasks")
+                    import uuid
+                    from datetime import datetime
+                    
+                    new_tasks = [
+                        {
+                            "id": str(uuid.uuid4()),
+                            "campaign_id": campaign_id,
+                            "task_type": "content_repurposing",
+                            "target_format": "blog_post",
+                            "target_asset": "Embedded Finance Solutions for Modern Businesses",
+                            "status": "pending",
+                            "priority": 3,
+                            "created_at": datetime.now(),
+                            "updated_at": datetime.now()
+                        },
+                        {
+                            "id": str(uuid.uuid4()),
+                            "campaign_id": campaign_id,
+                            "task_type": "content_repurposing",
+                            "target_format": "linkedin_post",
+                            "target_asset": "Why Financial Partnerships Drive Innovation",
+                            "status": "pending",
+                            "priority": 2,
+                            "created_at": datetime.now(),
+                            "updated_at": datetime.now()
+                        },
+                        {
+                            "id": str(uuid.uuid4()),
+                            "campaign_id": campaign_id,
+                            "task_type": "content_repurposing",
+                            "target_format": "email_sequence",
+                            "target_asset": "Strategic Partnership Opportunity in Embedded Finance",
+                            "status": "pending",
+                            "priority": 2,
+                            "created_at": datetime.now(),
+                            "updated_at": datetime.now()
+                        }
+                    ]
+                    
+                    # Insert new tasks
+                    for task in new_tasks:
+                        cur.execute("""
+                            INSERT INTO campaign_tasks (
+                                id, campaign_id, task_type, target_format, 
+                                target_asset, status, priority, created_at, updated_at
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            task["id"], task["campaign_id"], task["task_type"],
+                            task["target_format"], task["target_asset"], task["status"],
+                            task["priority"], task["created_at"], task["updated_at"]
+                        ))
+                    
+                    # Get the new tasks
+                    cur.execute("""
+                        SELECT id, task_type, target_format, target_asset
+                        FROM campaign_tasks 
+                        WHERE campaign_id = %s AND status = 'pending'
+                    """, (campaign_id,))
+                    
+                    pending_tasks = cur.fetchall()
+                    logger.info(f"🆕 Created {len(pending_tasks)} new tasks for processing")
+                
+                # Generate real content for each task
+                for task_id, task_type, target_format, target_asset in pending_tasks:
+                    try:
+                        # Generate real AI content
+                        if ai_content_service and ai_content_service.is_available():
+                            # Prepare campaign context for AI
+                            campaign_context = {
+                                "target_audience": metadata.get("target_audience", "financial services professionals"),
+                                "company_context": metadata.get("company_context", "CrediLinq AI platform for embedded finance"),
+                                "campaign_name": campaign_name
+                            }
+                            
+                            # Generate content based on task type
+                            content_result = await ai_content_service.generate_content_for_task(
+                                task_type=task_type,
+                                target_format=target_format,
+                                target_asset=target_asset,
+                                campaign_context=campaign_context
+                            )
+                            
+                            # Format the result for database storage
+                            if content_result.get("status") == "ai_generated":
+                                # Store the full AI-generated content
+                                if "title" in content_result:
+                                    # Blog post format
+                                    result_content = f"Title: {content_result['title']}\n\nSummary: {content_result.get('summary', '')}\n\nContent:\n{content_result['content']}"
+                                elif "subject" in content_result:
+                                    # Email format
+                                    result_content = f"Subject: {content_result['subject']}\n\nContent:\n{content_result['content']}"
+                                else:
+                                    # General content
+                                    result_content = content_result['content']
+                                
+                                result_content += f"\n\n[Generated by AI on {content_result.get('generated_at', datetime.now().isoformat())}]"
+                            else:
+                                # Fallback or error case
+                                result_content = content_result.get("content", f"Error generating content for {target_asset}")
+                        else:
+                            # Fallback to enhanced mock if AI not available
+                            result_content = f"Enhanced Mock Content for {target_asset}\n\nThis content would be generated by AI agents for {target_format} format.\nTarget: {target_asset}\nType: {task_type}\n\nKey Benefits:\n• Advanced embedded finance solutions\n• Seamless API integration\n• Partnership opportunities\n• Lead generation focus\n\n[Note: Real AI generation requires GOOGLE_API_KEY environment variable]"
+                        
+                        # Update task with generated content
+                        cur.execute("""
+                            UPDATE campaign_tasks 
+                            SET result = %s,
+                                status = 'completed',
+                                completed_at = NOW(),
+                                updated_at = NOW()
+                            WHERE id = %s
+                        """, (result_content, task_id))
+                        
+                        updated_count += 1
+                        logger.info(f"✅ Generated content for task {task_id}: {target_asset}")
+                        
+                    except Exception as task_error:
+                        logger.error(f"Error generating content for task {task_id}: {task_error}")
+                        # Mark task as failed with error info
+                        cur.execute("""
+                            UPDATE campaign_tasks 
+                            SET result = %s,
+                                status = 'failed',
+                                error = %s,
+                                updated_at = NOW()
+                            WHERE id = %s
+                        """, (f"Content generation failed: {str(task_error)}", str(task_error), task_id))
+                
                 conn.commit()
                 
-                logger.info(f"🤖 Reran agents for campaign {campaign_id}, updated {updated_count} tasks")
+                ai_status = "Real AI" if (ai_content_service and ai_content_service.is_available()) else "Enhanced Mock"
+                logger.info(f"🎯 {ai_status} content generated for campaign {campaign_id}, updated {updated_count} tasks")
                 
                 return {
                     "campaign_id": campaign_id,
                     "tasks_updated": updated_count,
                     "status": "success",
-                    "message": f"Agents rerun successfully, {updated_count} tasks completed",
-                    "service": "railway-simple"
+                    "message": f"{ai_status} agents completed {updated_count} tasks successfully",
+                    "ai_enabled": ai_content_service.is_available() if ai_content_service else False,
+                    "service": "railway-simple-ai"
                 }
                 
         except HTTPException:
