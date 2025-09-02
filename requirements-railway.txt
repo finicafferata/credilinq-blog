@@ -30,6 +30,9 @@ python-multipart==0.0.6
 # RSS and feed parsing for competitor intelligence
 feedparser>=6.0.0
 
+# HTML parsing for competitor intelligence
+beautifulsoup4>=4.12.0
+
 # System monitoring (lightweight)
 psutil>=5.9.0
 prometheus_client>=0.19.0
