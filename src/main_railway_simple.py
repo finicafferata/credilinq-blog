@@ -6,7 +6,7 @@ Connects to real database but bypasses complex agent imports.
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import logging
 import os
 import sys
@@ -202,35 +202,92 @@ async def list_campaigns():
         "service": "railway-simple"
     }
 
-# Add missing POST endpoint for campaign creation
+# Campaign creation endpoint with full wizard data support
 @app.post("/api/v2/campaigns/")
-async def create_campaign():
-    """Create a new campaign - simplified for Railway."""
+async def create_campaign(wizard_data: CampaignWizardData):
+    """Create a new campaign with complete wizard data persistence."""
     try:
         if db_config:
             with db_config.get_db_connection() as conn:
                 cur = conn.cursor()
                 
-                # Create a simple campaign
+                # Generate campaign ID
                 import uuid
                 campaign_id = str(uuid.uuid4())
-                campaign_name = f"Campaign {campaign_id[:8]}"
                 
+                # Prepare metadata with ALL wizard data
+                metadata = {
+                    # Campaign Foundation
+                    "campaign_name": wizard_data.campaign_name,
+                    "primary_objective": wizard_data.primary_objective,
+                    "campaign_purpose": wizard_data.campaign_purpose,
+                    "target_market": wizard_data.target_market,
+                    "company_context": wizard_data.company_context,
+                    
+                    # Strategy & Audience
+                    "campaign_unique_angle": wizard_data.campaign_unique_angle,
+                    "campaign_focus_message": wizard_data.campaign_focus_message,
+                    "personas": [{"name": p.name, "description": p.description} for p in wizard_data.personas],
+                    "key_messages": wizard_data.key_messages,
+                    
+                    # AI Content Planning - THE CRITICAL DATA!
+                    "content_mix": {
+                        "blog_posts": wizard_data.content_mix.blog_posts,
+                        "social_media_posts": wizard_data.content_mix.social_media_posts,
+                        "email_campaigns": wizard_data.content_mix.email_campaigns,
+                        "total_pieces": wizard_data.content_mix.blog_posts + wizard_data.content_mix.social_media_posts + wizard_data.content_mix.email_campaigns
+                    },
+                    "content_themes": wizard_data.content_themes,
+                    "content_tone": wizard_data.content_tone,
+                    
+                    # Distribution & Timeline
+                    "distribution_channels": wizard_data.distribution_channels,
+                    "timeline_weeks": wizard_data.timeline_weeks,
+                    "publishing_frequency": wizard_data.publishing_frequency,
+                    "budget_range": wizard_data.budget_range,
+                    
+                    # Automation Settings
+                    "auto_generate_content": wizard_data.auto_generate_content,
+                    "auto_schedule_publishing": wizard_data.auto_schedule_publishing,
+                    "require_approval": wizard_data.require_approval,
+                    
+                    # System metadata
+                    "created_via": "campaign_wizard",
+                    "wizard_version": "1.0",
+                    "created_at": datetime.now().isoformat()
+                }
+                
+                logger.info(f"🎯 Creating campaign '{wizard_data.campaign_name}' with {metadata['content_mix']['total_pieces']} planned content pieces")
+                
+                # Insert campaign with full metadata
                 cur.execute("""
-                    INSERT INTO campaigns (id, name, status, created_at, updated_at)
-                    VALUES (%s, %s, %s, NOW(), NOW())
+                    INSERT INTO campaigns (id, name, status, metadata, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, NOW(), NOW())
                     RETURNING id, name, status, created_at
-                """, (campaign_id, campaign_name, "active"))
+                """, (campaign_id, wizard_data.campaign_name, "active", json.dumps(metadata)))
                 
                 new_campaign = cur.fetchone()
                 conn.commit()
                 
+                # Auto-generate tasks if enabled
+                total_tasks_generated = 0
+                if wizard_data.auto_generate_content:
+                    total_tasks_generated = await generate_tasks_from_wizard_data(
+                        conn, campaign_id, wizard_data
+                    )
+                
+                logger.info(f"✅ Campaign created: {wizard_data.campaign_name} with {total_tasks_generated} tasks generated")
+                
                 return {
                     "id": new_campaign[0],
                     "name": new_campaign[1],
-                    "status": new_campaign[2], 
+                    "status": new_campaign[2],
                     "created_at": new_campaign[3].isoformat() if new_campaign[3] else None,
-                    "message": "Campaign created successfully",
+                    "content_pieces_planned": metadata["content_mix"]["total_pieces"],
+                    "tasks_generated": total_tasks_generated,
+                    "auto_generation_enabled": wizard_data.auto_generate_content,
+                    "themes": wizard_data.content_themes,
+                    "message": f"Campaign '{wizard_data.campaign_name}' created successfully with complete wizard data",
                     "service": "railway-simple"
                 }
         
@@ -238,16 +295,79 @@ async def create_campaign():
         import uuid
         return {
             "id": str(uuid.uuid4()),
-            "name": f"Campaign {int(time.time())}",
+            "name": wizard_data.campaign_name,
             "status": "active",
             "created_at": datetime.now().isoformat(),
-            "message": "Campaign created (no database)",
+            "message": "Campaign created (no database) but wizard data received",
             "service": "railway-simple"
         }
         
     except Exception as e:
         logger.error(f"Error creating campaign: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create campaign: {str(e)}")
+
+async def generate_tasks_from_wizard_data(conn, campaign_id: str, wizard_data: CampaignWizardData) -> int:
+    """Generate tasks based on user's exact wizard specifications."""
+    try:
+        cur = conn.cursor()
+        import uuid
+        
+        tasks_created = 0
+        
+        # Generate blog posts using user's themes
+        for i in range(wizard_data.content_mix.blog_posts):
+            theme = wizard_data.content_themes[i % len(wizard_data.content_themes)] if wizard_data.content_themes else f"Blog Topic {i+1}"
+            task_id = str(uuid.uuid4())
+            
+            cur.execute("""
+                INSERT INTO campaign_tasks (
+                    id, campaign_id, task_type, target_format, 
+                    target_asset, status, priority, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+            """, (task_id, campaign_id, "content_repurposing", "blog_post", theme, "pending", 3))
+            tasks_created += 1
+        
+        # Generate social media posts
+        for i in range(wizard_data.content_mix.social_media_posts):
+            theme = wizard_data.content_themes[i % len(wizard_data.content_themes)] if wizard_data.content_themes else f"Social Topic {i+1}"
+            platform = wizard_data.distribution_channels[i % len(wizard_data.distribution_channels)] if wizard_data.distribution_channels else "linkedin"
+            if platform.lower() == "linkedin":
+                platform = "linkedin_post"
+            elif platform.lower() == "twitter":
+                platform = "twitter_post"
+            else:
+                platform = "social_media_post"
+                
+            task_id = str(uuid.uuid4())
+            
+            cur.execute("""
+                INSERT INTO campaign_tasks (
+                    id, campaign_id, task_type, target_format, 
+                    target_asset, status, priority, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+            """, (task_id, campaign_id, "content_repurposing", platform, theme, "pending", 2))
+            tasks_created += 1
+        
+        # Generate email campaigns
+        for i in range(wizard_data.content_mix.email_campaigns):
+            theme = wizard_data.content_themes[i % len(wizard_data.content_themes)] if wizard_data.content_themes else f"Email Topic {i+1}"
+            task_id = str(uuid.uuid4())
+            
+            cur.execute("""
+                INSERT INTO campaign_tasks (
+                    id, campaign_id, task_type, target_format, 
+                    target_asset, status, priority, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+            """, (task_id, campaign_id, "content_repurposing", "email_sequence", theme, "pending", 2))
+            tasks_created += 1
+        
+        logger.info(f"🎯 Generated {tasks_created} tasks from wizard data: {wizard_data.content_mix.blog_posts} blogs + {wizard_data.content_mix.social_media_posts} social + {wizard_data.content_mix.email_campaigns} emails")
+        
+        return tasks_created
+        
+    except Exception as e:
+        logger.error(f"Error generating tasks from wizard data: {e}")
+        return 0
 
 # Add missing POST endpoint for AI recommendations
 @app.post("/api/v2/campaigns/ai-recommendations")
@@ -413,6 +533,46 @@ async def upload_documents():
         "message": "Upload functionality not fully implemented in Railway simple version",
         "service": "railway-simple"
     }
+
+# Campaign Creation Models
+class CampaignPersona(BaseModel):
+    name: str = Field(..., max_length=200)
+    description: str = Field(..., max_length=1000)
+
+class CampaignContentMix(BaseModel):
+    blog_posts: int = Field(default=3, ge=0, le=20)
+    social_media_posts: int = Field(default=5, ge=0, le=50)
+    email_campaigns: int = Field(default=2, ge=0, le=20)
+
+class CampaignWizardData(BaseModel):
+    # Campaign Foundation
+    campaign_name: str = Field(..., max_length=200)
+    primary_objective: str = Field(..., max_length=100)  
+    campaign_purpose: str = Field(..., max_length=100)
+    target_market: str = Field(..., max_length=200)
+    company_context: str = Field(..., max_length=10000)
+    
+    # Strategy & Audience  
+    campaign_unique_angle: str = Field(default="", max_length=5000)
+    campaign_focus_message: str = Field(default="", max_length=5000)
+    personas: List[CampaignPersona] = Field(default_factory=list)
+    key_messages: List[str] = Field(default_factory=list)
+    
+    # AI Content Planning
+    content_mix: CampaignContentMix = Field(default_factory=CampaignContentMix)
+    content_themes: List[str] = Field(default_factory=list)
+    content_tone: str = Field(default="professional", max_length=100)
+    
+    # Distribution & Timeline
+    distribution_channels: List[str] = Field(default_factory=list)
+    timeline_weeks: int = Field(default=4, ge=1, le=52)
+    publishing_frequency: str = Field(default="weekly", max_length=50)
+    budget_range: str = Field(default="$1,000-$5,000", max_length=100)
+    
+    # Automation Settings
+    auto_generate_content: bool = Field(default=True)
+    auto_schedule_publishing: bool = Field(default=False)
+    require_approval: bool = Field(default=True)
 
 # Company Profile Models and Functions
 class LinkItem(BaseModel):

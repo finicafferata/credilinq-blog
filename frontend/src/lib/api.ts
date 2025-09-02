@@ -324,6 +324,11 @@ export const campaignApi = {
     const response = await api.post(`/api/v2/campaigns/${campaignId}/rerun-agents`);
     return response.data;
   },
+  // Generate tasks from campaign wizard data
+  generateTasks: async (campaignId: string): Promise<any> => {
+    const response = await api.post(`/api/v2/campaigns/${campaignId}/generate-tasks`);
+    return response.data;
+  },
 
   // Review task content (approve, reject, request revision)
   reviewTask: async (campaignId: string, taskId: string, action: 'approve' | 'reject' | 'request_revision', notes?: string): Promise<any> => {

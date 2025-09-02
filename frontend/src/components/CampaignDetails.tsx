@@ -34,6 +34,7 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
   const [feedbackAnalytics, setFeedbackAnalytics] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'deliverables' | 'tasks'>('tasks');
   const [rerunningAgents, setRerunningAgents] = useState(false);
+  const [generatingTasks, setGeneratingTasks] = useState(false);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -250,6 +251,31 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
       alert('Failed to rerun agents. Please try again.');
     } finally {
       setRerunningAgents(false);
+    }
+  };
+
+  const generateTasks = async () => {
+    try {
+      setGeneratingTasks(true);
+      
+      const response = await campaignApi.generateTasks(campaign.id);
+      
+      if (response.success || response.message) {
+        // Refresh campaign tasks
+        const updatedCampaign = await campaignApi.get(campaign.id);
+        if (updatedCampaign.tasks) {
+          setCampaignTasks(updatedCampaign.tasks);
+        }
+        
+        alert(`Tasks generated successfully! ${response.tasks_created || 0} new tasks created based on your campaign wizard data.`);
+      } else {
+        alert('Failed to generate tasks: ' + (response.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error generating tasks:', error);
+      alert('Failed to generate tasks. Please try again.');
+    } finally {
+      setGeneratingTasks(false);
     }
   };
 
@@ -525,6 +551,19 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
                               <Play className="w-4 h-4" />
                             )}
                             <span>{executingAll ? 'Executing...' : 'Execute All Tasks'}</span>
+                          </button>
+                          <button
+                            onClick={generateTasks}
+                            disabled={generatingTasks}
+                            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            title="Generate tasks from campaign wizard data"
+                          >
+                            {generatingTasks ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Play className="w-4 h-4" />
+                            )}
+                            <span>{generatingTasks ? 'Generating...' : 'Generate Tasks'}</span>
                           </button>
                           <button
                             onClick={rerunAgents}
