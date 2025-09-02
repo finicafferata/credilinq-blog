@@ -1359,18 +1359,43 @@ async def rerun_campaign_agents(campaign_id: str):
                     logger.info("🚀 No tasks exist for campaign, creating new tasks")
                     import uuid
                     
+                    # Generate the FULL 10-piece content plan as originally requested
                     new_tasks = [
+                        # Blog Posts (3 total as originally requested)
                         {
                             "id": str(uuid.uuid4()),
                             "campaign_id": campaign_id,
                             "task_type": "content_repurposing",
                             "target_format": "blog_post",
-                            "target_asset": "Embedded Finance Solutions for Modern Businesses",
+                            "target_asset": "Financial Technology Innovation in Embedded Finance",
                             "status": "pending",
                             "priority": 3,
                             "created_at": datetime.now(),
                             "updated_at": datetime.now()
                         },
+                        {
+                            "id": str(uuid.uuid4()),
+                            "campaign_id": campaign_id,
+                            "task_type": "content_repurposing",
+                            "target_format": "blog_post",
+                            "target_asset": "Digital Transformation in Finance: A Complete Guide",
+                            "status": "pending",
+                            "priority": 3,
+                            "created_at": datetime.now(),
+                            "updated_at": datetime.now()
+                        },
+                        {
+                            "id": str(uuid.uuid4()),
+                            "campaign_id": campaign_id,
+                            "task_type": "content_repurposing",
+                            "target_format": "blog_post",
+                            "target_asset": "Partnership Opportunities in Modern Finance",
+                            "status": "pending",
+                            "priority": 3,
+                            "created_at": datetime.now(),
+                            "updated_at": datetime.now()
+                        },
+                        # Social Media Posts (5 total as originally requested)
                         {
                             "id": str(uuid.uuid4()),
                             "campaign_id": campaign_id,
@@ -1386,8 +1411,64 @@ async def rerun_campaign_agents(campaign_id: str):
                             "id": str(uuid.uuid4()),
                             "campaign_id": campaign_id,
                             "task_type": "content_repurposing",
+                            "target_format": "linkedin_post",
+                            "target_asset": "The Future of Embedded Finance Technology",
+                            "status": "pending",
+                            "priority": 2,
+                            "created_at": datetime.now(),
+                            "updated_at": datetime.now()
+                        },
+                        {
+                            "id": str(uuid.uuid4()),
+                            "campaign_id": campaign_id,
+                            "task_type": "content_repurposing",
+                            "target_format": "linkedin_post",
+                            "target_asset": "Digital Transformation Success Stories",
+                            "status": "pending",
+                            "priority": 2,
+                            "created_at": datetime.now(),
+                            "updated_at": datetime.now()
+                        },
+                        {
+                            "id": str(uuid.uuid4()),
+                            "campaign_id": campaign_id,
+                            "task_type": "content_repurposing",
+                            "target_format": "linkedin_post",
+                            "target_asset": "Building Strategic Partnerships in FinTech",
+                            "status": "pending",
+                            "priority": 2,
+                            "created_at": datetime.now(),
+                            "updated_at": datetime.now()
+                        },
+                        {
+                            "id": str(uuid.uuid4()),
+                            "campaign_id": campaign_id,
+                            "task_type": "content_repurposing",
+                            "target_format": "linkedin_post",
+                            "target_asset": "Embedded Finance: Transforming Customer Experience",
+                            "status": "pending",
+                            "priority": 2,
+                            "created_at": datetime.now(),
+                            "updated_at": datetime.now()
+                        },
+                        # Email Campaigns (2 total as originally requested)
+                        {
+                            "id": str(uuid.uuid4()),
+                            "campaign_id": campaign_id,
+                            "task_type": "content_repurposing",
                             "target_format": "email_sequence",
                             "target_asset": "Strategic Partnership Opportunity in Embedded Finance",
+                            "status": "pending",
+                            "priority": 2,
+                            "created_at": datetime.now(),
+                            "updated_at": datetime.now()
+                        },
+                        {
+                            "id": str(uuid.uuid4()),
+                            "campaign_id": campaign_id,
+                            "task_type": "content_repurposing",
+                            "target_format": "email_sequence",
+                            "target_asset": "Digital Finance Innovation: Join Our Partner Network",
                             "status": "pending",
                             "priority": 2,
                             "created_at": datetime.now(),
