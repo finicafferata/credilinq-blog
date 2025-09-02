@@ -25,7 +25,7 @@ class AIContentService:
         else:
             try:
                 genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel('gemini-pro')
+                self.model = genai.GenerativeModel('gemini-1.5-flash')
                 logger.info("✅ Google Gemini client initialized for real content generation")
             except Exception as e:
                 logger.error(f"Failed to initialize Gemini: {e}")
