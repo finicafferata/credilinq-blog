@@ -17,9 +17,10 @@ class AIContentService:
     
     def __init__(self):
         """Initialize the AI content service."""
-        self.api_key = os.getenv("GEMINI_API_KEY")
+        # Check for either GEMINI_API_KEY or GOOGLE_API_KEY
+        self.api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not self.api_key:
-            logger.warning("GEMINI_API_KEY not found - AI content generation will be disabled")
+            logger.warning("GEMINI_API_KEY or GOOGLE_API_KEY not found - AI content generation will be disabled")
             self.model = None
         else:
             try:

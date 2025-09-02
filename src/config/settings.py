@@ -348,7 +348,11 @@ def get_settings() -> Settings:
 if settings.environment == "production":
     # Additional production validations based on primary provider
     if settings.primary_ai_provider == "gemini":
-        critical_production_vars = ['GEMINI_API_KEY']
+        # Accept either GEMINI_API_KEY or GOOGLE_API_KEY for Gemini
+        if not (os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')):
+            critical_production_vars = ['GEMINI_API_KEY or GOOGLE_API_KEY']
+        else:
+            critical_production_vars = []  # At least one is set
     else:
         critical_production_vars = ['OPENAI_API_KEY']
     
