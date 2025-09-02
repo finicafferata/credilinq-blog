@@ -45,19 +45,13 @@ def main():
             reload=False
         )
     except Exception as e:
-        logger.error(f"❌ Failed to start: {e}")
-        # Fallback to simple mode on any error
-        logger.info("🔄 Falling back to simple mode...")
-        uvicorn.run(
-            "src.main_railway_simple:app",
-            host="0.0.0.0",
-            port=int(os.environ.get('PORT', 8080)),
-            workers=1,
-            access_log=True,
-            log_level="info",
-            timeout_keep_alive=30,
-            reload=False
-        )
+        import traceback
+        logger.error(f"❌ MAIN APP FAILED TO START: {e}")
+        logger.error(f"❌ FULL TRACEBACK: {traceback.format_exc()}")
+        
+        # TEMPORARILY REMOVED FALLBACK TO SEE MAIN APP ERROR
+        logger.error("🚨 RAILWAY DEBUG: Main app failed, NO FALLBACK - will show real error")
+        raise e  # Re-raise the error instead of falling back
 
 if __name__ == '__main__':
     main()
