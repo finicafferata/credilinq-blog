@@ -1071,7 +1071,7 @@ async def generate_campaign_tasks(campaign_id: str):
                     {
                         "id": str(uuid.uuid4()),
                         "campaign_id": campaign_id,
-                        "task_type": "content_generation",
+                        "task_type": "content_repurposing",  # Valid enum value
                         "target_format": "blog_post",
                         "target_asset": "Lead Generation Blog Post",
                         "status": "pending",
@@ -1082,7 +1082,7 @@ async def generate_campaign_tasks(campaign_id: str):
                     {
                         "id": str(uuid.uuid4()),
                         "campaign_id": campaign_id,
-                        "task_type": "social_media",
+                        "task_type": "content_repurposing",  # Valid enum value
                         "target_format": "linkedin_post",
                         "target_asset": "Partnership Announcement",
                         "status": "pending",
@@ -1093,7 +1093,7 @@ async def generate_campaign_tasks(campaign_id: str):
                     {
                         "id": str(uuid.uuid4()),
                         "campaign_id": campaign_id,
-                        "task_type": "email_campaign",
+                        "task_type": "content_repurposing",  # Valid enum value
                         "target_format": "email_sequence",
                         "target_asset": "Partner Onboarding Email",
                         "status": "pending",
