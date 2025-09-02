@@ -12,11 +12,12 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from src.agents.specialized.campaign_manager import CampaignManagerAgent
-from src.agents.specialized.task_scheduler import TaskSchedulerAgent
-from src.agents.specialized.distribution_agent import DistributionAgent
-from src.agents.specialized.planner_agent import PlannerAgent
-from src.agents.workflow.autonomous_workflow_orchestrator import autonomous_orchestrator
+# Lazy imports - agents will be imported only when needed to avoid startup delays
+# from src.agents.specialized.campaign_manager import CampaignManagerAgent
+# from src.agents.specialized.task_scheduler import TaskSchedulerAgent
+# from src.agents.specialized.distribution_agent import DistributionAgent
+# from src.agents.specialized.planner_agent import PlannerAgent
+# from src.agents.workflow.autonomous_workflow_orchestrator import autonomous_orchestrator
 from src.config.database import db_config
 from src.services.campaign_progress_service import campaign_progress_service
 
@@ -111,11 +112,48 @@ class AIRecommendationsRequest(BaseModel):
     campaign_duration_weeks: int
     company_context: Optional[str] = None
 
-# Initialize agents
-campaign_manager = CampaignManagerAgent()
-task_scheduler = TaskSchedulerAgent()
-distribution_agent = DistributionAgent()
-planner_agent = PlannerAgent()
+# Agents will be initialized lazily when needed
+campaign_manager = None
+task_scheduler = None  
+distribution_agent = None
+planner_agent = None
+
+def get_campaign_manager():
+    """Lazy load campaign manager agent."""
+    global campaign_manager
+    if campaign_manager is None:
+        from src.agents.specialized.campaign_manager import CampaignManagerAgent
+        campaign_manager = CampaignManagerAgent()
+    return campaign_manager
+
+def get_task_scheduler():
+    """Lazy load task scheduler agent."""
+    global task_scheduler
+    if task_scheduler is None:
+        from src.agents.specialized.task_scheduler import TaskSchedulerAgent
+        task_scheduler = TaskSchedulerAgent()
+    return task_scheduler
+
+def get_distribution_agent():
+    """Lazy load distribution agent."""
+    global distribution_agent
+    if distribution_agent is None:
+        from src.agents.specialized.distribution_agent import DistributionAgent
+        distribution_agent = DistributionAgent()
+    return distribution_agent
+
+def get_planner_agent():
+    """Lazy load planner agent."""
+    global planner_agent
+    if planner_agent is None:
+        from src.agents.specialized.planner_agent import PlannerAgent
+        planner_agent = PlannerAgent()
+    return planner_agent
+
+def get_autonomous_orchestrator():
+    """Lazy load autonomous orchestrator."""
+    from src.agents.workflow.autonomous_workflow_orchestrator import autonomous_orchestrator
+    return autonomous_orchestrator
 
 @router.post("/", response_model=Dict[str, Any])
 async def create_campaign(request: CampaignCreateRequest):
@@ -244,7 +282,8 @@ async def create_campaign(request: CampaignCreateRequest):
         if is_orchestration_campaign:
             try:
                 # Start autonomous workflow in background
-                autonomous_result = await autonomous_orchestrator.start_autonomous_workflow(
+                orchestrator = get_autonomous_orchestrator()
+                autonomous_result = await orchestrator.start_autonomous_workflow(
                     campaign_plan["campaign_id"],
                     enhanced_template_config["campaign_data"]
                 )
@@ -2319,7 +2358,8 @@ async def start_autonomous_workflow(campaign_id: str):
             }
         
         # Start autonomous workflow
-        autonomous_result = await autonomous_orchestrator.start_autonomous_workflow(
+        orchestrator = get_autonomous_orchestrator()
+        autonomous_result = await orchestrator.start_autonomous_workflow(
             campaign_id,
             campaign_data
         )
