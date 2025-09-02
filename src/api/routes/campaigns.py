@@ -284,6 +284,9 @@ async def create_campaign(request: CampaignCreateRequest):
         # Use enhanced company context
         company_context = request.description or request.company_context
         
+        # Initialize campaign manager (CRITICAL FIX for Railway 422 error)
+        campaign_manager = get_campaign_manager()
+        
         # Create AI-enhanced campaign plan
         campaign_plan = await campaign_manager.create_campaign_plan(
             blog_id=request.blog_id or "orchestration_campaign",  # Use placeholder for orchestration
@@ -433,6 +436,9 @@ async def create_quick_campaign(template_id: str, request: QuickCampaignRequest)
             logger.warning(f"Could not fetch blog context: {str(e)}")
             company_context = ""
 
+        # Initialize campaign manager (CRITICAL FIX for Railway 422 error)
+        campaign_manager = get_campaign_manager()
+        
         # Create campaign plan using the campaign manager
         campaign_plan = await campaign_manager.create_campaign_plan(
             blog_id=request.blog_id,
@@ -855,6 +861,35 @@ async def get_campaign_performance(campaign_id: str):
     except Exception as e:
         logger.error(f"Error getting campaign performance: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to get campaign performance: {str(e)}")
+
+@router.get("/debug/railway", response_model=Dict[str, Any])
+async def debug_railway_environment():
+    """Debug Railway deployment environment."""
+    import os
+    import sys
+    
+    campaign_manager = get_campaign_manager()
+    
+    return {
+        "railway_environment": {
+            "python_version": sys.version,
+            "python_path": sys.path[:5],  # First 5 paths
+            "working_directory": os.getcwd(),
+            "railway_vars": {
+                "RAILWAY_FULL": os.getenv("RAILWAY_FULL"),
+                "ENABLE_AGENT_LOADING": os.getenv("ENABLE_AGENT_LOADING"),
+                "DATABASE_URL": "***" if os.getenv("DATABASE_URL") else None,
+                "GEMINI_API_KEY": "***" if os.getenv("GEMINI_API_KEY") else None,
+                "GOOGLE_API_KEY": "***" if os.getenv("GOOGLE_API_KEY") else None,
+            },
+            "campaign_manager": {
+                "type": type(campaign_manager).__name__,
+                "module": type(campaign_manager).__module__,
+                "available": campaign_manager is not None
+            }
+        },
+        "message": "Railway environment debug info"
+    }
 
 @router.post("/ai-recommendations", response_model=Dict[str, Any])
 async def get_ai_content_recommendations(request: AIRecommendationsRequest):
@@ -2779,6 +2814,9 @@ async def rerun_campaign_agents(campaign_id: str):
                 "rerun_mode": True,  # Flag to indicate this is a rerun
                 "template_id": "enhanced_rerun"
             }
+            
+            # Initialize campaign manager (CRITICAL FIX for Railway 422 error)
+            campaign_manager = get_campaign_manager()
             
             # Use campaign manager to generate new tasks
             new_campaign_plan = await campaign_manager.create_campaign_plan(
