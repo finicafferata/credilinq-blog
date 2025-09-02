@@ -6,9 +6,9 @@ from typing import Dict, Any, Optional, List, TypedDict, Tuple
 from enum import Enum
 import asyncio
 import os
-from langchain_openai import OpenAIEmbeddings
+# from langchain_openai import OpenAIEmbeddings  # Removed - using create_embeddings
 from langchain_core.messages import SystemMessage
-from langchain_openai import ChatOpenAI
+from src.core.llm_client import create_llm, create_embeddings
 # Import LangGraph components with version compatibility
 from src.agents.core.langgraph_compat import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -721,12 +721,12 @@ class ResearcherAgentLangGraph:
             from ...config.settings import get_settings
             settings = get_settings()
             
-            embeddings = OpenAIEmbeddings(
+            embeddings = create_embeddings(
                 api_key=settings.primary_api_key
             )
             
-            llm = ChatOpenAI(
-                model="gpt-3.5-turbo",
+            llm = create_llm(
+                model="gemini-1.5-flash",
                 temperature=0.5,
                 api_key=settings.primary_api_key
             )

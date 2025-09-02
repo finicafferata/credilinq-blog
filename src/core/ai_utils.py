@@ -74,101 +74,56 @@ async def call_ai_model_with_system(system_prompt: str,
 def get_langchain_llm(provider: Optional[str] = None, **kwargs):
     """
     Get a LangChain-compatible LLM instance.
+    Uses our unified LLM client instead of langchain_openai.
     """
     from ..config.settings import get_settings
+    from .llm_client import create_llm
+    
     settings = get_settings()
     
     # Use provided provider or default to primary
     provider = provider or settings.primary_ai_provider
     
     try:
-        if provider == "openai":
-            from langchain_openai import ChatOpenAI
-            
-            return ChatOpenAI(
-                openai_api_key=settings.openai_api_key,
-                model_name=kwargs.get('model', settings.openai_model),
-                temperature=kwargs.get('temperature', settings.openai_temperature),
-                max_tokens=kwargs.get('max_tokens', settings.openai_max_tokens),
-                **{k: v for k, v in kwargs.items() if k not in ['model', 'temperature', 'max_tokens']}
-            )
-            
-        elif provider == "gemini":
-            from langchain_google_genai import ChatGoogleGenerativeAI
-            
-            api_key = settings.gemini_api_key or settings.google_api_key
-            return ChatGoogleGenerativeAI(
-                google_api_key=api_key,
-                model=kwargs.get('model', settings.gemini_model),
-                temperature=kwargs.get('temperature', settings.gemini_temperature),
-                max_output_tokens=kwargs.get('max_tokens', settings.gemini_max_tokens),
-                **{k: v for k, v in kwargs.items() if k not in ['model', 'temperature', 'max_tokens']}
-            )
-            
-        else:
-            raise ValueError(f"Unsupported provider: {provider}")
-            
-    except ImportError as e:
-        logger.error(f"Required library not installed for {provider}: {e}")
-        # Fallback to OpenAI if available
-        if provider != "openai" and settings.openai_api_key:
-            logger.warning(f"Falling back to OpenAI due to missing {provider} dependencies")
-            return get_langchain_llm("openai", **kwargs)
-        raise
+        # Map model names if needed
+        model_mapping = {
+            "gpt-3.5-turbo": "gemini-1.5-flash",
+            "gpt-4": "gemini-1.5-pro",
+        }
+        
+        model = kwargs.get('model', 'gemini-1.5-flash')
+        model = model_mapping.get(model, model)
+        
+        temperature = kwargs.get('temperature', 0.7)
+        api_key = settings.primary_api_key or settings.gemini_api_key or settings.google_api_key
+        
+        return create_llm(
+            model=model,
+            temperature=temperature,
+            api_key=api_key
+        )
+        
     except Exception as e:
-        logger.error(f"Failed to create {provider} LLM: {e}")
+        logger.error(f"Failed to create LLM: {e}")
         raise
 
 
 def get_embeddings_model(provider: Optional[str] = None):
     """
     Get an embeddings model for the specified provider.
+    Uses our unified embeddings client instead of langchain_openai.
     """
     from ..config.settings import get_settings
+    from .llm_client import create_embeddings
+    
     settings = get_settings()
     
-    # Use provided provider or default to primary
-    provider = provider or settings.primary_ai_provider
-    
     try:
-        if provider == "openai":
-            from langchain_openai import OpenAIEmbeddings
-            
-            return OpenAIEmbeddings(
-                openai_api_key=settings.openai_api_key,
-                model="text-embedding-ada-002"
-            )
-            
-        elif provider == "gemini":
-            # For Gemini, we'll use our custom client
-            client = get_ai_client(provider)
-            
-            class GeminiEmbeddings:
-                """Wrapper for Gemini embeddings to match LangChain interface."""
-                
-                def __init__(self, client):
-                    self.client = client
-                
-                def embed_query(self, text: str) -> List[float]:
-                    return self.client.get_embedding(text)
-                
-                def embed_documents(self, texts: List[str]) -> List[List[float]]:
-                    return [self.client.get_embedding(text) for text in texts]
-            
-            return GeminiEmbeddings(client)
-            
-        else:
-            raise ValueError(f"Unsupported provider: {provider}")
-            
-    except ImportError as e:
-        logger.error(f"Required library not installed for {provider}: {e}")
-        # Fallback to OpenAI if available
-        if provider != "openai" and settings.openai_api_key:
-            logger.warning(f"Falling back to OpenAI embeddings due to missing {provider} dependencies")
-            return get_embeddings_model("openai")
-        raise
+        api_key = settings.primary_api_key or settings.gemini_api_key or settings.google_api_key
+        return create_embeddings(api_key=api_key)
+        
     except Exception as e:
-        logger.error(f"Failed to create {provider} embeddings model: {e}")
+        logger.error(f"Failed to create embeddings model: {e}")
         raise
 
 

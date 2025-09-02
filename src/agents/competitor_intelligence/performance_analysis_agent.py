@@ -13,7 +13,7 @@ import statistics
 from scipy import stats
 
 from langchain.schema import BaseMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+from src.core.llm_client import create_llm
 
 from ..core.base_agent import BaseAgent
 from .models import (
@@ -94,8 +94,8 @@ class PerformanceAnalysisAgent(BaseAgent):
         """Lazy initialize the analysis LLM."""
         if self.analysis_llm is None:
             try:
-                self.analysis_llm = ChatOpenAI(
-                    model="gpt-3.5-turbo",
+                self.analysis_llm = create_llm(
+                    model="gemini-1.5-flash",
                     temperature=0.2,
                     max_tokens=1500
                 )

@@ -103,7 +103,9 @@ class DatabaseService:
         self.database_url = os.getenv("DATABASE_URL", "postgresql://postgres@localhost:5432/credilinq_dev_postgres")
         self.database_url_direct = os.getenv("DATABASE_URL_DIRECT", "postgresql://postgres@localhost:5432/credilinq_dev_postgres")
         
-        # Using PostgreSQL directly - no Supabase needed
+        # For local PostgreSQL, we don't use Supabase client
+        self.supabase = None
+        self.use_supabase = False
         
         # Check if we have Supabase configuration
         supabase_url = os.getenv("SUPABASE_URL")
@@ -155,12 +157,12 @@ class DatabaseService:
                 "error_count": metrics.error_count
             }
             
-            if False:  # Supabase removed
+            if self.use_supabase and self.supabase:
                 response = self.supabase.table("agent_performance").insert(data).execute()
                 logger.info(f"Performance logged for {metrics.agent_name}:{metrics.agent_type}")
                 return response.data[0]["id"]
             else:
-                # Log to console
+                # For local PostgreSQL, just log to console
                 logger.info(f"Performance logged for {metrics.agent_name}:{metrics.agent_type} - {data}")
                 return "local_log"
             
@@ -186,12 +188,12 @@ class DatabaseService:
                 "metadata": decision.metadata
             }
             
-            if False:  # Supabase removed
+            if self.use_supabase and self.supabase:
                 response = self.supabase.table("agent_decisions").insert(data).execute()
                 logger.info(f"Decision logged for {decision.decision_point}")
                 return response.data[0]["id"]
             else:
-                # Log to console
+                # For local PostgreSQL, just log to console
                 logger.info(f"Decision logged for {decision.decision_point} - {data}")
                 return "local_log"
             

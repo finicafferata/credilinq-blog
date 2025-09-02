@@ -13,8 +13,8 @@ import ast
 import re
 
 from ..core.langgraph_compat import StateGraph, START, END
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
+from src.core.llm_client import create_llm
 
 from ..core.langgraph_base import LangGraphWorkflowBase, WorkflowState, WorkflowStatus
 from ..core.base_agent import AgentResult, AgentType
@@ -48,7 +48,7 @@ class PlannerState(TypedDict):
 @dataclass
 class PlannerWorkflowConfig:
     """Configuration for PlannerAgent workflow."""
-    model_name: str = "gpt-3.5-turbo"
+    model_name: str = "gemini-1.5-flash"
     temperature: float = 0.7
     max_outline_sections: int = 10
     min_outline_sections: int = 3
@@ -79,7 +79,7 @@ class PlannerAgentWorkflow(LangGraphWorkflowBase[PlannerState]):
                 from ...config.settings import get_settings
                 settings = get_settings()
                 
-                self.llm = ChatOpenAI(
+                self.llm = create_llm(
                     model=self.config.model_name,
                     temperature=self.config.temperature,
                     api_key=settings.primary_api_key

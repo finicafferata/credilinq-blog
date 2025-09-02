@@ -11,7 +11,7 @@ import asyncio
 
 from .config import settings, db_config, secure_db
 from .api.routes import blogs, campaigns, analytics, health, documents, api_analytics, content_repurposing, content_preview, competitor_intelligence, settings as settings_router
-from .api.routes import content_briefs, content_deliverables
+# from .api.routes import content_briefs, content_deliverables  # Temporarily disabled
 from .api.routes import comments as comments_router
 from .api.routes import suggestions as suggestions_router
 from .api.routes import db_debug as db_debug_router

@@ -18,7 +18,7 @@ class AlertDeliveryError(Exception):
     pass
 
 from langchain.schema import BaseMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+from src.core.llm_client import create_llm
 
 from ..core.base_agent import BaseAgent
 from .models import (
@@ -109,8 +109,8 @@ class AlertOrchestrationAgent(BaseAgent):
         """Lazy initialize the summarization LLM."""
         if self.summarization_llm is None:
             try:
-                self.summarization_llm = ChatOpenAI(
-                    model="gpt-3.5-turbo",
+                self.summarization_llm = create_llm(
+                    model="gemini-1.5-flash",
                     temperature=0.1,
                     max_tokens=1000
                 )

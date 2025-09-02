@@ -27,7 +27,7 @@ from enum import Enum
 # Import LangGraph components with version compatibility
 from src.agents.core.langgraph_compat import StateGraph, END, CompiledStateGraph
 from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_openai import ChatOpenAI
+from src.core.llm_client import create_llm
 
 from ..core.base_agent import BaseAgent, AgentResult, AgentExecutionContext
 from ..core.agent_factory import AgentFactory
@@ -250,7 +250,7 @@ class ContentFirstWorkflowOrchestrator:
         self.workflow_id = "content_first_workflow"
         self.description = "Content-centric workflow producing narrative-driven deliverables"
         self.agent_factory = AgentFactory()
-        self.llm = ChatOpenAI(model="gpt-4", temperature=0.3)
+        self.llm = create_llm(model="gemini-1.5-pro", temperature=0.3)
         
         # Agent pool for content creation
         self.narrative_coordinator = None  # Will be created during workflow

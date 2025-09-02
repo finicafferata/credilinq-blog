@@ -12,7 +12,7 @@ from dataclasses import asdict
 import json
 
 from langchain.schema import BaseMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+from src.core.llm_client import create_llm
 
 from ..core.base_agent import BaseAgent
 from .models import (
@@ -114,8 +114,8 @@ class StrategicInsightsAgent(BaseAgent):
         """Lazy initialize the strategy LLM."""
         if self.strategy_llm is None:
             try:
-                self.strategy_llm = ChatOpenAI(
-                    model="gpt-4",  # Use GPT-4 for more sophisticated strategic analysis
+                self.strategy_llm = create_llm(
+                    model="gemini-1.5-pro",  # Use GPT-4 for more sophisticated strategic analysis
                     temperature=0.1,  # Low temperature for consistent strategic insights
                     max_tokens=2500
                 )

@@ -55,13 +55,10 @@ class OpenAIClient(BaseAIClient):
         """Initialize OpenAI client."""
         try:
             from openai import OpenAI
-            from langchain_openai import OpenAIEmbeddings
             
             self._client = OpenAI(api_key=self.api_key)
-            self._embeddings_client = OpenAIEmbeddings(
-                openai_api_key=self.api_key,
-                model="text-embedding-ada-002"
-            )
+            # For embeddings, we'll use OpenAI directly without langchain
+            self._embeddings_client = self._client
             self.logger.info(f"OpenAI client initialized with model: {self.model}")
             
         except ImportError as e:
@@ -121,7 +118,11 @@ class OpenAIClient(BaseAIClient):
     def get_embedding(self, text: str) -> List[float]:
         """Get embedding using OpenAI."""
         try:
-            return self._embeddings_client.embed_query(text)
+            response = self._embeddings_client.embeddings.create(
+                model="text-embedding-ada-002",
+                input=text
+            )
+            return response.data[0].embedding
         except Exception as e:
             self.logger.error(f"OpenAI embedding generation failed: {e}")
             raise AIClientError(f"OpenAI embedding failed: {e}")

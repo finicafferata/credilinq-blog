@@ -12,7 +12,19 @@ import json
 import asyncio
 from uuid import uuid4
 
-from ...agents.specialized.content_repurposer import ContentPlatform, ContentTone
+# from ...agents.specialized.content_repurposer import ContentPlatform, ContentTone  # Temporarily disabled
+from enum import Enum
+
+class ContentPlatform(Enum):
+    LINKEDIN = "linkedin"
+    TWITTER = "twitter"
+    BLOG = "blog"
+    
+class ContentTone(Enum):
+    PROFESSIONAL = "professional"
+    CASUAL = "casual"
+    TECHNICAL = "technical"
+
 from ...core.auth import get_current_user, require_scope, APIKeyScope
 from ...core.enhanced_exceptions import CustomHTTPException, ErrorCategory
 from ...core.cache import cache

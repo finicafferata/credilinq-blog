@@ -14,7 +14,7 @@ import re
 from dataclasses import asdict
 
 from langchain.schema import BaseMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+from src.core.llm_client import create_llm
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from bs4 import BeautifulSoup
 
@@ -90,8 +90,8 @@ class ContentMonitoringAgent(BaseAgent):
         """Lazy initialize the analysis LLM."""
         if self.analysis_llm is None:
             try:
-                self.analysis_llm = ChatOpenAI(
-                    model="gpt-3.5-turbo",
+                self.analysis_llm = create_llm(
+                    model="gemini-1.5-flash",
                     temperature=0.3,
                     max_tokens=1000
                 )

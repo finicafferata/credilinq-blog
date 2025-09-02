@@ -20,8 +20,8 @@ from enum import Enum
 # LangGraph imports
 from ..core.langgraph_compat import StateGraph, START, END
 from typing_extensions import TypedDict
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
+from src.core.llm_client import create_llm
 
 # Internal imports
 from ..core.base_agent import BaseAgent, AgentResult, AgentExecutionContext, AgentMetadata, AgentType
@@ -117,8 +117,8 @@ class WriterAgentLangGraph(LangGraphWorkflowBase[WriterWorkflowState]):
         """Initialize the language model."""
         try:
             settings = get_settings()
-            self.llm = ChatOpenAI(
-                model="gpt-4",  # Use GPT-4 for better content quality
+            self.llm = create_llm(
+                model="gemini-1.5-pro",  # Use GPT-4 for better content quality
                 temperature=0.7,
                 api_key=settings.primary_api_key
             )

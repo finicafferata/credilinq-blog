@@ -39,11 +39,7 @@ class Settings(BaseSettings):
     database_url: str = Field("postgresql://postgres@localhost:5432/credilinq_dev_postgres", env="DATABASE_URL")
     database_url_direct: str = Field("postgresql://postgres@localhost:5432/credilinq_dev_postgres", env="DATABASE_URL_DIRECT")
     
-    # Supabase settings (opcionales para SQLite)
-    supabase_url: Optional[str] = None
-    supabase_key: Optional[str] = None
-    supabase_db_url: Optional[str] = None
-    supabase_storage_bucket: str = Field("documents", env="SUPABASE_STORAGE_BUCKET")
+    # Supabase settings removed - using PostgreSQL directly
     
     # Database Connection Settings
     db_connection_timeout: int = Field(30, env="DB_CONNECTION_TIMEOUT")
@@ -356,7 +352,7 @@ if settings.environment == "production":
     else:
         critical_production_vars = ['OPENAI_API_KEY']
     
-    optional_production_vars = ['SUPABASE_URL', 'SUPABASE_KEY']
+    # optional_production_vars = ['SUPABASE_URL', 'SUPABASE_KEY']  # Removed Supabase
     
     missing_critical = []
     for var in critical_production_vars:

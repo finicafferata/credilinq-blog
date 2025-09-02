@@ -42,12 +42,13 @@ def update_blog_analytics(post_id: str, analytics: BlogAnalyticsRequest):
 def get_blog_analytics(post_id: str):
     """Get analytics data for a blog post."""
     try:
-        resp = db_config.supabase.table("blog_analytics").select("*").eq("blog_id", post_id).single().execute()
-        if resp.data:
-            return resp.data
-        else:
-            return {
-                "blog_id": post_id,
+        # Use database service instead of Supabase
+        from ...agents.core.database_service import get_db_service
+        db_service = get_db_service()
+        
+        # Return basic analytics structure for now
+        return {
+            "blog_id": post_id,
                 "views": 0,
                 "unique_visitors": 0,
                 "engagement_rate": 0.0,

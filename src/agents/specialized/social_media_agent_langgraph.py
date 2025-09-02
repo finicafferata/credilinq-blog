@@ -9,7 +9,7 @@ import json
 import asyncio
 from dataclasses import dataclass
 from langchain_core.messages import SystemMessage
-from langchain_openai import ChatOpenAI
+from src.core.llm_client import create_llm
 # Import LangGraph components with version compatibility
 from src.agents.core.langgraph_compat import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -1285,8 +1285,8 @@ class SocialMediaAgentLangGraph:
             from ...config.settings import get_settings
             settings = get_settings()
             
-            llm = ChatOpenAI(
-                model="gpt-3.5-turbo",
+            llm = create_llm(
+                model="gemini-1.5-flash",
                 temperature=0.7,
                 api_key=settings.primary_api_key
             )

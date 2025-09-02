@@ -48,7 +48,7 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 
 try:
-    from langchain_openai import ChatOpenAI
+    from src.core.llm_client import create_llm
     from langchain.schema import HumanMessage, SystemMessage
     import tiktoken
     LANGCHAIN_AVAILABLE = True
@@ -142,12 +142,12 @@ class AIContentAnalyzer:
             self.encoding = None
         else:
             try:
-                self.llm = ChatOpenAI(
-                    model="gpt-4",
+                self.llm = create_llm(
+                    model="gemini-1.5-pro",
                     temperature=0.1,
                     max_tokens=2000
                 )
-                self.encoding = tiktoken.encoding_for_model("gpt-4")
+                self.encoding = tiktoken.encoding_for_model("gemini-1.5-pro")
             except Exception as e:
                 # Fallback for when OpenAI API key is not available
                 self.llm = None

@@ -17,8 +17,8 @@ from enum import Enum
 # LangGraph imports
 from ..core.langgraph_compat import StateGraph, START, END
 from typing_extensions import TypedDict
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.messages import SystemMessage
+from src.core.llm_client import create_llm, create_embeddings
 
 # Internal imports
 from ..core.langgraph_base import (

@@ -12,7 +12,7 @@ from typing_extensions import Annotated
 # Import LangGraph components with version compatibility
 from src.agents.core.langgraph_compat import StateGraph, END
 from langchain_core.messages import SystemMessage
-from langchain_openai import ChatOpenAI
+from src.core.llm_client import create_llm
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -52,7 +52,7 @@ class ContentDeliverableState(TypedDict):
     narrative_coordinator_notes: str
 
 # --- LLM Setup ---
-llm = ChatOpenAI(model="gpt-4", temperature=0.7, api_key=GEMINI_API_KEY)
+llm = create_llm(model="gemini-1.5-pro", temperature=0.7, api_key=GEMINI_API_KEY)
 
 # --- Content-First Node Functions ---
 
