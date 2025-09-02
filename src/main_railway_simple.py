@@ -1048,6 +1048,95 @@ async def get_user_profile():
     }
 
 # Debug endpoint to check campaign data
+# Add endpoint to generate campaign tasks (simplified)
+@app.post("/api/v2/campaigns/{campaign_id}/generate-tasks")
+async def generate_campaign_tasks(campaign_id: str):
+    """Generate tasks for a campaign - simplified version."""
+    if db_config:
+        try:
+            with db_config.get_db_connection() as conn:
+                cur = conn.cursor()
+                
+                # Verify campaign exists
+                cur.execute("SELECT name, metadata FROM campaigns WHERE id = %s", (campaign_id,))
+                campaign = cur.fetchone()
+                if not campaign:
+                    raise HTTPException(status_code=404, detail="Campaign not found")
+                
+                # Generate sample tasks for the campaign
+                import uuid
+                from datetime import datetime
+                
+                tasks = [
+                    {
+                        "id": str(uuid.uuid4()),
+                        "campaign_id": campaign_id,
+                        "task_type": "content_generation",
+                        "target_format": "blog_post",
+                        "target_asset": "Lead Generation Blog Post",
+                        "status": "pending",
+                        "priority": 3,
+                        "created_at": datetime.now(),
+                        "updated_at": datetime.now()
+                    },
+                    {
+                        "id": str(uuid.uuid4()),
+                        "campaign_id": campaign_id,
+                        "task_type": "social_media",
+                        "target_format": "linkedin_post",
+                        "target_asset": "Partnership Announcement",
+                        "status": "pending",
+                        "priority": 2,
+                        "created_at": datetime.now(),
+                        "updated_at": datetime.now()
+                    },
+                    {
+                        "id": str(uuid.uuid4()),
+                        "campaign_id": campaign_id,
+                        "task_type": "email_campaign",
+                        "target_format": "email_sequence",
+                        "target_asset": "Partner Onboarding Email",
+                        "status": "pending",
+                        "priority": 1,
+                        "created_at": datetime.now(),
+                        "updated_at": datetime.now()
+                    }
+                ]
+                
+                # Insert tasks into database
+                for task in tasks:
+                    cur.execute("""
+                        INSERT INTO campaign_tasks (
+                            id, campaign_id, task_type, target_format, 
+                            target_asset, status, priority, created_at, updated_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO NOTHING
+                    """, (
+                        task["id"], task["campaign_id"], task["task_type"],
+                        task["target_format"], task["target_asset"], task["status"],
+                        task["priority"], task["created_at"], task["updated_at"]
+                    ))
+                
+                conn.commit()
+                
+                logger.info(f"🎯 Generated {len(tasks)} tasks for campaign {campaign_id}")
+                
+                return {
+                    "campaign_id": campaign_id,
+                    "tasks_created": len(tasks),
+                    "tasks": tasks,
+                    "message": "Tasks generated successfully (simple mode)",
+                    "service": "railway-simple"
+                }
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error generating tasks: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to generate tasks: {str(e)}")
+    
+    raise HTTPException(status_code=503, detail="Database not available")
+
 @app.get("/api/debug/campaign/{campaign_id}")
 async def debug_campaign(campaign_id: str):
     """Debug campaign data to see what exists in database."""
