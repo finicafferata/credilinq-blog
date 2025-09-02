@@ -722,13 +722,13 @@ class ResearcherAgentLangGraph:
             settings = get_settings()
             
             embeddings = OpenAIEmbeddings(
-                openai_api_key=settings.OPENAI_API_KEY
+                api_key=settings.primary_api_key
             )
             
             llm = ChatOpenAI(
                 model="gpt-3.5-turbo",
                 temperature=0.5,
-                openai_api_key=settings.OPENAI_API_KEY
+                api_key=settings.primary_api_key
             )
             
             self.workflow = ResearcherAgentWorkflow(

@@ -26,7 +26,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
 # --- Content-First State Schema ---
 class ContentDeliverableState(TypedDict):
@@ -52,7 +52,7 @@ class ContentDeliverableState(TypedDict):
     narrative_coordinator_notes: str
 
 # --- LLM Setup ---
-llm = ChatOpenAI(model="gpt-4", temperature=0.7, openai_api_key=OPENAI_API_KEY)
+llm = ChatOpenAI(model="gpt-4", temperature=0.7, api_key=GEMINI_API_KEY)
 
 # --- Content-First Node Functions ---
 

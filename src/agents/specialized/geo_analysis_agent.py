@@ -1040,7 +1040,7 @@ if __name__ == "__main__":
         )
         
         # Initialize with custom config (or use default by omitting config parameter)
-        agent = GEOAnalysisAgent("YOUR_OPENAI_API_KEY", config=custom_config)        
+        agent = GEOAnalysisAgent("YOUR_GEMINI_API_KEY_OR_GOOGLE_API_KEY", config=custom_config)        
         print("=== GEO Analysis Agent Demo ===\n")
         
         # Part 1: Content Analysis
@@ -1074,5 +1074,5 @@ if __name__ == "__main__":
         
     except Exception as e:
         print(f"Demo Error: {e}")
-        print("Note: This demo requires a valid OpenAI API key for full functionality.")
-        print("Replace 'YOUR_OPENAI_API_KEY' with your actual API key to test the feedback loop.")
+        print("Note: This demo requires a valid Gemini or Google API key for full functionality.")
+        print("Replace 'YOUR_GEMINI_API_KEY_OR_GOOGLE_API_KEY' with your actual API key to test the feedback loop.")

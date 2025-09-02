@@ -154,22 +154,22 @@ class ContentBriefAgent(BaseAgent):
         super().__init__(metadata)
         
         # Initialize language models for different research tasks
-        openai_api_key = os.getenv("OPENAI_API_KEY")
-        if not openai_api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is required for ContentBriefAgent")
+        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY environment variable is required for ContentBriefAgent")
         
         # Use GPT-4 for strategic and complex analysis tasks
         self.strategy_llm = ChatOpenAI(
             model="gpt-4",
             temperature=0.3,  # Lower temperature for strategic thinking
             max_tokens=3000,
-            openai_api_key=openai_api_key
+            api_key=api_key
         )
         
         # Use GPT-3.5-turbo for faster research tasks
         self.research_llm = ChatOpenAI(
             model="gpt-3.5-turbo",  # Faster and cheaper for research
-            openai_api_key=openai_api_key,
+            api_key=api_key,
             temperature=0.7,  # Higher temperature for creative research
             max_tokens=2000
         )
@@ -179,7 +179,7 @@ class ContentBriefAgent(BaseAgent):
             model="gpt-3.5-turbo",
             temperature=0.2,  # Low temperature for factual keyword research
             max_tokens=1500,
-            openai_api_key=openai_api_key
+            api_key=api_key
         )
         
         # Content brief templates

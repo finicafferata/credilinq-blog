@@ -120,7 +120,7 @@ class WriterAgentLangGraph(LangGraphWorkflowBase[WriterWorkflowState]):
             self.llm = ChatOpenAI(
                 model="gpt-4",  # Use GPT-4 for better content quality
                 temperature=0.7,
-                openai_api_key=settings.OPENAI_API_KEY
+                api_key=settings.primary_api_key
             )
             self.logger.info("WriterAgent LangGraph initialized with GPT-4")
         except Exception as e:

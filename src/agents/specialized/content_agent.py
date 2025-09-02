@@ -48,9 +48,9 @@ class ContentGenerationAgent(BaseAgent[Dict[str, Any]]):
             settings = get_settings()
             
             self.llm = create_llm(
-                model="gpt-3.5-turbo",
+                model="gemini-1.5-flash",
                 temperature=0.7,
-                api_key=settings.OPENAI_API_KEY
+                api_key=settings.primary_api_key
             )
             self.logger.info("ContentGenerationAgent initialized successfully")
         except Exception as e:

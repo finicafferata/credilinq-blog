@@ -1393,7 +1393,7 @@ class GEOAnalysisAgentLangGraph:
             llm = ChatOpenAI(
                 model="gpt-3.5-turbo",
                 temperature=0.3,
-                openai_api_key=settings.OPENAI_API_KEY
+                api_key=settings.primary_api_key
             )
             
             # Use same LLM for testing (in production might use different models)

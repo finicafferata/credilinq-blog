@@ -53,7 +53,7 @@ class DocumentProcessorAgent(BaseAgent[Dict[str, Any]]):
             
             # Initialize embeddings model
             self.embeddings_model = OpenAIEmbeddings(
-                openai_api_key=settings.OPENAI_API_KEY,
+                api_key=settings.primary_api_key,
                 model="text-embedding-ada-002"
             )
             

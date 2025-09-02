@@ -82,7 +82,7 @@ class PlannerAgentWorkflow(LangGraphWorkflowBase[PlannerState]):
                 self.llm = ChatOpenAI(
                     model=self.config.model_name,
                     temperature=self.config.temperature,
-                    openai_api_key=settings.OPENAI_API_KEY
+                    api_key=settings.primary_api_key
                 )
                 self.logger.info(f"LLM initialized: {self.config.model_name}")
             except Exception as e:

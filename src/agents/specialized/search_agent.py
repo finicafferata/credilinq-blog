@@ -97,7 +97,7 @@ class WebSearchAgent(BaseAgent[Dict[str, Any]]):
             self.llm = ChatOpenAI(
                 model="gpt-3.5-turbo",
                 temperature=0.2,  # Lower temperature for objective research
-                openai_api_key=settings.OPENAI_API_KEY
+                api_key=settings.primary_api_key
             )
             
             # Initialize search provider keys

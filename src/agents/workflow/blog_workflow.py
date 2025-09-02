@@ -16,7 +16,7 @@ import logging
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres@localhost:5432/credilinq_dev_postgres?sslmode=disable")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -63,8 +63,8 @@ class BlogWriterState(TypedDict):
     final_post: str
 
 # --- 2. Shared Tools for the Agent Team ---
-llm = create_llm(model="gpt-3.5-turbo", temperature=0.7, api_key=OPENAI_API_KEY)
-embeddings_model = create_embeddings(api_key=OPENAI_API_KEY)
+llm = create_llm(model="gemini-1.5-flash", temperature=0.7, api_key=GEMINI_API_KEY)
+embeddings_model = create_embeddings(api_key=GEMINI_API_KEY)
 
 # --- 3. Node Functions ---
 
@@ -421,5 +421,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"❌ Error running workflow: {e}")
         print("Make sure you have:")
-        print("1. Set OPENAI_API_KEY and DATABASE_URL in your .env file")
+        print("1. Set GEMINI_API_KEY or GOOGLE_API_KEY and DATABASE_URL in your .env file")
         print("2. Use process_and_embed_document to load your knowledge base") 
