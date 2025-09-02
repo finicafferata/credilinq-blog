@@ -122,8 +122,11 @@ planner_agent = None
 class MockCampaignManager:
     """Mock campaign manager for fallback functionality."""
     
-    def create_campaign_plan(self, *args, **kwargs):
+    async def create_campaign_plan(self, *args, **kwargs):
+        # Mock must return campaign_id for the response to work
+        import uuid
         return {
+            "campaign_id": str(uuid.uuid4()),
             "strategy": {"type": "basic", "description": "Basic campaign strategy"},
             "timeline": [],
             "tasks": [],
@@ -165,13 +168,20 @@ def get_campaign_manager():
     """Lazy load campaign manager agent (LangGraph version)."""
     global campaign_manager
     if campaign_manager is None:
+        logger.info(f"🚀 [RAILWAY DEBUG] Initializing campaign manager...")
         try:
             from src.agents.specialized.campaign_manager_langgraph import CampaignManagerAgent
             campaign_manager = CampaignManagerAgent()
-        except ImportError:
+            logger.info(f"🚀 [RAILWAY DEBUG] Successfully loaded CampaignManagerAgent")
+        except ImportError as e:
             # Fallback: return a mock object that prevents 422 errors
-            logger.warning("CampaignManagerAgent not available, using fallback")
+            logger.warning(f"🚀 [RAILWAY DEBUG] CampaignManagerAgent not available, using fallback: {str(e)}")
             campaign_manager = MockCampaignManager()
+        except Exception as e:
+            logger.error(f"🚀 [RAILWAY DEBUG] Error loading CampaignManagerAgent: {str(e)}")
+            campaign_manager = MockCampaignManager()
+    else:
+        logger.info(f"🚀 [RAILWAY DEBUG] Campaign manager already initialized: {type(campaign_manager).__name__}")
     return campaign_manager
 
 def get_task_scheduler():
@@ -222,11 +232,15 @@ async def create_campaign(request: CampaignCreateRequest):
     Supports both blog-based campaigns and orchestration campaigns.
     """
     try:
+        logger.info(f"🚀 [RAILWAY DEBUG] Starting campaign creation: {request.campaign_name}")
+        logger.info(f"🚀 [RAILWAY DEBUG] Request data: {request.model_dump()}")
+        
         # Determine campaign type
         is_orchestration_campaign = request.blog_id is None
         campaign_type_desc = "orchestration" if is_orchestration_campaign else f"blog {request.blog_id}"
         
-        logger.info(f"Creating AI-enhanced {campaign_type_desc} campaign with wizard data")
+        logger.info(f"🚀 [RAILWAY DEBUG] Creating AI-enhanced {campaign_type_desc} campaign with wizard data")
+        logger.info(f"🚀 [RAILWAY DEBUG] Is orchestration campaign: {is_orchestration_campaign}")
         
         # Prepare enhanced template configuration from wizard data
         enhanced_template_config = request.template_config or {}
@@ -284,9 +298,13 @@ async def create_campaign(request: CampaignCreateRequest):
         # Use enhanced company context
         company_context = request.description or request.company_context
         
+        logger.info(f"🚀 [RAILWAY DEBUG] About to initialize campaign manager...")
+        
         # Initialize campaign manager (CRITICAL FIX for Railway 422 error)
         campaign_manager = get_campaign_manager()
+        logger.info(f"🚀 [RAILWAY DEBUG] Campaign manager initialized: {type(campaign_manager).__name__}")
         
+        logger.info(f"🚀 [RAILWAY DEBUG] About to create campaign plan...")
         # Create AI-enhanced campaign plan
         campaign_plan = await campaign_manager.create_campaign_plan(
             blog_id=request.blog_id or "orchestration_campaign",  # Use placeholder for orchestration
@@ -296,6 +314,7 @@ async def create_campaign(request: CampaignCreateRequest):
             template_id=request.template_id or "ai_enhanced",
             template_config=enhanced_template_config
         )
+        logger.info(f"🚀 [RAILWAY DEBUG] Campaign plan created successfully: {campaign_plan.get('campaign_id', 'unknown')}")
         
         # Update campaign with wizard-specific data in database
         if any([request.scheduled_start, request.deadline, request.priority]):
@@ -372,7 +391,17 @@ async def create_campaign(request: CampaignCreateRequest):
         return response_data
         
     except Exception as e:
-        logger.error(f"Error creating AI-enhanced campaign: {str(e)}")
+        import traceback
+        logger.error(f"🚀 [RAILWAY DEBUG] ERROR creating AI-enhanced campaign: {str(e)}")
+        logger.error(f"🚀 [RAILWAY DEBUG] ERROR type: {type(e).__name__}")
+        logger.error(f"🚀 [RAILWAY DEBUG] ERROR traceback: {traceback.format_exc()}")
+        
+        # Log request data for debugging
+        try:
+            logger.error(f"🚀 [RAILWAY DEBUG] Request that failed: {request.model_dump()}")
+        except:
+            logger.error(f"🚀 [RAILWAY DEBUG] Could not log request data")
+        
         raise HTTPException(status_code=500, detail=f"Failed to create AI-enhanced campaign: {str(e)}")
 
 class QuickCampaignRequest(BaseModel):
