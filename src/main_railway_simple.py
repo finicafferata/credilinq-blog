@@ -93,6 +93,30 @@ async def health_railway():
 async def health_live():
     return {"status": "alive"}
 
+@app.get("/health/database")
+async def health_database():
+    """Check database connection health."""
+    if not db_config:
+        raise HTTPException(status_code=503, detail="Database configuration not available")
+    
+    try:
+        with db_config.get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT version(), current_database(), current_user, now()")
+            result = cur.fetchone()
+            
+            return {
+                "status": "healthy",
+                "database": result[1] if result else "unknown",
+                "user": result[2] if result else "unknown",
+                "timestamp": result[3].isoformat() if result and result[3] else None,
+                "version": result[0][:50] if result and result[0] else "unknown",
+                "service": "railway-simple"
+            }
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        raise HTTPException(status_code=503, detail=f"Database connection failed: {str(e)}")
+
 # API routes with database connection
 @app.get("/api/v2/campaigns/")
 async def list_campaigns():
@@ -1208,6 +1232,23 @@ async def list_agents():
 @app.post("/api/v2/campaigns/{campaign_id}/rerun-agents")
 async def rerun_campaign_agents(campaign_id: str):
     """Rerun agents for a campaign - REAL AI content generation."""
+    logger.info(f"🔄 Rerun agents request for campaign {campaign_id}")
+    
+    if not db_config:
+        logger.error("❌ Database config not available")
+        raise HTTPException(status_code=503, detail="Database configuration not available")
+    
+    try:
+        # Test database connection first
+        with db_config.get_db_connection() as test_conn:
+            test_cur = test_conn.cursor()
+            test_cur.execute("SELECT 1")
+            test_result = test_cur.fetchone()
+            logger.info(f"✅ Database connection test successful: {test_result}")
+    except Exception as db_test_error:
+        logger.error(f"❌ Database connection test failed: {db_test_error}")
+        raise HTTPException(status_code=503, detail=f"Database connection failed: {str(db_test_error)}")
+    
     if db_config:
         try:
             with db_config.get_db_connection() as conn:
