@@ -21,10 +21,16 @@ let apiBaseUrl: string;
 if (isProduction) {
   // Force relative URLs in production to use Vercel's HTTPS proxy
   apiBaseUrl = '';
+  console.log('🔧 PRODUCTION: Using relative URLs for Vercel proxy');
 } else {
   // In development, use environment variable or localhost
   apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  console.log('🔧 DEVELOPMENT: Using API base URL:', apiBaseUrl);
 }
+
+console.log('🔧 Final API base URL:', apiBaseUrl);
+console.log('🔧 Environment check - isDev:', isDev, 'isProduction:', isProduction);
+console.log('🔧 VITE_API_BASE_URL env var:', import.meta.env.VITE_API_BASE_URL);
 
 // Note: avoid noisy console logs in production; use network tab if needed
 
