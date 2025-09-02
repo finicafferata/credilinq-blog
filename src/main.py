@@ -352,7 +352,7 @@ app.include_router(settings_router.router, prefix="/api/v2", tags=["settings-v2"
 # workflow_fixed is the main workflow implementation
 app.include_router(workflow_fixed.router, prefix="/api/v2", tags=["workflow-fixed-v2"])
 # Content generation workflows
-app.include_router(content_workflows.router, prefix="/api/v2", tags=["content-workflows-v2"])
+# app.include_router(content_workflows.router, prefix="/api/v2", tags=["content-workflows-v2"])
 app.include_router(agents.router, prefix="/api/v2", tags=["agents-v2"])
 
 # V1 routes (deprecated, for backward compatibility)
