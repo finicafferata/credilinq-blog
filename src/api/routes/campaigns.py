@@ -2381,28 +2381,14 @@ async def get_scheduled_content(campaign_id: str):
             cur = conn.cursor()
             
             # Get scheduled tasks with their content
-            # Try to select with task_details, fallback if column doesn't exist
-            try:
-                cur.execute("""
-                    SELECT ct.id, ct.task_type, ct.result, ct.task_details, ct.status, ct.updated_at,
-                           COALESCE(b.campaign_name, 'Unnamed Campaign') as campaign_name
-                    FROM campaign_tasks ct
-                    LEFT JOIN campaigns c ON ct.campaign_id = c.id
-                    LEFT JOIN briefings b ON c.id = b.campaign_id
-                    WHERE ct.campaign_id = %s AND ct.status = 'scheduled'
-                    ORDER BY ct.updated_at ASC
-                """, (campaign_id,))
-            except Exception:
-                # Fallback if task_details column doesn't exist
-                cur.execute("""
-                    SELECT ct.id, ct.task_type, ct.result, NULL as task_details, ct.status, ct.updated_at,
-                           COALESCE(b.campaign_name, 'Unnamed Campaign') as campaign_name
-                    FROM campaign_tasks ct
-                    LEFT JOIN campaigns c ON ct.campaign_id = c.id
-                    LEFT JOIN briefings b ON c.id = b.campaign_id
-                    WHERE ct.campaign_id = %s AND ct.status = 'scheduled'
-                    ORDER BY ct.updated_at ASC
-                """, (campaign_id,))
+            cur.execute("""
+                SELECT ct.id, ct.task_type, ct.result, ct.task_details, ct.status, ct.updated_at,
+                       COALESCE(c.name, 'Unnamed Campaign') as campaign_name
+                FROM campaign_tasks ct
+                LEFT JOIN campaigns c ON ct.campaign_id = c.id
+                WHERE ct.campaign_id = %s AND ct.status = 'scheduled'
+                ORDER BY ct.updated_at ASC
+            """, (campaign_id,))
             
             scheduled_tasks = []
             for row in cur.fetchall():
