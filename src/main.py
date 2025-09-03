@@ -335,7 +335,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/v2", tags=["authentication"])
 
 app.include_router(blogs.router, prefix="/api/v2", tags=["blogs-v2"])
-app.include_router(campaigns.router, prefix="/api/v2", tags=["campaigns-v2"])  
+app.include_router(campaigns.router, prefix="/api/v2/campaigns", tags=["campaigns-v2"])  
 app.include_router(analytics.router, prefix="/api/v2", tags=["analytics-v2"])
 app.include_router(documents.router, prefix="/api/v2", tags=["documents-v2"])
 app.include_router(webhooks_router, prefix="/api/v2", tags=["webhooks-v2"])
