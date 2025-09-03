@@ -221,7 +221,9 @@ export function EnhancedBlogEditor() {
   const handleRunAIReview = async () => {
     if (!blogId) return;
     try {
-      const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      // Use relative URLs in production to work with Vercel proxy (matches main api.ts)
+      const isProduction = import.meta.env.PROD;
+      const base = isProduction ? '' : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000');
       const res = await fetch(`${base}/api/v2/blogs/${blogId}/review/ai`, { method: 'POST' });
       if (!res.ok) throw new Error(await res.text());
       await fetchBlog();

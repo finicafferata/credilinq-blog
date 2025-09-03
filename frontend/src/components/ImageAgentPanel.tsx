@@ -11,8 +11,16 @@ import {
 
 // API configuration - same logic as api.ts
 const isDev = import.meta.env.DEV;
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 
-  (isDev ? 'http://localhost:8000' : 'https://credilinq-blog-production.up.railway.app');
+const isProduction = import.meta.env.PROD;
+
+// Use relative URLs in production to work with Vercel proxy (matches main api.ts)
+const apiBaseUrl = (() => {
+  if (isProduction) {
+    console.log('🔧 IMAGE AGENT PRODUCTION: Using relative URLs for Vercel proxy');
+    return ''; // Use relative URLs in production to work with Vercel proxy
+  }
+  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+})();
 
 interface ImageData {
   id: string;
