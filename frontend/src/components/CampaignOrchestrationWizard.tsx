@@ -160,12 +160,21 @@ const CampaignOrchestrationWizard: React.FC<CampaignOrchestrationWizardProps> = 
       // Call real AI recommendations API using PlannerAgent
       const { campaignApi } = await import('../lib/api');
       
+      // Map campaign objective to campaign purpose for AI recommendations
+      const campaignPurposeMap: Record<string, string> = {
+        'lead_generation': 'partnership_acquisition',
+        'brand_awareness': 'credit_access_education',
+        'product_launch': 'platform_promotion',
+        'customer_retention': 'customer_success_showcase',
+        'thought_leadership': 'market_insights'
+      };
+      
       const aiRecommendations = await campaignApi.getAIRecommendations({
         campaign_objective: wizardData.campaign_objective,
         target_market: wizardData.target_market,
-        campaign_purpose: wizardData.industry,
-        campaign_duration_weeks: wizardData.campaign_duration_weeks,
-        company_context: wizardData.company_context
+        campaign_purpose: campaignPurposeMap[wizardData.campaign_objective] || 'credit_access_education',
+        campaign_duration_weeks: wizardData.campaign_duration_weeks || 4,
+        company_context: wizardData.company_context || 'B2B embedded finance platform'
       });
       
       console.log('🤖 AI Recommendations received:', aiRecommendations);

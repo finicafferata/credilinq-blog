@@ -45,6 +45,11 @@ model Campaign {
   createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
   blogPostId      String?              @unique @map("blog_post_id") @db.Uuid
+  
+  // Template relationship
+  templateId      String?              @map("template_id") @db.Uuid
+  template        CampaignTemplate?    @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  
   briefing        Briefing?
   blogPost        BlogPost?            @relation(fields: [blogPostId], references: [id], onDelete: SetNull)
   tasks           CampaignTask[]
@@ -96,6 +101,44 @@ model ContentStrategy {
   @@index([campaignId])
   @@index([createdAt])
   @@map("content_strategies")
+}
+
+model CampaignTemplate {
+  id                  String    @id @default(uuid()) @db.Uuid
+  name                String    @db.VarChar(255)
+  description         String?   @db.Text
+  templateType        String    @map("template_type") @db.VarChar(100) // "blog_creation", "orchestration", "social_media"
+  
+  // Template configuration stored as JSON
+  strategyType        String?   @map("strategy_type") @db.VarChar(100)
+  targetAudience      String?   @map("target_audience") @db.VarChar(500)
+  distributionChannels Json?    @map("distribution_channels")
+  timelineWeeks       Int?      @map("timeline_weeks")
+  successMetrics      Json?     @map("success_metrics")
+  budgetAllocation    Json?     @map("budget_allocation")
+  
+  // Template workflow configuration
+  enabledAgents       Json?     @map("enabled_agents")        // List of agent types to include
+  workflowPhases      Json?     @map("workflow_phases")       // Custom workflow phase configuration
+  qualityThresholds   Json?     @map("quality_thresholds")    // Quality gate settings
+  
+  // Metadata and versioning
+  isActive            Boolean   @default(true) @map("is_active")
+  version             String    @default("1.0") @db.VarChar(20)
+  tags                Json?                                   // For categorization and search
+  
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy           String?   @map("created_by") @db.VarChar(255)
+  
+  // Relations
+  campaigns           Campaign[]
+
+  @@index([templateType])
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([name])
+  @@map("campaign_templates")
 }
 
 model CampaignTask {

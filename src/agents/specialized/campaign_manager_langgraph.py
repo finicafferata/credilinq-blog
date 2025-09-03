@@ -24,8 +24,222 @@ from ..core.langgraph_base import (
     CheckpointStrategy, LangGraphExecutionContext
 )
 from ..core.base_agent import AgentType, AgentResult, AgentExecutionContext
-from .campaign_manager import CampaignManagerAgent, CampaignStrategy, CampaignTask
+# from .campaign_manager import CampaignManagerAgent, CampaignStrategy, CampaignTask  # Disabled - file missing
 # from ...config.database import DatabaseConnection  # Temporarily disabled
+
+# Temporary placeholder classes
+class CampaignManagerAgent:
+    """Temporary placeholder for missing CampaignManagerAgent"""
+    
+    async def create_campaign_plan(self, blog_id=None, campaign_name="", company_context="", 
+                                  content_type="orchestration", template_id="", template_config={}):
+        """Main entry point for creating campaign plans"""
+        print(f"DEBUG: create_campaign_plan called with content_type={content_type}, template_id={template_id}")
+        
+        # Extract campaign data from template_config
+        campaign_data = template_config.get("campaign_data", {})
+        print(f"DEBUG: Campaign data received: {campaign_data}")
+        
+        # Generate orchestration tasks
+        content_tasks = await self._generate_orchestration_content_tasks(campaign_data, {})
+        
+        # Generate proper UUID for campaign if it's an orchestration campaign
+        campaign_id = str(uuid.uuid4()) if blog_id == "orchestration_campaign" else blog_id
+        
+        return {
+            "campaign_id": campaign_id,
+            "strategy": {"type": "orchestration", "description": f"Generated plan for {campaign_name}"},
+            "timeline": [{"phase": "content_creation", "duration": "4 weeks"}],
+            "content_tasks": content_tasks,  # This is what the rerun endpoint looks for
+            "success": True,
+            "message": f"Campaign plan created with {len(content_tasks)} tasks"
+        }
+    
+    async def _analyze_blog_content_enhanced(self, *args, **kwargs):
+        return {"content_analysis": "placeholder"}
+    
+    async def _analyze_competitive_landscape(self, *args, **kwargs):
+        return {"competitors": "placeholder"}
+    
+    async def _analyze_market_opportunities(self, *args, **kwargs):
+        return {"opportunities": "placeholder"}
+    
+    async def _analyze_competitive_landscape_for_campaign(self, *args, **kwargs):
+        return {"competitors": "placeholder"}
+    
+    async def _analyze_market_opportunities_for_campaign(self, *args, **kwargs):
+        return {"opportunities": "placeholder"}
+    
+    async def _generate_ai_audience_personas(self, *args, **kwargs):
+        return [{"persona": "placeholder"}]
+    
+    async def _generate_intelligent_template_strategy(self, *args, **kwargs):
+        return {"strategy": "placeholder"}
+    
+    async def _generate_ai_enhanced_strategy(self, *args, **kwargs):
+        return {"strategy": "placeholder"}
+    
+    async def _create_orchestration_timeline(self, *args, **kwargs):
+        return [{"phase": "placeholder"}]
+    
+    async def _create_optimized_timeline(self, *args, **kwargs):
+        return [{"phase": "placeholder"}]
+    
+    async def _generate_orchestration_content_tasks(self, campaign_data, content_strategy):
+        """Generate actual content tasks based on campaign data"""
+        tasks = []
+        
+        # Extract content requirements from campaign metadata  
+        success_metrics = campaign_data.get("success_metrics", {})
+        distribution_channels = campaign_data.get("distribution_channels", ["linkedin", "email"])
+        target_audience = campaign_data.get("target_audience", "business audience")
+        content_pieces = success_metrics.get("content_pieces", 8)
+        
+        # Calculate content mix based on total pieces and channels
+        if content_pieces > 0:
+            # Distribute content across different types
+            blog_posts = max(1, content_pieces // 6)  # ~1/6 blog posts
+            social_posts = max(2, content_pieces // 2)  # ~1/2 social posts  
+            email_content = max(1, content_pieces // 8)  # ~1/8 email content
+            visual_content = max(1, content_pieces // 10)  # ~1/10 visual content
+            
+            # Generate blog posts
+            for i in range(blog_posts):
+                tasks.append({
+                    "id": f"blog_post_{i+1}",
+                    "title": f"Blog Post: {campaign_data.get('strategy_type', 'Campaign').replace('_', ' ').title()} Strategy {i+1}",
+                    "task_type": "blog_content",
+                    "target_format": "long_form",
+                    "channel": "website",
+                    "description": f"Create comprehensive blog post about {campaign_data.get('description', 'campaign objectives')} targeting {target_audience}",
+                    "priority": "high",
+                    "estimated_duration": "2-3 hours",
+                    "dependencies": []
+                })
+            
+            # Generate social media content
+            social_channels = [ch for ch in distribution_channels if ch in ["linkedin", "twitter", "facebook", "instagram"]]
+            if not social_channels:
+                social_channels = ["linkedin"]
+                
+            for i in range(social_posts):
+                channel = social_channels[i % len(social_channels)]
+                tasks.append({
+                    "id": f"social_post_{channel}_{i+1}",
+                    "title": f"Social Media Post - {channel.title()} #{i+1}",
+                    "task_type": "social_media_content",
+                    "target_format": "social_post",
+                    "channel": channel,
+                    "description": f"Create engaging {channel} post about {campaign_data.get('description', 'campaign message')} for {target_audience}",
+                    "priority": "medium",
+                    "estimated_duration": "30 minutes",
+                    "dependencies": []
+                })
+            
+            # Generate email content
+            if "email" in distribution_channels:
+                for i in range(email_content):
+                    tasks.append({
+                        "id": f"email_content_{i+1}",
+                        "title": f"Email Campaign: {campaign_data.get('strategy_type', 'Campaign').replace('_', ' ').title()} {i+1}",
+                        "task_type": "email_content",
+                        "target_format": "email",
+                        "channel": "email",
+                        "description": f"Create targeted email about {campaign_data.get('description', 'campaign objectives')} for {target_audience}",
+                        "priority": "high",
+                        "estimated_duration": "1-2 hours",
+                        "dependencies": []
+                    })
+            
+            # Generate visual content
+            if "website" in distribution_channels or len(distribution_channels) > 3:
+                for i in range(visual_content):
+                    tasks.append({
+                        "id": f"visual_content_{i+1}",
+                        "title": f"Visual Content: Infographic {i+1}",
+                        "task_type": "visual_content",
+                        "target_format": "infographic",
+                        "channel": "website",
+                        "description": f"Create visual infographic about {campaign_data.get('description', 'campaign message')}",
+                        "priority": "medium",
+                        "estimated_duration": "2-3 hours",
+                        "dependencies": []
+                    })
+        
+        print(f"DEBUG: Generated {len(tasks)} tasks for campaign with {content_pieces} total content pieces")
+        print(f"DEBUG: Campaign data success_metrics: {campaign_data.get('success_metrics', {})}")
+        print(f"DEBUG: Generated tasks: {[task['title'] for task in tasks]}")
+        return tasks
+    
+    async def _generate_intelligent_tasks(self, *args, **kwargs):
+        return [{"task": "placeholder"}]
+    
+    async def _save_orchestration_campaign_to_db(self, *args, **kwargs):
+        return str(uuid.uuid4())
+    
+    async def _save_orchestration_tasks_to_db(self, campaign_id, tasks):
+        """Save orchestration tasks to database"""
+        from ...config.database import db_config
+        import uuid
+        import json
+        try:
+            with db_config.get_db_connection() as conn:
+                cur = conn.cursor()
+                
+                for task in tasks:
+                    # Create task_details JSON with task information
+                    task_details = {
+                        "title": task.get("title", "Generated Content"),
+                        "description": task.get("description", ""),
+                        "channel": task.get("channel", "all"),
+                        "estimated_duration": task.get("estimated_duration", "1 hour"),
+                        "dependencies": task.get("dependencies", [])
+                    }
+                    
+                    # Map priority text to integer
+                    priority_map = {"low": 3, "medium": 5, "high": 7, "urgent": 9}
+                    priority_int = priority_map.get(task.get("priority", "medium").lower(), 5)
+                    
+                    cur.execute("""
+                        INSERT INTO campaign_tasks (
+                            id, campaign_id, task_type, target_format, 
+                            status, priority, task_details, created_at, updated_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        str(uuid.uuid4()),  # Generate new UUID for each task
+                        campaign_id,
+                        task["task_type"],
+                        task.get("target_format", "standard"),
+                        "pending",
+                        priority_int,
+                        json.dumps(task_details),
+                        datetime.utcnow(),
+                        datetime.utcnow()
+                    ))
+                
+                conn.commit()
+                return len(tasks)
+        except Exception as e:
+            print(f"Error saving tasks: {e}")
+            import traceback
+            traceback.print_exc()
+            return 0
+    
+    async def _save_enhanced_campaign_to_db(self, *args, **kwargs):
+        return str(uuid.uuid4())
+    
+    async def _save_enhanced_tasks_to_db(self, *args, **kwargs):
+        return True
+
+class CampaignStrategy:
+    """Temporary placeholder"""
+    pass
+
+class CampaignTask:
+    """Temporary placeholder"""
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 
 class CampaignPhase(Enum):

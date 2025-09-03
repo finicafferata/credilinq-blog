@@ -322,13 +322,13 @@ export const campaignApi = {
 
   // Execute individual task
   executeTask: async (campaignId: string, taskId: string): Promise<any> => {
-    const response = await api.post(`/api/v2/campaigns/orchestration/campaigns/${campaignId}/tasks/${taskId}/execute`);
+    const response = await api.post(`/api/v2/campaigns/orchestration/campaigns/${campaignId}/tasks/${taskId}/execute`, {});
     return response.data;
   },
 
   // Execute all tasks for a campaign
   executeAllTasks: async (campaignId: string): Promise<any> => {
-    const response = await api.post(`/api/v2/campaigns/orchestration/campaigns/${campaignId}/execute-all`);
+    const response = await api.post(`/api/v2/campaigns/orchestration/campaigns/${campaignId}/execute-all`, {});
     return response.data;
   },
 

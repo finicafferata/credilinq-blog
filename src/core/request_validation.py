@@ -33,6 +33,9 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
         self.request_history = {}
         self.max_requests_per_minute = self.config.get("max_requests_per_minute", 100)
         
+        # Pattern detection toggle
+        self.enable_pattern_detection = self.config.get("enable_pattern_detection", True)
+        
         # Validation rules
         self.blocked_patterns = [
             # SQL injection patterns
@@ -173,12 +176,13 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
                 logger.warning("Request rejected: JSON array size exceeds maximum")
                 return False
             
-            # Validate string content for malicious patterns
-            json_str = json.dumps(data)
-            patterns = self._detect_malicious_patterns(json_str)
-            if patterns:
-                logger.warning(f"Request rejected: Malicious patterns detected: {patterns}")
-                return False
+            # Validate string content for malicious patterns (if enabled)
+            if self.enable_pattern_detection:
+                json_str = json.dumps(data)
+                patterns = self._detect_malicious_patterns(json_str)
+                if patterns:
+                    logger.warning(f"Request rejected: Malicious patterns detected: {patterns}")
+                    return False
             
             return True
             
@@ -274,15 +278,16 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
                 headers={"Content-Type": "text/plain"}
             )
         
-        # URL validation
-        url_patterns = self._detect_malicious_patterns(str(request.url))
-        if url_patterns:
-            logger.warning(f"Malicious URL patterns detected: {url_patterns}")
-            return Response(
-                content="Bad request",
-                status_code=400,
-                headers={"Content-Type": "text/plain"}
-            )
+        # URL validation (if pattern detection enabled)
+        if self.enable_pattern_detection:
+            url_patterns = self._detect_malicious_patterns(str(request.url))
+            if url_patterns:
+                logger.warning(f"Malicious URL patterns detected: {url_patterns}")
+                return Response(
+                    content="Bad request",
+                    status_code=400,
+                    headers={"Content-Type": "text/plain"}
+                )
         
         # Validate request body for POST/PUT requests
         if request.method in ["POST", "PUT", "PATCH"]:

@@ -26,6 +26,17 @@ try:
 except ImportError:
     PERFORMANCE_TRACKING_AVAILABLE = False
 
+# Import LangGraph performance tracking
+try:
+    from ...core.langgraph_performance_tracker import (
+        global_performance_tracker as langgraph_tracker,
+        calculate_openai_cost,
+        PerformanceTrackingMixin
+    )
+    LANGGRAPH_TRACKING_AVAILABLE = True
+except ImportError:
+    LANGGRAPH_TRACKING_AVAILABLE = False
+
 # Type definitions
 T = TypeVar('T')
 AgentInput = Union[str, Dict[str, Any], List[Any]]
@@ -88,8 +99,22 @@ class AgentExecutionContext:
     execution_metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
+class AgentDecisionReasoning:
+    """Detailed reasoning for agent decisions and recommendations."""
+    decision_point: str                           # What decision was made
+    reasoning: str                                # WHY this decision is important
+    importance_explanation: str                   # Detailed explanation of importance
+    confidence_score: float                       # 0.0 to 1.0 confidence level
+    alternatives_considered: List[str]            # Other options evaluated
+    business_impact: str                          # How this affects business goals
+    risk_assessment: str                          # Potential risks if not implemented
+    success_indicators: List[str]                 # How to measure success
+    implementation_priority: str                  # "high", "medium", "low"
+    supporting_evidence: List[str] = field(default_factory=list)  # Data supporting the decision
+
+@dataclass
 class AgentResult:
-    """Standardized agent execution result."""
+    """Standardized agent execution result with enhanced reasoning."""
     success: bool
     data: Any = None
     error_message: Optional[str] = None
@@ -97,6 +122,11 @@ class AgentResult:
     execution_time_ms: Optional[float] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     warnings: List[str] = field(default_factory=list)
+    
+    # Enhanced reasoning and justification
+    decisions: List[AgentDecisionReasoning] = field(default_factory=list)
+    recommendations: List[Dict[str, Any]] = field(default_factory=list)
+    quality_assessment: Dict[str, Any] = field(default_factory=dict)
     
     @property
     def is_success(self) -> bool:
@@ -289,6 +319,7 @@ class BaseAgent(ABC, Generic[T]):
     ) -> AgentResult:
         """
         Execute agent with comprehensive error handling and state management.
+        Now includes real-time performance tracking.
         
         Args:
             input_data: Input data for the agent
@@ -300,6 +331,37 @@ class BaseAgent(ABC, Generic[T]):
         """
         if context is None:
             context = AgentExecutionContext()
+        
+        # Start real-time performance tracking
+        performance_execution_id = None
+        if LANGGRAPH_TRACKING_AVAILABLE:
+            try:
+                # Extract campaign and blog post IDs from context
+                campaign_id = context.execution_metadata.get('campaign_id') or getattr(context, 'campaign_id', None)
+                blog_post_id = context.execution_metadata.get('blog_post_id') or getattr(context, 'blog_post_id', None)
+                
+                # Start async performance tracking (non-blocking)
+                loop = asyncio.get_event_loop() if asyncio.get_event_loop().is_running() else None
+                if loop:
+                    task = asyncio.create_task(langgraph_tracker.track_execution_start(
+                        agent_name=self.agent_name,
+                        agent_type=self.metadata.agent_type.value,
+                        campaign_id=campaign_id,
+                        blog_post_id=blog_post_id,
+                        metadata={
+                            'agent_class': self.__class__.__name__,
+                            'input_type': type(input_data).__name__,
+                            'context_id': context.request_id,
+                            'workflow_id': context.workflow_id
+                        }
+                    ))
+                    # Get execution_id without blocking
+                    try:
+                        performance_execution_id = loop.run_until_complete(asyncio.wait_for(task, timeout=0.1))
+                    except asyncio.TimeoutError:
+                        self.logger.debug("Performance tracking start timed out, continuing without blocking")
+            except Exception as e:
+                self.logger.debug(f"Performance tracking initialization failed: {e}")
         
         # Update state
         self.state.status = AgentStatus.RUNNING
@@ -327,6 +389,45 @@ class BaseAgent(ABC, Generic[T]):
                 
                 # Update result with execution time
                 result.execution_time_ms = execution_time
+                
+                # Track successful completion with real performance data
+                if LANGGRAPH_TRACKING_AVAILABLE and performance_execution_id:
+                    try:
+                        # Estimate token usage and cost if available  
+                        input_tokens, output_tokens, cost = self._estimate_token_usage(input_data, result)
+                        
+                        # Track completion (non-blocking)
+                        loop = asyncio.get_event_loop() if asyncio.get_event_loop().is_running() else None
+                        if loop:
+                            asyncio.create_task(langgraph_tracker.track_execution_end(
+                                execution_id=performance_execution_id,
+                                status="success",
+                                input_tokens=input_tokens,
+                                output_tokens=output_tokens,
+                                cost=cost,
+                                retry_count=retries
+                            ))
+                        
+                        # Track decisions if present
+                        if result.decisions:
+                            for decision in result.decisions:
+                                asyncio.create_task(langgraph_tracker.track_decision(
+                                    execution_id=performance_execution_id,
+                                    decision_point=decision.decision_point,
+                                    input_data={'input_summary': str(input_data)[:500]},
+                                    output_data={'decision_summary': decision.reasoning[:500]},
+                                    reasoning=decision.reasoning,
+                                    confidence_score=decision.confidence_score,
+                                    alternatives_considered=decision.alternatives_considered,
+                                    execution_time_ms=int(execution_time),
+                                    tokens_used=input_tokens + output_tokens if input_tokens and output_tokens else None,
+                                    metadata={
+                                        'business_impact': decision.business_impact,
+                                        'implementation_priority': decision.implementation_priority
+                                    }
+                                ))
+                    except Exception as e:
+                        self.logger.debug(f"Error tracking performance completion: {e}")
                 
                 # Update state
                 self.state.status = AgentStatus.COMPLETED
@@ -356,6 +457,21 @@ class BaseAgent(ABC, Generic[T]):
                         metadata={"traceback": error_traceback, "attempts": retries}
                     )
                     
+                    # Track failed execution
+                    if LANGGRAPH_TRACKING_AVAILABLE and performance_execution_id:
+                        try:
+                            loop = asyncio.get_event_loop() if asyncio.get_event_loop().is_running() else None
+                            if loop:
+                                asyncio.create_task(langgraph_tracker.track_execution_end(
+                                    execution_id=performance_execution_id,
+                                    status="failed",
+                                    error_message=error_message,
+                                    error_code=self._get_error_code(e),
+                                    retry_count=retries
+                                ))
+                        except Exception as track_error:
+                            self.logger.debug(f"Error tracking performance failure: {track_error}")
+                    
                     # Update state
                     self.state.status = AgentStatus.FAILED
                     self.state.result = result
@@ -372,6 +488,130 @@ class BaseAgent(ABC, Generic[T]):
             error_message="Unknown error occurred",
             error_code="UNKNOWN_ERROR"
         )
+    
+    def add_decision_reasoning(
+        self,
+        result: AgentResult,
+        decision_point: str,
+        reasoning: str,
+        importance_explanation: str,
+        confidence_score: float,
+        alternatives_considered: List[str],
+        business_impact: str,
+        risk_assessment: str = "",
+        success_indicators: List[str] = None,
+        implementation_priority: str = "medium",
+        supporting_evidence: List[str] = None
+    ) -> None:
+        """
+        Add detailed reasoning for agent decisions to the result.
+        
+        Args:
+            result: The AgentResult to add reasoning to
+            decision_point: What decision was made
+            reasoning: WHY this decision is important
+            importance_explanation: Detailed explanation of importance
+            confidence_score: 0.0 to 1.0 confidence level
+            alternatives_considered: Other options evaluated
+            business_impact: How this affects business goals
+            risk_assessment: Potential risks if not implemented
+            success_indicators: How to measure success
+            implementation_priority: "high", "medium", "low"
+            supporting_evidence: Data supporting the decision
+        """
+        decision_reasoning = AgentDecisionReasoning(
+            decision_point=decision_point,
+            reasoning=reasoning,
+            importance_explanation=importance_explanation,
+            confidence_score=confidence_score,
+            alternatives_considered=alternatives_considered,
+            business_impact=business_impact,
+            risk_assessment=risk_assessment,
+            success_indicators=success_indicators or [],
+            implementation_priority=implementation_priority,
+            supporting_evidence=supporting_evidence or []
+        )
+        
+        result.decisions.append(decision_reasoning)
+        
+        # Log the decision for tracking
+        self.logger.info(f"Decision recorded: {decision_point} (confidence: {confidence_score:.2f})")
+        self.logger.debug(f"Reasoning: {reasoning}")
+    
+    def add_recommendation(
+        self,
+        result: AgentResult,
+        title: str,
+        description: str,
+        importance: str,
+        expected_impact: str,
+        effort_required: str = "medium",
+        timeline: str = "1-2 weeks",
+        dependencies: List[str] = None,
+        metrics_to_track: List[str] = None
+    ) -> None:
+        """
+        Add structured recommendations to the result.
+        
+        Args:
+            result: The AgentResult to add recommendations to
+            title: Recommendation title
+            description: Detailed description
+            importance: Why this recommendation is important
+            expected_impact: Expected business impact
+            effort_required: "low", "medium", "high"
+            timeline: Expected implementation time
+            dependencies: What needs to be done first
+            metrics_to_track: How to measure success
+        """
+        recommendation = {
+            "title": title,
+            "description": description,
+            "importance": importance,
+            "expected_impact": expected_impact,
+            "effort_required": effort_required,
+            "timeline": timeline,
+            "dependencies": dependencies or [],
+            "metrics_to_track": metrics_to_track or [],
+            "created_by": self.metadata.name,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        
+        result.recommendations.append(recommendation)
+        
+        self.logger.info(f"Recommendation added: {title}")
+    
+    def set_quality_assessment(
+        self,
+        result: AgentResult,
+        overall_score: float,
+        dimension_scores: Dict[str, float],
+        improvement_areas: List[str],
+        strengths: List[str],
+        quality_notes: str = ""
+    ) -> None:
+        """
+        Set quality assessment for the agent's output.
+        
+        Args:
+            result: The AgentResult to set quality assessment for
+            overall_score: Overall quality score (0.0 to 10.0)
+            dimension_scores: Scores for specific quality dimensions
+            improvement_areas: Areas that need improvement
+            strengths: Areas that are strong
+            quality_notes: Additional quality notes
+        """
+        result.quality_assessment = {
+            "overall_score": overall_score,
+            "dimension_scores": dimension_scores,
+            "improvement_areas": improvement_areas,
+            "strengths": strengths,
+            "quality_notes": quality_notes,
+            "assessed_by": self.metadata.name,
+            "assessed_at": datetime.utcnow().isoformat()
+        }
+        
+        self.logger.info(f"Quality assessment set: {overall_score}/10.0")
     
     def _validate_input(self, input_data: AgentInput) -> None:
         """
@@ -398,6 +638,45 @@ class BaseAgent(ABC, Generic[T]):
         """
         error_type = type(exception).__name__
         return f"{self.metadata.agent_type.value.upper()}_{error_type.upper()}"
+    
+    def _estimate_token_usage(self, input_data, result) -> tuple:
+        """
+        Estimate token usage and cost for Gemini API.
+        Enhanced with actual Gemini pricing and better token estimation.
+        
+        Returns:
+            tuple: (input_tokens, output_tokens, cost)
+        """
+        try:
+            # Import here to avoid circular imports
+            from ...core.gemini_performance_tracker import estimate_gemini_tokens, calculate_gemini_cost_estimate
+            
+            input_str = str(input_data) if input_data else ""
+            output_str = str(result.data) if result.data else ""
+            
+            # Use Gemini-specific token estimation
+            input_tokens = estimate_gemini_tokens(input_str)
+            output_tokens = estimate_gemini_tokens(output_str)
+            
+            # Determine model name (default to flash if not available)
+            model_name = "gemini-1.5-flash"
+            if hasattr(self, 'llm') and hasattr(self.llm, 'model_name'):
+                model_name = self.llm.model_name
+            elif hasattr(self, 'model_name'):
+                model_name = self.model_name
+            
+            # Calculate cost using Gemini pricing
+            total_cost = calculate_gemini_cost_estimate(input_str, output_str, model_name)
+            
+            return input_tokens, output_tokens, total_cost
+            
+        except Exception as e:
+            self.logger.debug(f"Token usage estimation failed: {e}")
+            # Fallback to simple estimation
+            input_tokens = max(1, len(str(input_data).split()) if input_data else 1)
+            output_tokens = max(1, len(str(result.data).split()) if result.data else 1)
+            cost = 0.001  # Small default cost
+            return input_tokens, output_tokens, cost
     
     def get_capabilities(self) -> List[str]:
         """Get agent capabilities."""

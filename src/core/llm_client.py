@@ -1,6 +1,7 @@
 """
 Unified LLM client module for LangGraph agents.
 Uses Google Gemini instead of OpenAI for all LLM operations.
+Enhanced with automatic performance tracking and usage analytics.
 """
 
 import os
@@ -9,20 +10,29 @@ from typing import List, Dict, Any, Optional
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage
 import logging
 
+# Import performance tracking
+from .gemini_performance_tracker import global_gemini_tracker, GeminiUsageMetrics
+
 logger = logging.getLogger(__name__)
 
 
 class LLMClient:
-    """Wrapper for Google Gemini to provide consistent interface across agents."""
+    """
+    Wrapper for Google Gemini to provide consistent interface across agents.
+    Automatically tracks performance, cost, and token usage.
+    """
     
     def __init__(
         self,
         model: str = "gemini-1.5-flash",
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
+        enable_tracking: bool = True,
+        agent_name: Optional[str] = None,
+        agent_type: Optional[str] = None
     ):
-        """Initialize the LLM client with Google Gemini."""
+        """Initialize the LLM client with Google Gemini and performance tracking."""
         # Map common OpenAI model names to Gemini equivalents
         model_mapping = {
             "gpt-3.5-turbo": "gemini-1.5-flash",
@@ -33,6 +43,15 @@ class LLMClient:
         self.model_name = model_mapping.get(model, model)
         self.temperature = temperature
         self.max_tokens = max_tokens or 2000
+        self.enable_tracking = enable_tracking
+        self.agent_name = agent_name or "unknown_agent"
+        self.agent_type = agent_type or "llm_client"
+        
+        # Performance tracking state
+        self.current_execution_id = None
+        self.campaign_id = None
+        self.blog_post_id = None
+        self.workflow_id = None
         
         # Get API key from parameter or environment
         api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
@@ -53,10 +72,42 @@ class LLMClient:
             generation_config=self.generation_config
         )
     
+    def set_tracking_context(
+        self,
+        campaign_id: Optional[str] = None,
+        blog_post_id: Optional[str] = None,
+        workflow_id: Optional[str] = None,
+        agent_name: Optional[str] = None,
+        agent_type: Optional[str] = None
+    ):
+        """Set tracking context for performance monitoring."""
+        if campaign_id:
+            self.campaign_id = campaign_id
+        if blog_post_id:
+            self.blog_post_id = blog_post_id
+        if workflow_id:
+            self.workflow_id = workflow_id
+        if agent_name:
+            self.agent_name = agent_name
+        if agent_type:
+            self.agent_type = agent_type
+    
+    def get_usage_stats(self) -> Dict[str, Any]:
+        """Get current usage statistics for this client."""
+        return {
+            "model_name": self.model_name,
+            "agent_name": self.agent_name,
+            "agent_type": self.agent_type,
+            "campaign_id": self.campaign_id,
+            "blog_post_id": self.blog_post_id,
+            "workflow_id": self.workflow_id,
+            "tracking_enabled": self.enable_tracking
+        }
+    
     def invoke(self, messages: List[BaseMessage]) -> AIMessage:
         """
         Invoke the LLM with a list of messages.
-        Compatible with langchain message format.
+        Compatible with langchain message format with automatic performance tracking.
         """
         # Convert langchain messages to Gemini format
         # Gemini expects a single prompt or a conversation history
@@ -79,9 +130,48 @@ class LLMClient:
         # Add instruction for response
         full_prompt += "Assistant: "
         
+        execution_id = None
+        
         try:
+            # Start performance tracking if enabled
+            if self.enable_tracking:
+                import asyncio
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        # Create task for non-blocking tracking
+                        task = asyncio.create_task(
+                            global_gemini_tracker.track_gemini_execution_start(
+                                agent_name=self.agent_name,
+                                agent_type=self.agent_type,
+                                model_name=self.model_name,
+                                prompt_text=full_prompt,
+                                campaign_id=self.campaign_id,
+                                blog_post_id=self.blog_post_id,
+                                workflow_id=self.workflow_id
+                            )
+                        )
+                        # Don't await - let it run async
+                        execution_id = "async_tracked"
+                except Exception as tracking_error:
+                    logger.debug(f"Performance tracking start failed: {tracking_error}")
+            
             # Generate response
             response = self.model.generate_content(full_prompt)
+            
+            # Complete performance tracking if enabled
+            if self.enable_tracking and execution_id:
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        # Create task for non-blocking completion tracking
+                        asyncio.create_task(
+                            global_gemini_tracker.track_gemini_execution_end(
+                                execution_id, response, "success"
+                            )
+                        )
+                except Exception as tracking_error:
+                    logger.debug(f"Performance tracking end failed: {tracking_error}")
             
             # Extract text from response
             if response.text:
@@ -92,6 +182,19 @@ class LLMClient:
             return AIMessage(content=content)
             
         except Exception as e:
+            # Complete performance tracking with error if enabled
+            if self.enable_tracking and execution_id:
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        asyncio.create_task(
+                            global_gemini_tracker.track_gemini_execution_end(
+                                execution_id, None, "failed", str(e)
+                            )
+                        )
+                except Exception as tracking_error:
+                    logger.debug(f"Error tracking failed: {tracking_error}")
+            
             logger.error(f"Error invoking Gemini: {str(e)}")
             # Fallback response
             return AIMessage(content=f"Error generating response: {str(e)}")
@@ -204,13 +307,23 @@ class EmbeddingsClient:
 
 
 # Factory functions for backward compatibility
-def create_llm(model: str = "gemini-1.5-flash", temperature: float = 0.7, **kwargs) -> LLMClient:
-    """Create an LLM client instance with Gemini."""
-    # Map api_key parameter for compatibility
-    if 'api_key' in kwargs and 'api_key' not in kwargs:
-        kwargs['api_key'] = kwargs.pop('api_key')
-    
-    return LLMClient(model=model, temperature=temperature, **kwargs)
+def create_llm(
+    model: str = "gemini-1.5-flash", 
+    temperature: float = 0.7,
+    agent_name: Optional[str] = None,
+    agent_type: Optional[str] = None,
+    enable_tracking: bool = True,
+    **kwargs
+) -> LLMClient:
+    """Create an LLM client instance with Gemini and performance tracking."""
+    return LLMClient(
+        model=model, 
+        temperature=temperature,
+        agent_name=agent_name,
+        agent_type=agent_type,
+        enable_tracking=enable_tracking,
+        **kwargs
+    )
 
 
 def create_embeddings(**kwargs) -> EmbeddingsClient:

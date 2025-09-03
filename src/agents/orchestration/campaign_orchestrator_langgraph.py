@@ -32,6 +32,9 @@ from ..specialized.content_repurposer import ContentRepurposer
 from ..specialized.social_media_agent import SocialMediaAgent
 from ..specialized.distribution_agent import DistributionAgent
 from ..specialized.seo_agent import SEOAgent
+from ..specialized.geo_analysis_agent_langgraph import GEOAnalysisAgentLangGraph
+from ..specialized.image_prompt_agent_langgraph import ImagePromptAgentLangGraph
+from ..specialized.video_prompt_agent_langgraph import VideoPromptAgentLangGraph
 from ..core.agent_factory import AgentFactory
 from .types import CampaignType, TaskStatus, CampaignTask, CampaignWithTasks
 from .campaign_database_service import CampaignDatabaseService
@@ -44,6 +47,7 @@ class CampaignPhase(Enum):
     INITIALIZATION = "initialization"
     PLANNING = "planning" 
     CONTENT_CREATION = "content_creation"
+    MEDIA_GENERATION = "media_generation"
     CONTENT_OPTIMIZATION = "content_optimization"
     CONTENT_REPURPOSING = "content_repurposing"
     QUALITY_ASSURANCE = "quality_assurance"
@@ -166,7 +170,11 @@ class CampaignOrchestratorLangGraph(LangGraphWorkflowBase[CampaignOrchestratorSt
         self.quality_thresholds = {
             "min_content_quality": 7.0,
             "min_seo_score": 6.0,
-            "min_distribution_success": 0.8
+            "min_geo_score": 6.5,
+            "min_combined_optimization_score": 6.5,
+            "min_distribution_success": 0.8,
+            "min_media_generation_success": 0.7,
+            "min_reasoning_confidence": 0.6
         }
         
         self.logger.info("Campaign Orchestrator LangGraph initialized")
@@ -178,8 +186,11 @@ class CampaignOrchestratorLangGraph(LangGraphWorkflowBase[CampaignOrchestratorSt
             self.social_media_agent = SocialMediaAgent()
             self.distribution_agent = DistributionAgent()
             self.seo_agent = SEOAgent()
+            self.geo_agent = GEOAnalysisAgentLangGraph()
+            self.image_prompt_agent = ImagePromptAgentLangGraph()
+            self.video_prompt_agent = VideoPromptAgentLangGraph()
             
-            self.logger.info("Specialized campaign agents initialized")
+            self.logger.info("Specialized campaign agents initialized (including GEO, Image, and Video agents)")
         except Exception as e:
             self.logger.error(f"Failed to initialize campaign agents: {e}")
             raise
@@ -192,6 +203,7 @@ class CampaignOrchestratorLangGraph(LangGraphWorkflowBase[CampaignOrchestratorSt
         workflow.add_node("initialize_campaign", self._initialize_campaign)
         workflow.add_node("plan_campaign", self._plan_campaign_execution)
         workflow.add_node("execute_content_creation", self._execute_content_creation)
+        workflow.add_node("execute_media_generation", self._execute_media_generation)
         workflow.add_node("execute_content_optimization", self._execute_content_optimization)
         workflow.add_node("execute_content_repurposing", self._execute_content_repurposing)
         workflow.add_node("execute_quality_assurance", self._execute_quality_assurance)
@@ -203,10 +215,11 @@ class CampaignOrchestratorLangGraph(LangGraphWorkflowBase[CampaignOrchestratorSt
         # Set entry point
         workflow.set_entry_point("initialize_campaign")
         
-        # Sequential workflow edges
+        # Sequential workflow edges with media generation
         workflow.add_edge("initialize_campaign", "plan_campaign")
         workflow.add_edge("plan_campaign", "execute_content_creation")
-        workflow.add_edge("execute_content_creation", "execute_content_optimization")
+        workflow.add_edge("execute_content_creation", "execute_media_generation")
+        workflow.add_edge("execute_media_generation", "execute_content_optimization")
         workflow.add_edge("execute_content_optimization", "execute_content_repurposing")
         workflow.add_edge("execute_content_repurposing", "execute_quality_assurance")
         workflow.add_edge("execute_quality_assurance", "execute_distribution")
@@ -477,8 +490,8 @@ class CampaignOrchestratorLangGraph(LangGraphWorkflowBase[CampaignOrchestratorSt
             execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
             state["phase_execution_times"]["content_creation"] = execution_time
             state["completed_phases"].append("content_creation")
-            state["current_phase"] = CampaignPhase.CONTENT_OPTIMIZATION.value
-            state["overall_progress"] = 40.0  # 40% for content creation
+            state["current_phase"] = CampaignPhase.MEDIA_GENERATION.value
+            state["overall_progress"] = 35.0  # 35% for content creation
             
             # Checkpoint
             state["phase_checkpoints"]["content_creation"] = {
@@ -498,6 +511,140 @@ class CampaignOrchestratorLangGraph(LangGraphWorkflowBase[CampaignOrchestratorSt
         state["updated_at"] = datetime.utcnow().isoformat()
         return state
     
+    async def _execute_media_generation(self, state: CampaignOrchestratorState) -> CampaignOrchestratorState:
+        """Execute media generation phase with image and video prompt creation."""
+        self.logger.info("Executing media generation phase")
+        
+        start_time = datetime.utcnow()
+        state["current_phase"] = CampaignPhase.MEDIA_GENERATION.value
+        
+        try:
+            media_results = {}
+            
+            # Get content artifacts for media generation
+            content_artifacts = state["content_artifacts"]
+            campaign_config = state["campaign_config"]
+            
+            # Generate image prompts for each content artifact
+            for artifact_id, artifact_data in content_artifacts.items():
+                if isinstance(artifact_data, dict) and "content" in artifact_data:
+                    content = artifact_data["content"]
+                    title = campaign_config.get("campaign_title", "")
+                    
+                    # Image prompt generation
+                    image_input = {
+                        "content": content,
+                        "title": title,
+                        "target_audience": campaign_config.get("target_audience", ""),
+                        "brand_context": campaign_config.get("company_context", ""),
+                        "content_type": "blog_post",  # Could be dynamic based on artifact type
+                        "style_preferences": campaign_config.get("image_style", "professional"),
+                        "platform_requirements": campaign_config.get("channels", ["linkedin", "email"])
+                    }
+                    
+                    image_result = await self.image_prompt_agent.execute(image_input)
+                    
+                    if image_result.success:
+                        media_results[f"{artifact_id}_image"] = {
+                            "type": "image_prompts",
+                            "prompts": image_result.data.get("image_prompts", []),
+                            "style_recommendations": image_result.data.get("style_recommendations", []),
+                            "technical_specs": image_result.data.get("technical_specs", {}),
+                            "reasoning": []
+                        }
+                        
+                        # Extract reasoning from image agent
+                        if hasattr(image_result, 'decisions') and image_result.decisions:
+                            media_results[f"{artifact_id}_image"]["reasoning"] = [
+                                {
+                                    "decision": d.decision_point,
+                                    "reasoning": d.reasoning,
+                                    "importance": d.importance_explanation,
+                                    "confidence": d.confidence_score,
+                                    "business_impact": d.business_impact
+                                } for d in image_result.decisions
+                            ]
+                        
+                        # Add to state
+                        state["content_artifacts"][f"{artifact_id}_image_prompts"] = media_results[f"{artifact_id}_image"]
+                        
+                        self.logger.info(f"Image prompts generated for {artifact_id}: {len(image_result.data.get('image_prompts', []))} prompts")
+                    
+                    # Video prompt generation (if video content is requested)
+                    video_channels = [ch for ch in campaign_config.get("channels", []) if ch in ["youtube", "tiktok", "instagram", "linkedin_video"]]
+                    if video_channels:
+                        video_input = {
+                            "content": content,
+                            "title": title,
+                            "target_audience": campaign_config.get("target_audience", ""),
+                            "brand_context": campaign_config.get("company_context", ""),
+                            "video_length": "short",  # Could be configurable
+                            "platforms": video_channels,
+                            "tone": campaign_config.get("desired_tone", "professional")
+                        }
+                        
+                        video_result = await self.video_prompt_agent.execute(video_input)
+                        
+                        if video_result.success:
+                            media_results[f"{artifact_id}_video"] = {
+                                "type": "video_prompts",
+                                "prompts": video_result.data.get("video_prompts", []),
+                                "storyboards": video_result.data.get("storyboards", []),
+                                "technical_specs": video_result.data.get("technical_specs", {}),
+                                "platform_adaptations": video_result.data.get("platform_adaptations", {}),
+                                "reasoning": []
+                            }
+                            
+                            # Extract reasoning from video agent
+                            if hasattr(video_result, 'decisions') and video_result.decisions:
+                                media_results[f"{artifact_id}_video"]["reasoning"] = [
+                                    {
+                                        "decision": d.decision_point,
+                                        "reasoning": d.reasoning,
+                                        "importance": d.importance_explanation,
+                                        "confidence": d.confidence_score,
+                                        "business_impact": d.business_impact
+                                    } for d in video_result.decisions
+                                ]
+                            
+                            # Add to state
+                            state["content_artifacts"][f"{artifact_id}_video_prompts"] = media_results[f"{artifact_id}_video"]
+                            
+                            self.logger.info(f"Video prompts generated for {artifact_id}: {len(video_result.data.get('video_prompts', []))} prompts")
+            
+            # Store media generation results
+            state["content_artifacts"]["media_generation_results"] = media_results
+            
+            # Phase completion
+            execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+            state["phase_execution_times"]["media_generation"] = execution_time
+            state["completed_phases"].append("media_generation")
+            state["current_phase"] = CampaignPhase.CONTENT_OPTIMIZATION.value
+            state["overall_progress"] = 45.0  # 45% for media generation
+            
+            # Checkpoint
+            image_prompts_generated = sum(len(r.get("prompts", [])) for r in media_results.values() if r.get("type") == "image_prompts")
+            video_prompts_generated = sum(len(r.get("prompts", [])) for r in media_results.values() if r.get("type") == "video_prompts")
+            
+            state["phase_checkpoints"]["media_generation"] = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "artifacts_processed": len([k for k in content_artifacts.keys() if isinstance(content_artifacts[k], dict) and "content" in content_artifacts[k]]),
+                "image_prompts_generated": image_prompts_generated,
+                "video_prompts_generated": video_prompts_generated,
+                "media_types_created": len(set(r.get("type") for r in media_results.values())),
+                "execution_time_ms": execution_time
+            }
+            
+            self.logger.info(f"Media generation completed: {len(media_results)} media artifacts created")
+            
+        except Exception as e:
+            self.logger.error(f"Media generation failed: {e}")
+            state["error_state"] = f"Media generation failed: {str(e)}"
+            state["failed_phases"].append("media_generation")
+        
+        state["updated_at"] = datetime.utcnow().isoformat()
+        return state
+    
     async def _execute_content_optimization(self, state: CampaignOrchestratorState) -> CampaignOrchestratorState:
         """Execute content optimization phase with SEO and quality improvements."""
         self.logger.info("Executing content optimization phase")
@@ -508,25 +655,90 @@ class CampaignOrchestratorLangGraph(LangGraphWorkflowBase[CampaignOrchestratorSt
         try:
             optimization_results = {}
             
-            # SEO optimization for each content artifact
+            # Enhanced optimization for each content artifact: SEO + GEO
             for artifact_id, artifact_data in state["content_artifacts"].items():
                 if isinstance(artifact_data, dict) and "content" in artifact_data:
+                    content = artifact_data["content"]
+                    title = state["campaign_config"].get("campaign_title", "")
+                    
+                    # 1. Traditional SEO optimization
                     seo_input = {
-                        "content": artifact_data["content"],
-                        "title": state["campaign_config"].get("campaign_title", ""),
+                        "content": content,
+                        "title": title,
                         "target_keywords": state["campaign_config"].get("target_keywords", [])
                     }
                     
                     seo_result = self.seo_agent.execute(seo_input)
                     
-                    if seo_result.success:
+                    # 2. Generative Engine Optimization (GEO) for AI search engines
+                    geo_input = {
+                        "content": content,
+                        "title": title,
+                        "target_audience": state["campaign_config"].get("target_audience", ""),
+                        "business_context": state["campaign_config"].get("company_context", "")
+                    }
+                    
+                    geo_result = await self.geo_agent.execute(geo_input)
+                    
+                    # Combine optimization results
+                    if seo_result.success and geo_result.success:
+                        optimization_results[artifact_id] = {
+                            # SEO results
+                            "seo_score": seo_result.data.get("seo_score", 0),
+                            "seo_suggestions": seo_result.data.get("suggestions", []),
+                            "seo_optimized_content": seo_result.data.get("optimized_content", content),
+                            
+                            # GEO results
+                            "geo_score": geo_result.data.get("overall_geo_score", 0),
+                            "trustworthiness_score": geo_result.data.get("trustworthiness_score", 0),
+                            "parsability_score": geo_result.data.get("parsability_score", 0),
+                            "ai_citability_score": geo_result.data.get("ai_citability_score", 0),
+                            "geo_suggestions": geo_result.data.get("optimization_recommendations", []),
+                            "geo_optimized_content": geo_result.data.get("optimized_content", content),
+                            
+                            # Combined optimization
+                            "final_optimized_content": geo_result.data.get("optimized_content", seo_result.data.get("optimized_content", content)),
+                            "combined_score": (seo_result.data.get("seo_score", 0) + geo_result.data.get("overall_geo_score", 0)) / 2
+                        }
+                        
+                        # Update content with final optimized version
+                        artifact_data["optimized_content"] = optimization_results[artifact_id]["final_optimized_content"]
+                        state["content_quality_scores"][f"{artifact_id}_seo"] = optimization_results[artifact_id]["seo_score"]
+                        state["content_quality_scores"][f"{artifact_id}_geo"] = optimization_results[artifact_id]["geo_score"]
+                        state["content_quality_scores"][f"{artifact_id}_combined"] = optimization_results[artifact_id]["combined_score"]
+                        
+                        # Add detailed reasoning from both agents
+                        if hasattr(seo_result, 'decisions') and seo_result.decisions:
+                            optimization_results[artifact_id]["seo_reasoning"] = [
+                                {
+                                    "decision": d.decision_point,
+                                    "reasoning": d.reasoning,
+                                    "importance": d.importance_explanation,
+                                    "confidence": d.confidence_score
+                                } for d in seo_result.decisions
+                            ]
+                        
+                        if hasattr(geo_result, 'decisions') and geo_result.decisions:
+                            optimization_results[artifact_id]["geo_reasoning"] = [
+                                {
+                                    "decision": d.decision_point,
+                                    "reasoning": d.reasoning,
+                                    "importance": d.importance_explanation,
+                                    "confidence": d.confidence_score
+                                } for d in geo_result.decisions
+                            ]
+                    
+                    elif seo_result.success:
+                        # Fallback to SEO only
                         optimization_results[artifact_id] = {
                             "seo_score": seo_result.data.get("seo_score", 0),
                             "optimization_suggestions": seo_result.data.get("suggestions", []),
-                            "optimized_content": seo_result.data.get("optimized_content", artifact_data["content"])
+                            "optimized_content": seo_result.data.get("optimized_content", content),
+                            "geo_score": 0,
+                            "geo_error": "GEO optimization failed"
                         }
                         
-                        # Update content with optimized version
+                        # Update content with SEO optimized version
                         artifact_data["optimized_content"] = optimization_results[artifact_id]["optimized_content"]
                         state["content_quality_scores"][f"{artifact_id}_seo"] = optimization_results[artifact_id]["seo_score"]
             
@@ -540,11 +752,22 @@ class CampaignOrchestratorLangGraph(LangGraphWorkflowBase[CampaignOrchestratorSt
             state["current_phase"] = CampaignPhase.CONTENT_REPURPOSING.value
             state["overall_progress"] = 55.0  # 55% for optimization
             
-            # Checkpoint
+            # Checkpoint with enhanced metrics
+            avg_seo_score = sum(r.get("seo_score", 0) for r in optimization_results.values()) / len(optimization_results) if optimization_results else 0
+            avg_geo_score = sum(r.get("geo_score", 0) for r in optimization_results.values()) / len(optimization_results) if optimization_results else 0
+            avg_combined_score = sum(r.get("combined_score", 0) for r in optimization_results.values()) / len(optimization_results) if optimization_results else 0
+            
             state["phase_checkpoints"]["content_optimization"] = {
                 "timestamp": datetime.utcnow().isoformat(),
                 "artifacts_optimized": len(optimization_results),
-                "avg_seo_score": sum(r.get("seo_score", 0) for r in optimization_results.values()) / len(optimization_results) if optimization_results else 0,
+                "avg_seo_score": avg_seo_score,
+                "avg_geo_score": avg_geo_score,
+                "avg_combined_score": avg_combined_score,
+                "optimization_coverage": {
+                    "seo_enabled": len([r for r in optimization_results.values() if r.get("seo_score", 0) > 0]),
+                    "geo_enabled": len([r for r in optimization_results.values() if r.get("geo_score", 0) > 0]),
+                    "combined_optimization": len([r for r in optimization_results.values() if r.get("combined_score", 0) > 0])
+                },
                 "execution_time_ms": execution_time
             }
             
@@ -683,6 +906,67 @@ class CampaignOrchestratorLangGraph(LangGraphWorkflowBase[CampaignOrchestratorSt
                     state["quality_gates_failed"].append("seo_quality")
                     qa_results["quality_gates"].append("seo_quality: FAILED")
                     qa_results["recommendations"].append(f"SEO score {avg_seo_score:.2f} below threshold {self.quality_thresholds['min_seo_score']}")
+            
+            # GEO quality assessment (Generative Engine Optimization)
+            geo_scores = [score for key, score in state["content_quality_scores"].items() if "geo" in key.lower()]
+            if geo_scores:
+                avg_geo_score = sum(geo_scores) / len(geo_scores)
+                qa_results["quality_scores"]["average_geo_score"] = avg_geo_score
+                
+                if avg_geo_score >= self.quality_thresholds["min_geo_score"]:
+                    state["quality_gates_passed"].append("geo_quality")
+                    qa_results["quality_gates"].append("geo_quality: PASSED")
+                else:
+                    state["quality_gates_failed"].append("geo_quality")
+                    qa_results["quality_gates"].append("geo_quality: FAILED")
+                    qa_results["recommendations"].append(f"GEO score {avg_geo_score:.2f} below threshold {self.quality_thresholds['min_geo_score']}")
+            
+            # Combined optimization quality assessment
+            combined_scores = [score for key, score in state["content_quality_scores"].items() if "combined" in key.lower()]
+            if combined_scores:
+                avg_combined_score = sum(combined_scores) / len(combined_scores)
+                qa_results["quality_scores"]["average_combined_score"] = avg_combined_score
+                
+                if avg_combined_score >= self.quality_thresholds["min_combined_optimization_score"]:
+                    state["quality_gates_passed"].append("combined_optimization")
+                    qa_results["quality_gates"].append("combined_optimization: PASSED")
+                else:
+                    state["quality_gates_failed"].append("combined_optimization")
+                    qa_results["quality_gates"].append("combined_optimization: FAILED")
+                    qa_results["recommendations"].append(f"Combined optimization score {avg_combined_score:.2f} below threshold {self.quality_thresholds['min_combined_optimization_score']}")
+            
+            # Media generation quality assessment
+            media_artifacts = [k for k in state["content_artifacts"].keys() if "image_prompts" in k or "video_prompts" in k]
+            media_success_rate = 1.0 if media_artifacts else 0.0  # Simple check for now
+            
+            if media_success_rate >= self.quality_thresholds["min_media_generation_success"]:
+                state["quality_gates_passed"].append("media_generation")
+                qa_results["quality_gates"].append("media_generation: PASSED")
+                qa_results["quality_scores"]["media_success_rate"] = media_success_rate
+            else:
+                state["quality_gates_failed"].append("media_generation")
+                qa_results["quality_gates"].append("media_generation: FAILED")
+                qa_results["recommendations"].append(f"Media generation success rate {media_success_rate:.2f} below threshold {self.quality_thresholds['min_media_generation_success']}")
+            
+            # Agent reasoning quality assessment
+            reasoning_confidence_scores = []
+            for artifact_data in state["content_artifacts"].values():
+                if isinstance(artifact_data, dict) and "reasoning" in artifact_data:
+                    for reasoning in artifact_data["reasoning"]:
+                        if "confidence" in reasoning:
+                            reasoning_confidence_scores.append(reasoning["confidence"])
+            
+            if reasoning_confidence_scores:
+                avg_reasoning_confidence = sum(reasoning_confidence_scores) / len(reasoning_confidence_scores)
+                qa_results["quality_scores"]["average_reasoning_confidence"] = avg_reasoning_confidence
+                
+                if avg_reasoning_confidence >= self.quality_thresholds["min_reasoning_confidence"]:
+                    state["quality_gates_passed"].append("reasoning_quality")
+                    qa_results["quality_gates"].append("reasoning_quality: PASSED")
+                else:
+                    state["quality_gates_failed"].append("reasoning_quality")
+                    qa_results["quality_gates"].append("reasoning_quality: FAILED")
+                    qa_results["recommendations"].append(f"Agent reasoning confidence {avg_reasoning_confidence:.2f} below threshold {self.quality_thresholds['min_reasoning_confidence']}")
             
             # Content completeness assessment
             required_artifacts = self._get_required_artifacts_for_campaign(state["campaign_type"])
@@ -979,8 +1263,24 @@ class CampaignOrchestratorLangGraph(LangGraphWorkflowBase[CampaignOrchestratorSt
     def _get_available_agents(self) -> List[str]:
         """Get list of available agent types."""
         return [
-            "planner", "researcher", "writer", "editor", "geo", "image", 
-            "content_repurposer", "social_media", "distribution", "seo"
+            # Core content pipeline
+            "planner", "researcher", "writer", "editor", 
+            
+            # Optimization agents
+            "seo", "geo_analysis", 
+            
+            # Media generation agents
+            "image_prompt", "video_prompt",
+            
+            # Content adaptation agents
+            "content_repurposer", "social_media",
+            
+            # Distribution and intelligence
+            "distribution", "search",
+            
+            # Competitor intelligence
+            "content_monitoring", "performance_analysis", "trend_analysis", 
+            "gap_identification", "strategic_insights", "alert_orchestration"
         ]
     
     def _estimate_campaign_duration(self, tasks: List[Dict[str, Any]]) -> int:

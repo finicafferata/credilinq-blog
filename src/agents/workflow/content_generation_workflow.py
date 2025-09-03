@@ -21,7 +21,7 @@ from src.agents.core.langgraph_compat import StateGraph, END, CompiledStateGraph
 
 from src.agents.core.base_agent import BaseAgent, AgentResult, AgentExecutionContext
 from src.agents.core.agent_factory import create_agent, AgentType
-from src.agents.specialized.ai_content_generator import (
+from src.agents.specialized.ai_content_generator_langgraph import (
     AIContentGeneratorAgent, ContentGenerationRequest, 
     ContentType, ContentChannel, GeneratedContent
 )

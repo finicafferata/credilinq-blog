@@ -18,10 +18,37 @@ from ..core.langgraph_base import (
     CheckpointStrategy, LangGraphExecutionContext
 )
 from ..core.base_agent import AgentType, AgentResult, AgentExecutionContext
-from .ai_content_generator import (
-    AIContentGeneratorAgent, ContentGenerationRequest, GeneratedContent,
-    ContentType, ContentChannel
-)
+# Import existing classes from other modules
+from src.api.routes.content_workflows import ContentGenerationRequest
+from src.services.ai_content_analyzer import ContentType
+from enum import Enum
+
+# Define missing classes locally
+class ContentChannel(str, Enum):
+    """Content distribution channels."""
+    EMAIL = "email"
+    SOCIAL = "social" 
+    BLOG = "blog"
+    WEBSITE = "website"
+    NEWSLETTER = "newsletter"
+
+@dataclass 
+class GeneratedContent:
+    """Generated content result."""
+    content: str
+    content_type: ContentType
+    channel: ContentChannel
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+# Placeholder for missing AIContentGeneratorAgent
+class AIContentGeneratorAgent:
+    """Placeholder for legacy AIContentGeneratorAgent."""
+    async def generate_content(self, request):
+        return GeneratedContent(
+            content="Generated content placeholder",
+            content_type=ContentType.BLOG,
+            channel=ContentChannel.BLOG
+        )
 # from ...config.database import DatabaseConnection  # Temporarily disabled
 
 

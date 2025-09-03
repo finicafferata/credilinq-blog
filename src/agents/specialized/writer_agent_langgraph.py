@@ -31,6 +31,7 @@ from ..core.langgraph_base import (
 )
 from ...core.security import SecurityValidator
 from ...config.settings import get_settings
+from ...core.langgraph_node_tracker import track_workflow_node, track_agent_decision
 
 import logging
 logger = logging.getLogger(__name__)
@@ -118,11 +119,14 @@ class WriterAgentLangGraph(LangGraphWorkflowBase[WriterWorkflowState]):
         try:
             settings = get_settings()
             self.llm = create_llm(
-                model="gemini-1.5-pro",  # Use GPT-4 for better content quality
+                model="gemini-1.5-pro",  # Use Gemini Pro for better content quality
                 temperature=0.7,
-                api_key=settings.primary_api_key
+                api_key=settings.primary_api_key,
+                agent_name="writer_agent_langgraph",
+                agent_type="writer",
+                enable_tracking=True
             )
-            self.logger.info("WriterAgent LangGraph initialized with GPT-4")
+            self.logger.info("WriterAgent LangGraph initialized with Gemini 1.5 Pro")
         except Exception as e:
             self.logger.error(f"Failed to initialize LLM: {e}")
             raise
@@ -262,6 +266,7 @@ class WriterAgentLangGraph(LangGraphWorkflowBase[WriterWorkflowState]):
         
         return state
     
+    @track_workflow_node("generate_section_content", "writer_agent", capture_decisions=True)
     async def _generate_section_content(self, state: WriterWorkflowState) -> WriterWorkflowState:
         """Generate content for the current section."""
         current_idx = state["current_section"]
@@ -273,6 +278,14 @@ class WriterAgentLangGraph(LangGraphWorkflowBase[WriterWorkflowState]):
         
         section = state["sections"][current_idx]
         self.logger.info(f"Generating content for section: {section.title}")
+        
+        # Set tracking context for LLM client
+        if hasattr(self.llm, 'set_tracking_context'):
+            self.llm.set_tracking_context(
+                workflow_id=state.get("workflow_id"),
+                agent_name="writer_agent_langgraph",
+                agent_type="writer"
+            )
         
         # Prepare research context for this section
         section_research = self._get_section_research(section.title, state["research"])
@@ -296,12 +309,35 @@ class WriterAgentLangGraph(LangGraphWorkflowBase[WriterWorkflowState]):
             section.content = content
             section.word_count = len(content.split())
             
+            # Track content generation decision
+            track_agent_decision(
+                execution_id=state.get("workflow_id", "unknown"),
+                decision_point=f"Generated {state['content_type']} section: {section.title}",
+                reasoning=f"Generated {section.word_count} words of {state['content_type']} content based on research and outline",
+                confidence_score=0.9,  # High confidence for successful generation
+                alternatives=[f"Skip section {section.title}", "Generate shorter content", "Generate longer content"],
+                business_impact=f"Provides structured content for {section.title} section",
+                content_type=state["content_type"],
+                word_count=section.word_count
+            )
+            
             state["current_step"] = "assess_quality"
             state["step_history"].append("generate_section")
             
         except Exception as e:
             self.logger.error(f"Section generation failed: {e}")
             state["error_state"] = f"Section generation failed: {e}"
+            
+            # Track failure decision
+            track_agent_decision(
+                execution_id=state.get("workflow_id", "unknown"),
+                decision_point=f"Failed to generate section: {section.title}",
+                reasoning=f"Content generation failed due to: {str(e)}",
+                confidence_score=0.0,  # No confidence in failed generation
+                alternatives=["Retry generation", "Skip section", "Use fallback content"],
+                business_impact="Content generation workflow interrupted",
+                error=str(e)
+            )
         
         return state
     

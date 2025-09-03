@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     # AI SERVICES - PRIMARY MODEL SELECTION
     # ========================================
     # Primary AI Provider Selection
-    primary_ai_provider: str = Field("openai", env="PRIMARY_AI_PROVIDER")  # "openai" or "gemini"
+    primary_ai_provider: str = Field("gemini", env="PRIMARY_AI_PROVIDER")  # "openai" or "gemini"
     
     # OpenAI Configuration
     openai_api_key: Optional[str] = Field(None, env="OPENAI_API_KEY")
