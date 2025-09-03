@@ -133,15 +133,24 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
   // Load scheduled content and feedback analytics on component mount
   useEffect(() => {
     const loadData = async () => {
+      // Load data with individual error handling to prevent cascade failures
+      
+      // Load scheduled content with graceful fallback
       try {
-        const [scheduledData, analyticsData] = await Promise.all([
-          campaignApi.getScheduledContent(campaign.id),
-          campaignApi.getFeedbackAnalytics(campaign.id)
-        ]);
+        const scheduledData = await campaignApi.getScheduledContent(campaign.id);
         setScheduledContent(scheduledData);
+      } catch (error) {
+        console.warn('Scheduled content not available:', error);
+        setScheduledContent([]); // Graceful fallback to empty array
+      }
+      
+      // Load feedback analytics with graceful fallback
+      try {
+        const analyticsData = await campaignApi.getFeedbackAnalytics(campaign.id);
         setFeedbackAnalytics(analyticsData);
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.warn('Feedback analytics not available:', error);
+        setFeedbackAnalytics(null); // Graceful fallback
       }
     };
     
