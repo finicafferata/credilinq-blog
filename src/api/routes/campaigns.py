@@ -576,7 +576,7 @@ async def list_campaigns():
             cur.execute("""
                 SELECT 
                     c.id as campaign_id,
-                    COALESCE(b.campaign_name::text, 'Unnamed Campaign') as campaign_name,
+                    COALESCE(c.name, 'Unnamed Campaign') as campaign_name,
                     c.status,
                     c.created_at,
                     COUNT(ct.id) as total_tasks,
@@ -591,7 +591,7 @@ async def list_campaigns():
                 LEFT JOIN campaign_tasks ct ON c.id = ct.campaign_id
                 LEFT JOIN blog_posts bp ON c.id = bp.campaign_id
                 WHERE c.created_at >= NOW() - INTERVAL '90 days'
-                GROUP BY c.id, b.campaign_name, c.status, c.created_at
+                GROUP BY c.id, c.name, c.status, c.created_at
                 ORDER BY c.created_at DESC
                 LIMIT 50
             """)
