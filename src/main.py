@@ -13,7 +13,7 @@ from .config import settings, db_config, secure_db
 from .api.routes import blogs, campaigns, analytics, health, documents, api_analytics, content_repurposing, content_preview, settings as settings_router
 # Temporarily disabled due to missing ML dependencies on Railway
 # from .api.routes import competitor_intelligence
-from .api.routes import content_deliverables  # Re-enabled for production fix
+# from .api.routes import content_deliverables  # Temporarily disabled - missing dependencies
 # from .api.routes import content_briefs  # Still temporarily disabled
 from .api.routes import comments as comments_router
 from .api.routes import suggestions as suggestions_router
@@ -346,7 +346,7 @@ app.include_router(content_preview.router, prefix="/api/v2/content-preview", tag
 # Temporarily disabled due to missing ML dependencies on Railway
 # app.include_router(competitor_intelligence.router, prefix="/api/v2", tags=["competitor-intelligence-v2"])
 # app.include_router(content_briefs.router, prefix="/api/v2", tags=["content-briefs-v2"])
-app.include_router(content_deliverables.router, tags=["content-deliverables-v2"])
+# app.include_router(content_deliverables.router, tags=["content-deliverables-v2"])  # Disabled - missing deps
 app.include_router(images_debug.router, prefix="/api/v2", tags=["images-v2"])
 # Settings routes (v2)
 app.include_router(settings_router.router, prefix="/api/v2", tags=["settings-v2"])
