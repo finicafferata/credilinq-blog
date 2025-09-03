@@ -1,6 +1,20 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Production environment check
+const isDev = import.meta.env.DEV;
+const isProduction = import.meta.env.PROD;
+
+// Safe API base URL configuration
+const apiBaseUrl = (() => {
+  if (isProduction) {
+    console.log('🔧 PRODUCTION: Using relative URLs for Vercel proxy');
+    return ''; // Use relative URLs in production to work with Vercel proxy
+  }
+  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+})();
+
+console.log('🔧 Orchestration API base URL:', apiBaseUrl);
+const API_BASE_URL = apiBaseUrl;
 
 // WebSocket connection for real-time updates
 class OrchestrationWebSocket {
