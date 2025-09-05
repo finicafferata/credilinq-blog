@@ -15,7 +15,7 @@ from contextlib import contextmanager
 import google.generativeai as genai
 from google.ai.generativelanguage_v1beta import GenerationConfig
 
-from .database import get_database_connection
+from src.config.database import db_config
 
 logger = logging.getLogger(__name__)
 
@@ -252,7 +252,7 @@ class GeminiPerformanceTracker:
     async def _insert_agent_performance_start(self, tracking_data: Dict[str, Any]) -> None:
         """Insert initial performance record in database."""
         try:
-            async with get_database_connection() as conn:
+            with db_config.get_db_connection() as conn:
                 await conn.execute("""
                     INSERT INTO agent_performance (
                         execution_id, agent_name, agent_type, campaign_id, blog_post_id,
@@ -279,7 +279,7 @@ class GeminiPerformanceTracker:
     async def _update_agent_performance_end(self, tracking_data: Dict[str, Any]) -> None:
         """Update performance record with completion data."""
         try:
-            async with get_database_connection() as conn:
+            with db_config.get_db_connection() as conn:
                 cost = 0
                 input_tokens = 0
                 output_tokens = 0

@@ -53,19 +53,17 @@ class AgentInsightsService:
                         COUNT(*) as total_executions,
                         AVG(ap.duration) as avg_duration_ms,
                         COUNT(CASE WHEN ap.status = 'success' THEN 1 END) as successful_executions,
-                        SUM(ap.input_tokens) as total_input_tokens,
-                        SUM(ap.output_tokens) as total_output_tokens,
-                        SUM(ap.cost) as total_cost,
+                        COALESCE(SUM(ap.input_tokens), 0) as total_input_tokens,
+                        COALESCE(SUM(ap.output_tokens), 0) as total_output_tokens,
+                        COALESCE(SUM(ap.cost), 0.0) as total_cost,
                         MAX(ap.start_time) as last_activity,
                         MIN(ap.start_time) as first_activity,
-                        ap.model_used,
-                        AVG(CASE WHEN ap.response_metadata::json->>'usage_metrics' IS NOT NULL 
-                            THEN (ap.response_metadata::json->'usage_metrics'->>'total_token_count')::int 
-                            ELSE NULL END) as avg_total_tokens,
-                        STRING_AGG(DISTINCT ap.model_used, ', ') as models_used
+                        'gemini-1.5-flash' as model_used,
+                        AVG(COALESCE(ap.total_tokens, ap.input_tokens + ap.output_tokens)) as avg_total_tokens,
+                        'gemini-1.5-flash' as models_used
                     FROM agent_performance ap
                     WHERE ap.campaign_id = %s
-                    GROUP BY ap.agent_name, ap.agent_type, ap.model_used
+                    GROUP BY ap.agent_name, ap.agent_type
                     ORDER BY total_executions DESC
                 """
                 

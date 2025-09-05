@@ -10,7 +10,7 @@ import logging
 import asyncio
 
 from .config import settings, db_config, secure_db
-from .api.routes import blogs, campaigns, analytics, health, documents, api_analytics, content_repurposing, content_preview, settings as settings_router
+from .api.routes import blogs, campaigns, analytics, health, documents, api_analytics, content_repurposing, content_preview, settings as settings_router, review_workflow
 # Temporarily disabled due to missing ML dependencies on Railway
 # from .api.routes import competitor_intelligence
 # from .api.routes import content_deliverables  # Temporarily disabled - missing dependencies
@@ -355,6 +355,7 @@ app.include_router(workflow_fixed.router, prefix="/api/v2", tags=["workflow-fixe
 # Content generation workflows
 # app.include_router(content_workflows.router, prefix="/api/v2", tags=["content-workflows-v2"])
 app.include_router(agents.router, prefix="/api/v2", tags=["agents-v2"])
+app.include_router(review_workflow.router, tags=["review-workflow-v2"])  # Review workflow already has /api/v2 prefix
 
 # V1 routes (deprecated, for backward compatibility)
 app.include_router(blogs.router, prefix="/api/v1", tags=["blogs-v1"], deprecated=True)
@@ -377,6 +378,7 @@ app.include_router(content_preview.router, prefix="/api/content-preview", tags=[
 # Temporarily disabled due to missing ML dependencies on Railway
 # app.include_router(competitor_intelligence.router, prefix="/api", tags=["competitor-intelligence"])
 app.include_router(settings_router.router, prefix="/api", tags=["settings"])
+app.include_router(review_workflow.router, tags=["review-workflow"])  # Review workflow routes
 
 # Add a simple test route directly
 @app.get("/api/images/test-direct")

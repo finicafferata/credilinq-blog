@@ -39,6 +39,26 @@ class GeneratedContent:
     content_type: ContentType
     channel: ContentChannel
     metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    # Integration fields for workflow compatibility
+    content_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    quality_score: float = 0.0  # 0.0-1.0 range (will be set by Quality Review Agent)
+    word_count: int = 0
+    
+    def __post_init__(self):
+        """Calculate word count and basic quality score if not provided."""
+        if self.word_count == 0:
+            self.word_count = len(self.content.split())
+        
+        # Basic fallback quality score if not set by review agents
+        if self.quality_score == 0.0:
+            # Basic content quality heuristic: 
+            # - Length bonus (up to 0.3)
+            # - Structure bonus (up to 0.3) 
+            # - Base score (0.4)
+            length_score = min(0.3, (self.word_count / 500) * 0.3)  # Good length ~500 words
+            structure_score = 0.2 if any(marker in self.content for marker in ['\n#', '##', '###', '\n-', '\n*']) else 0.1
+            self.quality_score = 0.4 + length_score + structure_score
 
 # Placeholder for missing AIContentGeneratorAgent
 class AIContentGeneratorAgent:

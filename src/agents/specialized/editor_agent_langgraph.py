@@ -67,7 +67,7 @@ class EditorAgentWorkflow(LangGraphWorkflowBase[EditorState]):
     
     def __init__(
         self,
-        llm: Optional[ChatOpenAI] = None,
+        llm: Optional[Any] = None,  # Gemini LLM instance
         workflow_name: str = "editor_agent_workflow",
         checkpoint_strategy: CheckpointStrategy = CheckpointStrategy.DATABASE_PERSISTENT,
         max_revisions: int = 3

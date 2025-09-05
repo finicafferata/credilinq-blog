@@ -107,7 +107,7 @@ class SocialMediaAgentWorkflow(LangGraphWorkflowBase[SocialMediaState]):
     
     def __init__(
         self,
-        llm: Optional[ChatOpenAI] = None,
+        llm: Optional[Any] = None,  # Gemini LLM instance
         workflow_name: str = "social_media_agent_workflow",
         checkpoint_strategy: CheckpointStrategy = CheckpointStrategy.DATABASE_PERSISTENT
     ):

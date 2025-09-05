@@ -345,9 +345,19 @@ export const campaignApi = {
 
   // Review task content (approve, reject, request revision)
   reviewTask: async (campaignId: string, taskId: string, action: 'approve' | 'reject' | 'request_revision', notes?: string): Promise<any> => {
-    const params = new URLSearchParams({ action });
-    if (notes) params.append('notes', notes);
-    const response = await api.post(`/api/v2/campaigns/orchestration/campaigns/${campaignId}/tasks/${taskId}/review?${params.toString()}`);
+    const params = new URLSearchParams();
+    params.append('action', action);
+    if (notes) {
+      params.append('notes', notes);
+    }
+    const response = await api.post(`/api/v2/campaigns/orchestration/campaigns/${campaignId}/tasks/${taskId}/review?${params}`, 
+      null, 
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      }
+    );
     return response.data;
   },
 
@@ -470,7 +480,8 @@ export const analyticsApi = {
   },
 };
 
-export default api; 
+export default api;
+export { api };
  
 // Comments API
 export const commentsApi = {

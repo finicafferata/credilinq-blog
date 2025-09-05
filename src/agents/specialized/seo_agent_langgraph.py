@@ -104,7 +104,7 @@ class SEOAgentWorkflow(LangGraphWorkflowBase[SEOState]):
     
     def __init__(
         self,
-        llm: Optional[ChatOpenAI] = None,
+        llm: Optional[Any] = None,  # Gemini LLM instance
         workflow_name: str = "seo_agent_workflow",
         checkpoint_strategy: CheckpointStrategy = CheckpointStrategy.DATABASE_PERSISTENT,
         analysis_depth: str = "comprehensive"

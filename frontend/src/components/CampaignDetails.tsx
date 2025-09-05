@@ -26,6 +26,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Play, RefreshCw, CheckCircle, XCircle, RotateCcw, Eye, Copy, Download, X, Target, Users, Calendar, TrendingUp, Filter, BarChart3, Clock, Star, FileText, Shield, Search, UserCheck, MessageSquare, AlertCircle, ArrowRight } from 'lucide-react';
 import type { CampaignDetail } from '../lib/api';
 import { campaignApi } from '../lib/api';
+import { aiInsightsApi } from '../services/aiInsightsApi';
+import { EnhancedAgentInsights } from './EnhancedAgentInsights';
+import CampaignProgressTracker from './CampaignProgressTracker';
 
 interface CampaignDetailsProps {
   campaign: CampaignDetail;
@@ -52,6 +55,10 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
     task: any;
     stage: string;
   }>({ isOpen: false, task: null, stage: '' });
+  const [aiInsights, setAiInsights] = useState<any>(null);
+  const [loadingInsights, setLoadingInsights] = useState(false);
+  const [taskInsights, setTaskInsights] = useState<Record<string, any>>({});
+  const [loadingTaskInsights, setLoadingTaskInsights] = useState<Set<string>>(new Set());
   const [reviewForm, setReviewForm] = useState({
     brandConsistency: { score: 0, comments: '', checked: false },
     contentQuality: { score: 0, comments: '', checked: false },
@@ -61,6 +68,92 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
     finalComments: '',
     action: 'approve' as 'approve' | 'reject' | 'request_revision'
   });
+
+  // Helper functions to intelligently extract campaign information from multiple sources
+  const getCampaignStrategy = () => {
+    // Try metadata first, then strategy object, then infer from name/tasks
+    const metadata = campaign.metadata;
+    const strategy = campaign.strategy;
+    
+    const strategyType = metadata?.strategy_type || 
+                        strategy?.type || 
+                        (campaign.name?.toLowerCase().includes('social') ? 'social_media' : 
+                         campaign.name?.toLowerCase().includes('blog') ? 'content_marketing' : 
+                         campaignTasks.length > 5 ? 'multi_channel' : 'content_marketing');
+    
+    const description = metadata?.description || 
+                       strategy?.description || 
+                       `${strategyType.replace('_', ' ')} campaign focused on content creation and distribution`;
+    
+    const timelineWeeks = metadata?.timeline_weeks || 
+                         strategy?.duration_weeks || 
+                         Math.ceil(campaignTasks.length / 2) || 4;
+    
+    return {
+      type: strategyType,
+      description,
+      timelineWeeks,
+      hasData: !!(metadata?.strategy_type || strategy?.type || campaign.name)
+    };
+  };
+
+  const getCampaignAudience = () => {
+    // Try metadata, strategy, or infer from content type
+    const metadata = campaign.metadata;
+    const strategy = campaign.strategy;
+    
+    const targetAudience = metadata?.target_audience || 
+                          strategy?.target_audience || 
+                          'B2B financial services professionals and decision-makers';
+    
+    const companyContext = metadata?.company_context || 
+                          strategy?.company_context || 
+                          `Campaign targeting ${targetAudience} with focus on industry expertise`;
+    
+    const demographics = metadata?.demographics || 
+                        strategy?.demographics || 
+                        { industries: ['Financial Services'], roles: ['Decision Makers', 'Professionals'] };
+    
+    return {
+      targetAudience,
+      companyContext,
+      demographics,
+      hasData: !!(metadata?.target_audience || strategy?.target_audience)
+    };
+  };
+
+  const getCampaignMetrics = () => {
+    // Try metadata, calculate from tasks, or provide defaults
+    const metadata = campaign.metadata;
+    const strategy = campaign.strategy;
+    
+    const contentPieces = metadata?.success_metrics?.content_pieces || 
+                         strategy?.content_target || 
+                         campaignTasks.length || 5;
+    
+    const targetChannels = metadata?.success_metrics?.target_channels || 
+                          metadata?.distribution_channels?.join(', ') || 
+                          strategy?.channels?.join(', ') || 
+                          'Website, Social Media, Email';
+    
+    const priority = metadata?.priority || 
+                    strategy?.priority || 
+                    (campaignTasks.length > 10 ? 'high' : 
+                     campaignTasks.length > 5 ? 'medium' : 'normal');
+    
+    const completionRate = campaignTasks.length > 0 ? 
+                          Math.round((campaignTasks.filter(t => t.status === 'completed' || t.status === 'approved').length / campaignTasks.length) * 100) : 0;
+    
+    return {
+      contentPieces,
+      targetChannels,
+      priority,
+      completionRate,
+      totalTasks: campaignTasks.length,
+      completedTasks: campaignTasks.filter(t => t.status === 'completed' || t.status === 'approved').length,
+      hasData: !!(metadata?.success_metrics || strategy?.content_target || campaignTasks.length)
+    };
+  };
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -217,36 +310,130 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
     }
   };
 
+  // Get stage-specific review criteria
+  const getStageReviewCriteria = (stageId: string) => {
+    switch (stageId) {
+      case 'initial_review':
+        return {
+          contentQuality: { 
+            score: 3, 
+            comments: '', 
+            checked: false,
+            label: 'Content Quality',
+            description: 'Accuracy, relevance, and clarity'
+          },
+          structureFlow: { 
+            score: 3, 
+            comments: '', 
+            checked: false,
+            label: 'Structure & Flow',
+            description: 'Logical organization and readability'
+          },
+          factAccuracy: { 
+            score: 3, 
+            comments: '', 
+            checked: false,
+            label: 'Fact Accuracy',
+            description: 'Correctness of information and claims'
+          },
+        };
+      case 'brand_review':
+        return {
+          brandConsistency: { 
+            score: 3, 
+            comments: '', 
+            checked: false,
+            label: 'Brand Consistency',
+            description: 'Voice, tone, and brand guidelines adherence'
+          },
+          messagingAlignment: { 
+            score: 3, 
+            comments: '', 
+            checked: false,
+            label: 'Messaging Alignment',
+            description: 'Consistency with brand messaging strategy'
+          },
+          visualBranding: { 
+            score: 3, 
+            comments: '', 
+            checked: false,
+            label: 'Visual Branding',
+            description: 'Logo, colors, and visual elements'
+          },
+        };
+      case 'seo_review':
+        return {
+          seoOptimization: { 
+            score: 3, 
+            comments: '', 
+            checked: false,
+            label: 'SEO Optimization',
+            description: 'Keywords, meta tags, and search optimization'
+          },
+          keywordDensity: { 
+            score: 3, 
+            comments: '', 
+            checked: false,
+            label: 'Keyword Strategy',
+            description: 'Target keyword usage and density'
+          },
+          technicalSeo: { 
+            score: 3, 
+            comments: '', 
+            checked: false,
+            label: 'Technical SEO',
+            description: 'URLs, headers, and technical elements'
+          },
+        };
+      case 'final_approval':
+        return {
+          overallQuality: { 
+            score: 3, 
+            comments: '', 
+            checked: false,
+            label: 'Overall Quality',
+            description: 'Final assessment of content quality'
+          },
+          executiveApproval: { 
+            score: 3, 
+            comments: '', 
+            checked: false,
+            label: 'Executive Standards',
+            description: 'Meets executive and stakeholder requirements'
+          },
+          complianceCheck: { 
+            score: 3, 
+            comments: '', 
+            checked: false,
+            label: 'Compliance Check',
+            description: 'Legal, regulatory, and policy compliance'
+          },
+        };
+      default:
+        return {
+          generalReview: { 
+            score: 3, 
+            comments: '', 
+            checked: false,
+            label: 'General Review',
+            description: 'Overall content assessment'
+          }
+        };
+    }
+  };
+
   // Open structured review form
   const openReviewForm = (task: any, stage: string) => {
     const aiInsights = getAIInsights(task);
     setReviewModal({ isOpen: true, task, stage });
     
-    // Pre-populate form with AI-suggested scores (converted from 10-point to 5-point scale)
+    // Initialize form with stage-specific criteria
+    const stageCriteria = getStageReviewCriteria(stage);
     setReviewForm({
-      brandConsistency: { 
-        score: Math.round(aiInsights.brandAgent.score / 2), 
-        comments: `AI Analysis: ${aiInsights.brandAgent.voice}, ${aiInsights.brandAgent.terminology}`, 
-        checked: false 
-      },
-      contentQuality: { 
-        score: Math.round(aiInsights.contentAgent.score / 2), 
-        comments: `AI Analysis: ${aiInsights.contentAgent.structure}, Engagement: ${aiInsights.contentAgent.engagement}`, 
-        checked: false 
-      },
-      seoOptimization: { 
-        score: Math.round(aiInsights.seoAgent.score / 2), 
-        comments: `AI Analysis: Keywords: ${aiInsights.seoAgent.keywords.join(', ')}, Readability: ${aiInsights.seoAgent.readability}/10`, 
-        checked: false 
-      },
-      complianceCheck: { 
-        score: Math.round(aiInsights.geoAgent.score / 2), 
-        comments: `AI Analysis: Markets: ${aiInsights.geoAgent.markets.join(', ')}, Compliance: ${aiInsights.geoAgent.compliance.join(', ')}`, 
-        checked: false 
-      },
-      overallRating: Math.round(aiInsights.overallScore / 2),
-      finalComments: `AI Confidence: ${aiInsights.confidence}%. Top recommendation: ${aiInsights.recommendations[0]}`,
-      action: aiInsights.overallScore >= 9.0 ? 'approve' : aiInsights.overallScore >= 7.5 ? 'approve' : 'request_revision'
+      ...stageCriteria,
+      overallRating: 3,
+      finalComments: '',
+      action: 'revision'
     });
   };
 
@@ -255,26 +442,34 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
     if (!reviewModal.task) return;
     
     try {
-      const reviewData = {
-        taskId: reviewModal.task.id,
-        stage: reviewModal.stage,
-        criteria: {
-          brandConsistency: reviewForm.brandConsistency,
-          contentQuality: reviewForm.contentQuality,
-          seoOptimization: reviewForm.seoOptimization,
-          complianceCheck: reviewForm.complianceCheck
-        },
-        overallRating: reviewForm.overallRating,
-        comments: reviewForm.finalComments,
-        action: reviewForm.action
-      };
-
-      // For now, we'll use the existing reviewTask function
-      // In a full implementation, this would call a new structured review API
-      await reviewTask(reviewModal.task.id, reviewForm.action, reviewForm.finalComments);
+      // For now, use the existing reviewTask function until 8-stage workflow is fully connected
+      // Map the review form action to the expected format
+      let action: 'approve' | 'reject' | 'request_revision';
+      if (reviewForm.action === 'approve') action = 'approve';
+      else if (reviewForm.action === 'request_revision') action = 'request_revision';
+      else action = 'reject';
+      
+      // Submit the review with all the collected information
+      await reviewTask(reviewModal.task.id, action, reviewForm.finalComments);
       
       setReviewModal({ isOpen: false, task: null, stage: '' });
-      console.log('Structured review submitted:', reviewData);
+      // Log all dynamic criteria
+      const reviewCriteria = Object.entries(reviewForm)
+        .filter(([key]) => key !== 'overallRating' && key !== 'finalComments' && key !== 'action')
+        .reduce((acc, [key, value]) => {
+          if (typeof value === 'object' && value !== null && 'score' in value) {
+            acc[key] = value;
+          }
+          return acc;
+        }, {} as any);
+
+      console.log('Structured review submitted successfully with:', {
+        stage: reviewModal.stage,
+        action: action,
+        overallRating: reviewForm.overallRating,
+        comments: reviewForm.finalComments,
+        criteria: reviewCriteria
+      });
     } catch (error) {
       console.error('Error submitting structured review:', error);
     }
@@ -295,6 +490,42 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
     
     loadData();
   }, [campaign.id]);
+
+  // Load real AI insights
+  useEffect(() => {
+    const fetchRealInsights = async () => {
+      if (!campaign.id) return;
+      
+      setLoadingInsights(true);
+      try {
+        const realInsights = await aiInsightsApi.getCampaignInsights(campaign.id);
+        const uiInsights = aiInsightsApi.transformInsightsForUI(realInsights);
+        setAiInsights(uiInsights);
+      } catch (error) {
+        console.warn('Failed to load real AI insights, falling back to mock data:', error);
+        // Keep using the mock function as fallback
+        setAiInsights(null);
+      } finally {
+        setLoadingInsights(false);
+      }
+    };
+
+    fetchRealInsights();
+  }, [campaign.id]);
+
+  // Phase 4.4 & 5: Refresh function for enhanced insights
+  const refreshInsights = async () => {
+    setLoadingInsights(true);
+    try {
+      const realInsights = await aiInsightsApi.getCampaignInsights(campaign.id);
+      const uiInsights = aiInsightsApi.transformInsightsForUI(realInsights);
+      setAiInsights(uiInsights);
+    } catch (error) {
+      console.warn('Failed to refresh AI insights:', error);
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
 
   // Open full content modal
   const openFullContent = (task: any) => {
@@ -449,7 +680,7 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
       case 'seo_approved':
         return 'final_approval';
       case 'approved':
-        return 'completed';
+        return 'final_approval';
       case 'rejected':
         return 'revision_needed';
       default:
@@ -485,74 +716,117 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
     return 'Content format not recognized';
   };
 
+  // Fetch task-specific AI insights
+  const fetchTaskInsights = async (taskId: string) => {
+    if (loadingTaskInsights.has(taskId) || taskInsights[taskId]) {
+      return; // Already loading or loaded
+    }
+    
+    setLoadingTaskInsights(prev => new Set([...prev, taskId]));
+    
+    try {
+      const response = await api.get(`/api/${campaign.id}/task/${taskId}/agent-insights`);
+      const insights = response.data;
+      
+      // Transform the insights to match the UI format
+      if (insights.agent_insights && insights.agent_insights.length > 0) {
+        const transformedInsights = aiInsightsApi.transformInsightsForUI({
+          campaign_id: insights.campaign_id,
+          agent_insights: insights.agent_insights,
+          summary: insights.summary,
+          data_source: insights.data_source
+        });
+        
+        setTaskInsights(prev => ({
+          ...prev,
+          [taskId]: transformedInsights
+        }));
+      } else {
+        // Set pending state for this task
+        setTaskInsights(prev => ({
+          ...prev,
+          [taskId]: null
+        }));
+      }
+    } catch (error) {
+      console.warn(`Failed to fetch insights for task ${taskId}:`, error);
+      setTaskInsights(prev => ({
+        ...prev,
+        [taskId]: null
+      }));
+    } finally {
+      setLoadingTaskInsights(prev => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+    }
+  };
+
   // Generate AI insights based on task type and content
   const getAIInsights = (task: any) => {
-    // TODO: Replace with real API call to /orchestration/campaigns/{campaignId}/ai-insights
-    // This mock function can now be replaced with actual database insights
-    const baseInsights = {
+    // First check if we have task-specific insights
+    if (task?.id && taskInsights[task.id] !== undefined) {
+      return taskInsights[task.id] || getPendingInsights();
+    }
+    
+    // If task has content and we haven't loaded insights yet, fetch them
+    if (task?.id && task?.result && !loadingTaskInsights.has(task.id)) {
+      fetchTaskInsights(task.id);
+    }
+    
+    // Use campaign-level AI insights if available
+    if (aiInsights) {
+      return aiInsights;
+    }
+    
+    // Return pending state
+    return getPendingInsights();
+  };
+  
+  // Helper function to return pending insights structure
+  const getPendingInsights = () => {
+    // Phase 4.4: Return "Analysis Pending" instead of mock scores when real insights aren't available
+    return {
       seoAgent: {
-        score: Math.round((Math.random() * 2 + 8) * 10) / 10, // 8.0-10.0 range
-        keywords: task.task_type?.includes('blog') ? ['embedded finance', 'AI platform', 'fintech'] : ['CrediLinq', 'automation', 'efficiency'],
-        readability: Math.round((Math.random() * 2 + 7) * 10) / 10,
-        recommendations: ['Optimize meta description length', 'Add more subheadings', 'Include target keywords naturally']
+        score: null,
+        status: 'pending',
+        statusText: 'Analysis Pending',
+        keywords: [],
+        readability: null,
+        recommendations: []
       },
       contentAgent: {
-        score: Math.round((Math.random() * 1.5 + 8.5) * 10) / 10,
-        engagement: task.target_format?.includes('social') ? 'High' : 'Medium-High',
-        accuracy: 'Verified',
-        structure: 'Clear & well-organized',
-        cta: task.task_type?.includes('email') ? 'Compelling' : 'Present'
+        score: null,
+        status: 'pending',
+        statusText: 'Analysis Pending',
+        engagement: null,
+        accuracy: null,
+        structure: null,
+        cta: null
       },
       brandAgent: {
-        score: Math.round((Math.random() * 1.5 + 8.5) * 10) / 10,
-        voice: 'Professional & authoritative',
-        consistency: true,
-        terminology: 'Correctly applied',
-        alignment: task.task_type?.includes('blog') ? 'Excellent' : 'Good'
+        score: null,
+        status: 'pending',
+        statusText: 'Analysis Pending',
+        voice: null,
+        consistency: null,
+        terminology: null,
+        alignment: null
       },
       geoAgent: {
-        score: Math.round((Math.random() * 1.5 + 8.2) * 10) / 10,
-        markets: ['North America', 'Europe'],
-        compliance: ['GDPR', 'CCPA'],
-        localization: 'Appropriate',
-        sensitivity: 'Reviewed'
-      }
-    };
-
-    const overallScore = Math.round((baseInsights.seoAgent.score + baseInsights.contentAgent.score + 
-                                   baseInsights.brandAgent.score + baseInsights.geoAgent.score) / 4 * 10) / 10;
-
-    /* 
-    TODO: Replace above mock data with real API call like:
-    
-    const realInsights = await fetch(`/api/campaigns/orchestration/campaigns/${campaignId}/ai-insights`);
-    const data = await realInsights.json();
-    
-    return {
-      seoAgent: {
-        score: data.seo_geo_analysis.seo_analysis.avg_confidence * 10,
-        keywords: data.seo_geo_analysis.keyword_extraction.keywords,
-        readability: data.seo_geo_analysis.readability_metrics.avg_score,
-        recommendations: data.agent_insights.find(a => a.agent_type === 'seo')?.recent_decisions[0]?.reasoning
+        score: null,
+        status: 'pending',
+        statusText: 'Analysis Pending',
+        markets: [],
+        compliance: [],
+        localization: null,
+        sensitivity: null
       },
-      geoAgent: {
-        score: data.seo_geo_analysis.geo_analysis.avg_confidence * 10,
-        // ... other real data mappings
-      },
-      confidence: data.summary.avg_success_rate,
-      recommendations: data.agent_insights.flatMap(a => a.recommendations.map(r => r.description))
-    };
-    */
-
-    return {
-      ...baseInsights,
-      overallScore,
-      confidence: Math.round(overallScore * 10),
-      recommendations: [
-        'Consider adding industry statistics for enhanced credibility',
-        'Social media adaptation: Excellent for LinkedIn, trim for Twitter',
-        task.target_format?.includes('email') ? 'Add personalization placeholder' : 'Optimize for mobile viewing'
-      ]
+      overallScore: null,
+      confidence: null,
+      recommendations: [],
+      hasRealData: false
     };
   };
 
@@ -570,8 +844,30 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
               </div>
               <p className="text-gray-600 mb-4">Campaign ID: {campaign.id}</p>
               
+              {/* Phase 3: Real-Time Content Generation Progress */}
+              <div className="mb-6">
+                <CampaignProgressTracker
+                  campaignId={campaign.id}
+                  campaignName={campaign.name}
+                  onProgressComplete={(contentCreated) => {
+                    console.log('Campaign content generated:', contentCreated);
+                    // Optionally refresh campaign data or show notification
+                  }}
+                />
+              </div>
+              
               {/* Campaign Overview Dashboard */}
               <div className="space-y-4">
+                {/* Phase 4.4 & 5: Enhanced AI Agent Insights - Only show when real data is available */}
+                {aiInsights?.hasRealData && (
+                  <EnhancedAgentInsights
+                    aiInsights={aiInsights}
+                    campaignId={campaign.id}
+                    loadingInsights={loadingInsights}
+                    onRefresh={refreshInsights}
+                  />
+                )}
+
                 {/* Campaign Progress Bar */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
@@ -601,15 +897,19 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
                       <h4 className="font-medium text-gray-900">Strategy</h4>
                     </div>
                     <div className="space-y-2 text-sm">
-                      {campaign.metadata?.strategy_type && (
-                        <p><span className="font-medium">Type:</span> <span className="capitalize">{campaign.metadata.strategy_type.replace('_', ' ')}</span></p>
-                      )}
-                      {campaign.metadata?.description && (
-                        <p className="text-gray-600">{campaign.metadata.description}</p>
-                      )}
-                      {campaign.metadata?.timeline_weeks && (
-                        <p><span className="font-medium">Timeline:</span> {campaign.metadata.timeline_weeks} weeks</p>
-                      )}
+                      {(() => {
+                        const strategy = getCampaignStrategy();
+                        return (
+                          <>
+                            <p><span className="font-medium">Type:</span> <span className="capitalize">{strategy.type.replace('_', ' ')}</span></p>
+                            <p className="text-gray-600">{strategy.description}</p>
+                            <p><span className="font-medium">Timeline:</span> {strategy.timelineWeeks} weeks</p>
+                            {!strategy.hasData && (
+                              <p className="text-xs text-blue-600 italic mt-2">ℹ️ Inferred from campaign structure</p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -620,12 +920,25 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
                       <h4 className="font-medium text-gray-900">Audience</h4>
                     </div>
                     <div className="space-y-2 text-sm">
-                      {campaign.metadata?.target_audience && (
-                        <p className="text-gray-600">{campaign.metadata.target_audience}</p>
-                      )}
-                      {campaign.metadata?.company_context && (
-                        <p className="text-gray-600 text-xs">{campaign.metadata.company_context.substring(0, 100)}...</p>
-                      )}
+                      {(() => {
+                        const audience = getCampaignAudience();
+                        return (
+                          <>
+                            <p className="text-gray-600">{audience.targetAudience}</p>
+                            <p className="text-gray-600 text-xs">{audience.companyContext.substring(0, 120)}...</p>
+                            {audience.demographics && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {(audience.demographics.industries || []).map((industry: string, idx: number) => (
+                                  <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">{industry}</span>
+                                ))}
+                              </div>
+                            )}
+                            {!audience.hasData && (
+                              <p className="text-xs text-green-600 italic mt-2">ℹ️ Default B2B financial services targeting</p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -636,35 +949,62 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
                       <h4 className="font-medium text-gray-900">Metrics</h4>
                     </div>
                     <div className="space-y-2 text-sm">
-                      {campaign.metadata?.success_metrics?.content_pieces && (
-                        <p><span className="font-medium">Target:</span> {campaign.metadata.success_metrics.content_pieces} pieces</p>
-                      )}
-                      {campaign.metadata?.success_metrics?.target_channels && (
-                        <p><span className="font-medium">Channels:</span> {campaign.metadata.success_metrics.target_channels}</p>
-                      )}
-                      {campaign.metadata?.priority && (
-                        <p><span className="font-medium">Priority:</span> <span className="capitalize text-orange-600">{campaign.metadata.priority}</span></p>
-                      )}
+                      {(() => {
+                        const metrics = getCampaignMetrics();
+                        return (
+                          <>
+                            <p><span className="font-medium">Target:</span> {metrics.contentPieces} pieces</p>
+                            <p><span className="font-medium">Channels:</span> {metrics.targetChannels}</p>
+                            <p><span className="font-medium">Priority:</span> <span className={`capitalize ${
+                              metrics.priority === 'high' ? 'text-red-600' : 
+                              metrics.priority === 'medium' ? 'text-orange-600' : 
+                              'text-green-600'
+                            }`}>{metrics.priority}</span></p>
+                            <div className="pt-2 border-t border-purple-200">
+                              <p className="text-xs text-purple-700">
+                                <span className="font-medium">Progress:</span> {metrics.completedTasks}/{metrics.totalTasks} tasks ({metrics.completionRate}%)
+                              </p>
+                              <div className="w-full bg-purple-200 rounded-full h-2 mt-1">
+                                <div 
+                                  className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${metrics.completionRate}%` }}
+                                />
+                              </div>
+                            </div>
+                            {!metrics.hasData && (
+                              <p className="text-xs text-purple-600 italic mt-2">ℹ️ Calculated from current tasks</p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
 
                 {/* Distribution Channels */}
-                {campaign.metadata?.distribution_channels && (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 mb-3">Distribution Channels</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {campaign.metadata.distribution_channels.map((channel: string, index: number) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm text-gray-700 capitalize"
-                        >
-                          {channel.replace('_', ' ')}
-                        </span>
-                      ))}
+                {(() => {
+                  const channels = campaign.metadata?.distribution_channels || 
+                                 campaign.strategy?.channels || 
+                                 ['Website', 'Social Media', 'Email', 'Blog'];
+                  return (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-3">Distribution Channels</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {channels.map((channel: string, index: number) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm text-gray-700 capitalize"
+                          >
+                            {typeof channel === 'string' ? channel.replace('_', ' ') : channel}
+                          </span>
+                        ))}
+                      </div>
+                      {!campaign.metadata?.distribution_channels && !campaign.strategy?.channels && (
+                        <p className="text-xs text-gray-500 italic mt-2">ℹ️ Default distribution channels</p>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Content Pipeline Visualization */}
                 <div className="mt-6 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border">
@@ -697,7 +1037,7 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     {[
                       { label: 'Total', count: campaignTasks.length, color: 'bg-gray-100 text-gray-800' },
-                      { label: 'Completed', count: campaignTasks.filter(t => t.status === 'completed').length, color: 'bg-yellow-100 text-yellow-800' },
+                      { label: 'Ready for Review', count: campaignTasks.filter(t => t.status === 'completed').length, color: 'bg-yellow-100 text-yellow-800' },
                       { label: 'Approved', count: campaignTasks.filter(t => t.status === 'approved').length, color: 'bg-green-100 text-green-800' },
                       { label: 'Pending', count: campaignTasks.filter(t => t.status === 'pending').length, color: 'bg-gray-100 text-gray-600' }
                     ].map((stat, index) => (
@@ -875,7 +1215,7 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="font-medium text-gray-900 mb-2">Content Progress</h3>
                 <p className="text-lg font-bold text-blue-600">
-                  {campaignTasks.filter(t => t.status === 'completed').length} / {campaign.tasks?.length || 0} completed
+                  {campaignTasks.filter(t => t.status === 'completed' || t.status === 'approved').length} / {campaignTasks.length} completed
                 </p>
               </div>
             </div>
@@ -1116,28 +1456,38 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
                                       <div className="flex items-center space-x-2">
                                         <Search className="w-3 h-3 text-green-600" />
                                         <span className="text-gray-600">SEO:</span>
-                                        <span className="font-medium text-green-700">{aiInsights.seoAgent.score}/10</span>
+                                        <span className={`font-medium ${aiInsights.seoAgent.score !== null ? 'text-green-700' : 'text-gray-500'}`}>
+                                          {aiInsights.seoAgent.score !== null ? `${aiInsights.seoAgent.score}/10` : 'Pending'}
+                                        </span>
                                       </div>
                                       <div className="flex items-center space-x-2">
                                         <Shield className="w-3 h-3 text-purple-600" />
                                         <span className="text-gray-600">Brand:</span>
-                                        <span className="font-medium text-purple-700">{aiInsights.brandAgent.score}/10</span>
+                                        <span className={`font-medium ${aiInsights.brandAgent.score !== null ? 'text-purple-700' : 'text-gray-500'}`}>
+                                          {aiInsights.brandAgent.score !== null ? `${aiInsights.brandAgent.score}/10` : 'Pending'}
+                                        </span>
                                       </div>
                                       <div className="flex items-center space-x-2">
                                         <FileText className="w-3 h-3 text-blue-600" />
                                         <span className="text-gray-600">Quality:</span>
-                                        <span className="font-medium text-blue-700">{aiInsights.contentAgent.score}/10</span>
+                                        <span className={`font-medium ${aiInsights.contentAgent.score !== null ? 'text-blue-700' : 'text-gray-500'}`}>
+                                          {aiInsights.contentAgent.score !== null ? `${aiInsights.contentAgent.score}/10` : 'Pending'}
+                                        </span>
                                       </div>
                                       <div className="flex items-center space-x-2">
                                         <Target className="w-3 h-3 text-orange-600" />
                                         <span className="text-gray-600">GEO:</span>
-                                        <span className="font-medium text-orange-700">{aiInsights.geoAgent.score}/10</span>
+                                        <span className={`font-medium ${aiInsights.geoAgent.score !== null ? 'text-orange-700' : 'text-gray-500'}`}>
+                                          {aiInsights.geoAgent.score !== null ? `${aiInsights.geoAgent.score}/10` : 'Pending'}
+                                        </span>
                                       </div>
                                     </div>
                                     
-                                    <div className="mt-2 text-xs text-gray-600">
-                                      <strong>Top AI Recommendation:</strong> {aiInsights.recommendations[0]}
-                                    </div>
+                                    {aiInsights.recommendations && aiInsights.recommendations.length > 0 && (
+                                      <div className="mt-2 text-xs text-gray-600">
+                                        <strong>Top AI Recommendation:</strong> {aiInsights.recommendations[0]}
+                                      </div>
+                                    )}
                                     
                                   </div>
                                 );
@@ -1464,13 +1814,19 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
                             <Search className="w-4 h-4 text-green-600" />
                             <span className="font-medium text-sm">SEO Agent</span>
                           </div>
-                          <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Score: {aiInsights.seoAgent.score}/10</span>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            aiInsights.seoAgent.score !== null 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            Score: {aiInsights.seoAgent.score !== null ? `${aiInsights.seoAgent.score}/10` : 'Pending'}
+                          </span>
                         </div>
                         <div className="text-xs text-gray-600 space-y-1">
-                          <p>• Target keywords: {aiInsights.seoAgent.keywords.map(k => `"${k}"`).join(', ')}</p>
-                          <p>• Readability score: {aiInsights.seoAgent.readability}/10 (Good)</p>
-                          <p>• Meta description optimized for length</p>
-                          <p>• H2/H3 structure follows SEO best practices</p>
+                          <p>• Target keywords: {aiInsights.seoAgent.keywords && aiInsights.seoAgent.keywords.length > 0 ? aiInsights.seoAgent.keywords.map(k => `"${k}"`).join(', ') : 'Analysis pending'}</p>
+                          <p>• Readability score: {aiInsights.seoAgent.readability !== null ? `${aiInsights.seoAgent.readability}/10 (Good)` : 'Pending'}</p>
+                          <p>• Meta description: {aiInsights.seoAgent.score !== null ? 'Optimized for length' : 'Analysis pending'}</p>
+                          <p>• H2/H3 structure: {aiInsights.seoAgent.score !== null ? 'Follows SEO best practices' : 'Analysis pending'}</p>
                         </div>
                       </div>
 
@@ -1481,13 +1837,19 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
                             <FileText className="w-4 h-4 text-blue-600" />
                             <span className="font-medium text-sm">Content Agent</span>
                           </div>
-                          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">Score: {aiInsights.contentAgent.score}/10</span>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            aiInsights.contentAgent.score !== null 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            Score: {aiInsights.contentAgent.score !== null ? `${aiInsights.contentAgent.score}/10` : 'Pending'}
+                          </span>
                         </div>
                         <div className="text-xs text-gray-600 space-y-1">
-                          <p>• Engagement potential: {aiInsights.contentAgent.engagement}</p>
-                          <p>• Factual accuracy: {aiInsights.contentAgent.accuracy}</p>
-                          <p>• Sentence structure: {aiInsights.contentAgent.structure}</p>
-                          <p>• Call-to-action: {aiInsights.contentAgent.cta}</p>
+                          <p>• Engagement potential: {aiInsights.contentAgent.engagement || 'Analysis pending'}</p>
+                          <p>• Factual accuracy: {aiInsights.contentAgent.accuracy || 'Analysis pending'}</p>
+                          <p>• Sentence structure: {aiInsights.contentAgent.structure || 'Analysis pending'}</p>
+                          <p>• Call-to-action: {aiInsights.contentAgent.cta || 'Analysis pending'}</p>
                         </div>
                       </div>
 
@@ -1498,13 +1860,19 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
                             <Shield className="w-4 h-4 text-purple-600" />
                             <span className="font-medium text-sm">Brand Agent</span>
                           </div>
-                          <span className="text-xs px-2 py-1 bg-purple-100 text-purple-800 rounded-full">Score: {aiInsights.brandAgent.score}/10</span>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            aiInsights.brandAgent.score !== null 
+                              ? 'bg-purple-100 text-purple-800' 
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            Score: {aiInsights.brandAgent.score !== null ? `${aiInsights.brandAgent.score}/10` : 'Pending'}
+                          </span>
                         </div>
                         <div className="text-xs text-gray-600 space-y-1">
-                          <p>• Voice alignment: {aiInsights.brandAgent.voice}</p>
-                          <p>• Tone consistency: {aiInsights.brandAgent.consistency ? '✓ Maintained throughout' : '⚠ Needs review'}</p>
-                          <p>• Brand terminology: {aiInsights.brandAgent.terminology}</p>
-                          <p>• Value proposition: Clearly communicated</p>
+                          <p>• Voice alignment: {aiInsights.brandAgent.voice || 'Analysis pending'}</p>
+                          <p>• Tone consistency: {aiInsights.brandAgent.consistency !== null ? (aiInsights.brandAgent.consistency ? '✓ Maintained throughout' : '⚠ Needs review') : 'Analysis pending'}</p>
+                          <p>• Brand terminology: {aiInsights.brandAgent.terminology || 'Analysis pending'}</p>
+                          <p>• Value proposition: {aiInsights.brandAgent.score !== null ? 'Clearly communicated' : 'Analysis pending'}</p>
                         </div>
                       </div>
 
@@ -1513,15 +1881,21 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-2">
                             <Target className="w-4 h-4 text-orange-600" />
-                            <span className="font-medium text-sm">GEO Agent</span>
+                            <span className="font-medium text-sm">Generative Engine Optimization Agent</span>
                           </div>
-                          <span className="text-xs px-2 py-1 bg-orange-100 text-orange-800 rounded-full">Score: {aiInsights.geoAgent.score}/10</span>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            aiInsights.geoAgent.score !== null 
+                              ? 'bg-orange-100 text-orange-800' 
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            Score: {aiInsights.geoAgent.score !== null ? `${aiInsights.geoAgent.score}/10` : 'Pending'}
+                          </span>
                         </div>
                         <div className="text-xs text-gray-600 space-y-1">
-                          <p>• Target market: {aiInsights.geoAgent.markets.join(', ')}</p>
-                          <p>• Regional compliance: {aiInsights.geoAgent.compliance.join(', ')} aware</p>
-                          <p>• Local terminology: {aiInsights.geoAgent.localization}</p>
-                          <p>• Cultural sensitivity: {aiInsights.geoAgent.sensitivity}</p>
+                          <p>• AI platforms optimized: {aiInsights.geoAgent.optimization && aiInsights.geoAgent.optimization.length > 0 ? aiInsights.geoAgent.optimization.join(', ') : 'Analysis pending'}</p>
+                          <p>• AI discovery visibility: {aiInsights.geoAgent.visibility || 'Analysis pending'}</p>
+                          <p>• Structured data: {aiInsights.geoAgent.structured_data || 'Analysis pending'}</p>
+                          <p>• Citation readiness: {aiInsights.geoAgent.citations || 'Analysis pending'}</p>
                         </div>
                       </div>
                     </div>
@@ -1532,200 +1906,120 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
                         <h5 className="font-medium text-sm text-gray-900">Overall AI Confidence</h5>
                         <div className="flex items-center space-x-2">
                           <div className="w-20 bg-gray-200 rounded-full h-2">
-                            <div className="bg-green-500 h-2 rounded-full" style={{ width: `${aiInsights.confidence}%` }}></div>
+                            <div className={`h-2 rounded-full ${
+                              aiInsights.confidence !== null ? 'bg-green-500' : 'bg-gray-300'
+                            }`} style={{ width: `${aiInsights.confidence || 0}%` }}></div>
                           </div>
-                          <span className="text-sm font-medium text-green-600">{aiInsights.confidence}%</span>
+                          <span className={`text-sm font-medium ${
+                            aiInsights.confidence !== null ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            {aiInsights.confidence !== null ? `${aiInsights.confidence}%` : 'Pending'}
+                          </span>
                         </div>
                       </div>
                       <p className="text-xs text-gray-600">
-                        {aiInsights.confidence >= 85 ? 'High confidence across all analysis dimensions. Content meets quality standards and brand guidelines.' :
-                         aiInsights.confidence >= 70 ? 'Good confidence with some areas for improvement. Review recommendations below.' :
-                         'Lower confidence detected. Manual review recommended for quality assurance.'}
+                        {aiInsights.confidence !== null ? (
+                          aiInsights.confidence >= 85 ? 'High confidence across all analysis dimensions. Content meets quality standards and brand guidelines.' :
+                          aiInsights.confidence >= 70 ? 'Good confidence with some areas for improvement. Review recommendations below.' :
+                          'Lower confidence detected. Manual review recommended for quality assurance.'
+                        ) : (
+                          'AI analysis is pending. Individual agent analyses will be available once completed.'
+                        )}
                       </p>
                     </div>
 
                     {/* Quick AI Recommendations */}
-                    <div className="mt-3 text-xs text-gray-600">
-                      <strong className="text-gray-900">AI Recommendations:</strong>
-                      <ul className="mt-1 ml-4 space-y-1">
-                        {aiInsights.recommendations.map((rec, index) => (
-                          <li key={index}>• {rec}</li>
-                        ))}
-                      </ul>
-                    </div>
+                    {aiInsights.recommendations && aiInsights.recommendations.length > 0 && (
+                      <div className="mt-3 text-xs text-gray-600">
+                        <strong className="text-gray-900">AI Recommendations:</strong>
+                        <ul className="mt-1 ml-4 space-y-1">
+                          {aiInsights.recommendations.map((rec, index) => (
+                            <li key={index}>• {rec}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
                   </div>
                 );
               })()}
 
-              {/* Review Criteria */}
+              {/* Review Criteria - Dynamic based on stage */}
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-lg font-medium text-gray-900 mb-4">Manual Review Criteria</h4>
+                  <h4 className="text-lg font-medium text-gray-900 mb-4">
+                    {getReviewStages().find(s => s.id === reviewModal.stage)?.name} Review Criteria
+                  </h4>
                   
-                  {/* Brand Consistency */}
-                  <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <Shield className="w-5 h-5 text-purple-600" />
-                        <h5 className="font-medium text-gray-900">Brand Consistency</h5>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {[1, 2, 3, 4, 5].map((rating) => (
-                          <button
-                            key={rating}
-                            onClick={() => setReviewForm(prev => ({
+                  {/* Dynamic criteria based on stage */}
+                  {Object.entries(reviewForm).filter(([key]) => key !== 'overallRating' && key !== 'finalComments' && key !== 'action').map(([criteriaKey, criteriaValue]) => {
+                    if (typeof criteriaValue === 'object' && criteriaValue !== null && 'score' in criteriaValue) {
+                      const criteria = criteriaValue as { score: number; comments: string; checked: boolean; label: string; description: string };
+                      
+                      // Get color based on stage
+                      const getStageColor = () => {
+                        const stage = getReviewStages().find(s => s.id === reviewModal.stage);
+                        return stage?.color || 'blue';
+                      };
+                      const stageColor = getStageColor();
+                      
+                      return (
+                        <div key={criteriaKey} className={`mb-6 p-4 bg-${stageColor}-50 border border-${stageColor}-200 rounded-lg`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-2">
+                              <div className={`w-5 h-5 text-${stageColor}-600`}>
+                                {/* Icon based on criteria type */}
+                                {criteriaKey.includes('brand') || criteriaKey.includes('messaging') || criteriaKey.includes('visual') ? (
+                                  <Shield className="w-5 h-5" />
+                                ) : criteriaKey.includes('content') || criteriaKey.includes('quality') || criteriaKey.includes('structure') || criteriaKey.includes('fact') ? (
+                                  <FileText className="w-5 h-5" />
+                                ) : criteriaKey.includes('seo') || criteriaKey.includes('keyword') || criteriaKey.includes('technical') ? (
+                                  <Search className="w-5 h-5" />
+                                ) : criteriaKey.includes('compliance') || criteriaKey.includes('executive') || criteriaKey.includes('overall') ? (
+                                  <AlertCircle className="w-5 h-5" />
+                                ) : (
+                                  <FileText className="w-5 h-5" />
+                                )}
+                              </div>
+                              <h5 className="font-medium text-gray-900">{criteria.label}</h5>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              {[1, 2, 3, 4, 5].map((rating) => (
+                                <button
+                                  key={rating}
+                                  onClick={() => setReviewForm(prev => ({
+                                    ...prev,
+                                    [criteriaKey]: { ...prev[criteriaKey], score: rating }
+                                  }))}
+                                  className={`w-6 h-6 rounded-full border-2 ${
+                                    criteria.score >= rating
+                                      ? `bg-${stageColor}-600 border-${stageColor}-600`
+                                      : `border-gray-300 hover:border-${stageColor}-400`
+                                  }`}
+                                >
+                                  {criteria.score >= rating && (
+                                    <span className="text-white text-xs">✓</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2">{criteria.description}</p>
+                          <textarea
+                            placeholder="Comments or feedback..."
+                            className="w-full p-3 border border-gray-200 rounded-lg text-sm resize-none"
+                            rows={2}
+                            value={criteria.comments}
+                            onChange={(e) => setReviewForm(prev => ({
                               ...prev,
-                              brandConsistency: { ...prev.brandConsistency, score: rating }
+                              [criteriaKey]: { ...prev[criteriaKey], comments: e.target.value }
                             }))}
-                            className={`w-6 h-6 rounded-full border-2 ${
-                              reviewForm.brandConsistency.score >= rating
-                                ? 'bg-purple-600 border-purple-600'
-                                : 'border-gray-300 hover:border-purple-400'
-                            }`}
-                          >
-                            {reviewForm.brandConsistency.score >= rating && (
-                              <span className="text-white text-xs">✓</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-2">Voice, tone, terminology, and visual identity alignment</p>
-                    <textarea
-                      placeholder="Comments or feedback..."
-                      className="w-full p-3 border border-gray-200 rounded-lg text-sm resize-none"
-                      rows={2}
-                      value={reviewForm.brandConsistency.comments}
-                      onChange={(e) => setReviewForm(prev => ({
-                        ...prev,
-                        brandConsistency: { ...prev.brandConsistency, comments: e.target.value }
-                      }))}
-                    />
-                  </div>
-
-                  {/* Content Quality */}
-                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <FileText className="w-5 h-5 text-blue-600" />
-                        <h5 className="font-medium text-gray-900">Content Quality</h5>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {[1, 2, 3, 4, 5].map((rating) => (
-                          <button
-                            key={rating}
-                            onClick={() => setReviewForm(prev => ({
-                              ...prev,
-                              contentQuality: { ...prev.contentQuality, score: rating }
-                            }))}
-                            className={`w-6 h-6 rounded-full border-2 ${
-                              reviewForm.contentQuality.score >= rating
-                                ? 'bg-blue-600 border-blue-600'
-                                : 'border-gray-300 hover:border-blue-400'
-                            }`}
-                          >
-                            {reviewForm.contentQuality.score >= rating && (
-                              <span className="text-white text-xs">✓</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-2">Accuracy, relevance, engagement, and structure</p>
-                    <textarea
-                      placeholder="Comments or feedback..."
-                      className="w-full p-3 border border-gray-200 rounded-lg text-sm resize-none"
-                      rows={2}
-                      value={reviewForm.contentQuality.comments}
-                      onChange={(e) => setReviewForm(prev => ({
-                        ...prev,
-                        contentQuality: { ...prev.contentQuality, comments: e.target.value }
-                      }))}
-                    />
-                  </div>
-
-                  {/* SEO Optimization */}
-                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <Search className="w-5 h-5 text-green-600" />
-                        <h5 className="font-medium text-gray-900">SEO Optimization</h5>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {[1, 2, 3, 4, 5].map((rating) => (
-                          <button
-                            key={rating}
-                            onClick={() => setReviewForm(prev => ({
-                              ...prev,
-                              seoOptimization: { ...prev.seoOptimization, score: rating }
-                            }))}
-                            className={`w-6 h-6 rounded-full border-2 ${
-                              reviewForm.seoOptimization.score >= rating
-                                ? 'bg-green-600 border-green-600'
-                                : 'border-gray-300 hover:border-green-400'
-                            }`}
-                          >
-                            {reviewForm.seoOptimization.score >= rating && (
-                              <span className="text-white text-xs">✓</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-2">Keywords, meta data, readability, and structure</p>
-                    <textarea
-                      placeholder="Comments or feedback..."
-                      className="w-full p-3 border border-gray-200 rounded-lg text-sm resize-none"
-                      rows={2}
-                      value={reviewForm.seoOptimization.comments}
-                      onChange={(e) => setReviewForm(prev => ({
-                        ...prev,
-                        seoOptimization: { ...prev.seoOptimization, comments: e.target.value }
-                      }))}
-                    />
-                  </div>
-
-                  {/* Compliance Check */}
-                  <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <AlertCircle className="w-5 h-5 text-orange-600" />
-                        <h5 className="font-medium text-gray-900">Compliance & Guidelines</h5>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {[1, 2, 3, 4, 5].map((rating) => (
-                          <button
-                            key={rating}
-                            onClick={() => setReviewForm(prev => ({
-                              ...prev,
-                              complianceCheck: { ...prev.complianceCheck, score: rating }
-                            }))}
-                            className={`w-6 h-6 rounded-full border-2 ${
-                              reviewForm.complianceCheck.score >= rating
-                                ? 'bg-orange-600 border-orange-600'
-                                : 'border-gray-300 hover:border-orange-400'
-                            }`}
-                          >
-                            {reviewForm.complianceCheck.score >= rating && (
-                              <span className="text-white text-xs">✓</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-2">Legal, industry regulations, and platform guidelines</p>
-                    <textarea
-                      placeholder="Comments or feedback..."
-                      className="w-full p-3 border border-gray-200 rounded-lg text-sm resize-none"
-                      rows={2}
-                      value={reviewForm.complianceCheck.comments}
-                      onChange={(e) => setReviewForm(prev => ({
-                        ...prev,
-                        complianceCheck: { ...prev.complianceCheck, comments: e.target.value }
-                      }))}
-                    />
-                  </div>
+                          />
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
                 </div>
 
                 {/* Overall Rating & Comments */}

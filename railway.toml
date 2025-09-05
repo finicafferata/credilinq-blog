@@ -4,35 +4,31 @@ dockerfile = "Dockerfile"
 
 [deploy]
 healthcheckPath = "/health/railway"
-healthcheckTimeout = 300  # 5 minutes - extended for agent loading
+healthcheckTimeout = 300
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3  # Reduced retries to prevent endless loops
+restartPolicyMaxRetries = 3
 
-# Memory and resource limits - Railway optimized for full features
-memoryLimit = "1GB"  # Reduced but sufficient for optimized version
-cpuLimit = "1000m"   # Railway-appropriate CPU allocation
+# Memory and resource limits for LangGraph + FastAPI
+memoryLimit = "2GB"
+cpuLimit = "1500m"
 
-# Startup configuration - DIRECT uvicorn startup from /app directory
-startCommand = "python -m uvicorn src.main:app --host 0.0.0.0 --port 8080 --workers 1 --timeout-keep-alive 30"
+# Production startup with both services
+startCommand = "python /app/scripts/start_production.py"
 
-# Force environment variable for agent loading
 [environments.production.variables]
 RAILWAY_FULL = "true"
 ENABLE_AGENT_LOADING = "true"
+ENABLE_LANGGRAPH = "true"
+LANGGRAPH_API_URL = "http://localhost:8001"
 
-# Environment-specific overrides
 [environments.production]
-memoryLimit = "2GB"   # Production with more resources
-cpuLimit = "1500m"
-# Use full mode in production with all features
-RAILWAY_FULL = "true"
+memoryLimit = "4GB"
+cpuLimit = "2000m"
 
-[environments.staging] 
-memoryLimit = "1GB"   # Staging uses optimized mode
-cpuLimit = "1000m"
-# ENABLE_AGENT_LOADING = "true"
+[environments.staging]
+memoryLimit = "2GB"
+cpuLimit = "1500m"
 
 [environments.development]
-memoryLimit = "512MB" # Development minimal resources
-cpuLimit = "500m"
-# RAILWAY_MINIMAL = "true"
+memoryLimit = "1GB"
+cpuLimit = "1000m"

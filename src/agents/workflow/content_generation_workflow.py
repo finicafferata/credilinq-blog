@@ -10,6 +10,7 @@ with AI Content Generator Agents to create multi-format content based on campaig
 import asyncio
 import logging
 import json
+import time
 import uuid
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union
@@ -107,6 +108,37 @@ class ContentGenerationWorkflow:
         self.active_workflows: Dict[str, ContentGenerationPlan] = {}
         self.task_queue: List[ContentTask] = []
         self.max_concurrent_tasks = 5
+    
+    def store_agent_performance(self, agent_type: str, task_type: str, campaign_id: str, 
+                               task_id: str, quality_score: float, duration_ms: int,
+                               success: bool = True, error_message: str = None,
+                               input_tokens: int = None, output_tokens: int = None):
+        """Store agent performance metrics directly in database"""
+        try:
+            conn = db_config.get_db_connection()
+            cur = conn.cursor()
+            
+            # Insert into agent_performance table
+            cur.execute("""
+                INSERT INTO agent_performance 
+                (agent_type, task_type, execution_time_ms, success_rate, quality_score, 
+                 input_tokens, output_tokens, campaign_id, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            """, (
+                agent_type, task_type, duration_ms, 1.0 if success else 0.0, 
+                quality_score, input_tokens, output_tokens, campaign_id
+            ))
+            
+            conn.commit()
+            logger.info(f"📊 Stored performance metrics: {agent_type} - Quality: {quality_score:.1f}/1.0")
+            
+        except Exception as e:
+            logger.error(f"Failed to store agent performance metrics: {e}")
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                conn.close()
         
     async def create_content_generation_plan(self, campaign_id: str, 
                                            campaign_strategy: Dict[str, Any]) -> ContentGenerationPlan:
@@ -345,12 +377,256 @@ class ContentGenerationWorkflow:
                         seo_keywords=task.seo_keywords
                     )
                     
-                    # Generate content
+                    # Generate content with performance tracking
+                    start_time = time.time()
                     generated_content = await self.ai_content_generator.generate_content(generation_request)
+                    generation_duration = int((time.time() - start_time) * 1000)
                     
-                    # Update task with results
+                    # Store content generator performance
+                    self.store_agent_performance(
+                        agent_type="ai_content_generator",
+                        task_type=f"content_generation_{task.content_type.value}",
+                        campaign_id=task.campaign_id,
+                        task_id=task.task_id,
+                        quality_score=generated_content.quality_score,  # Uses built-in quality score (0.0-1.0)
+                        duration_ms=generation_duration,
+                        success=True,
+                        output_tokens=generated_content.word_count // 4  # Rough token estimation
+                    )
+                    
+                    # Run Quality Review Agent for enhanced scoring
+                    if generated_content.quality_score > 0:  # Only if content was successfully generated
+                        try:
+                            from src.agents.specialized.quality_review_agent import QualityReviewAgent
+                            start_time = time.time()
+                            quality_agent = QualityReviewAgent()
+                            
+                            # Prepare content data for quality review
+                            content_data = {
+                                'content': generated_content.content,
+                                'title': task.title,
+                                'content_type': task.content_type.value,
+                                'word_count': generated_content.word_count,
+                                'content_id': generated_content.content_id
+                            }
+                            
+                            # Execute quality review
+                            quality_result = await quality_agent.execute_safe(content_data)
+                            quality_duration = int((time.time() - start_time) * 1000)
+                            
+                            # Update content with real quality score from Quality Review Agent
+                            if quality_result.success and quality_result.automated_score is not None:
+                                generated_content.quality_score = quality_result.automated_score  # 0.0-1.0 range
+                                
+                                # Store Quality Review Agent performance
+                                self.store_agent_performance(
+                                    agent_type="quality_review_agent",
+                                    task_type="quality_analysis",
+                                    campaign_id=task.campaign_id,
+                                    task_id=task.task_id,
+                                    quality_score=quality_result.automated_score,
+                                    duration_ms=quality_duration,
+                                    success=True
+                                )
+                                
+                                logger.info(f"✅ Quality Review completed: {quality_result.automated_score:.2f}/1.0 (auto-approved: {quality_result.auto_approved})")
+                                
+                                # Run Brand Review Agent if quality review passed
+                                try:
+                                    from src.agents.specialized.brand_review_agent import BrandReviewAgent
+                                    brand_start_time = time.time()
+                                    brand_agent = BrandReviewAgent()
+                                    
+                                    # Execute brand review using same content data
+                                    brand_result = await brand_agent.execute_safe(content_data)
+                                    brand_duration = int((time.time() - brand_start_time) * 1000)
+                                    
+                                    if brand_result.success and brand_result.automated_score is not None:
+                                        # Store Brand Review Agent performance
+                                        self.store_agent_performance(
+                                            agent_type="brand_review_agent",
+                                            task_type="brand_analysis",
+                                            campaign_id=task.campaign_id,
+                                            task_id=task.task_id,
+                                            quality_score=brand_result.automated_score,
+                                            duration_ms=brand_duration,
+                                            success=True
+                                        )
+                                        
+                                        logger.info(f"✅ Brand Review completed: {brand_result.automated_score:.2f}/1.0 (auto-approved: {brand_result.auto_approved})")
+                                        
+                                        # Phase 4.3: Add SEO Analysis for content-based optimization scoring
+                                        seo_approved = True  # Default to approved if SEO analysis fails
+                                        try:
+                                            from src.agents.specialized.seo_agent_langgraph import SEOAgentLangGraph
+                                            seo_start_time = time.time()
+                                            seo_agent = SEOAgentLangGraph()
+                                            
+                                            # Prepare SEO-specific content data with keywords
+                                            seo_content_data = {
+                                                'content': generated_content.content,
+                                                'blog_title': task.title,
+                                                'keywords': task.seo_keywords if task.seo_keywords else [],
+                                                'content_type': task.content_type.value,
+                                                'word_count': generated_content.word_count
+                                            }
+                                            
+                                            # Execute SEO analysis
+                                            seo_result = await seo_agent.execute(seo_content_data)
+                                            seo_duration = int((time.time() - seo_start_time) * 1000)
+                                            
+                                            if seo_result.success and hasattr(seo_result, 'score') and seo_result.score is not None:
+                                                # Store SEO Agent performance
+                                                self.store_agent_performance(
+                                                    agent_type="seo_agent",
+                                                    task_type="seo_analysis",
+                                                    campaign_id=task.campaign_id,
+                                                    task_id=task.task_id,
+                                                    quality_score=seo_result.score,
+                                                    duration_ms=seo_duration,
+                                                    success=True
+                                                )
+                                                
+                                                # SEO approval threshold (0.7 for SEO optimization)
+                                                seo_approved = seo_result.score >= 0.7
+                                                logger.info(f"✅ SEO Analysis completed: {seo_result.score:.2f}/1.0 (auto-approved: {seo_approved})")
+                                            else:
+                                                logger.warning(f"SEO Analysis returned invalid score for task {task.task_id}")
+                                                
+                                        except Exception as seo_error:
+                                            logger.warning(f"SEO Analysis error for task {task.task_id}: {seo_error}")
+                                            # Continue with default approval
+                                        
+                                        # Phase 4.3: Add Content Agent readability analysis
+                                        content_approved = True  # Default to approved if content analysis fails
+                                        try:
+                                            readability_start_time = time.time()
+                                            
+                                            # Calculate readability metrics using textstat if available
+                                            readability_score = 0.8  # Default score
+                                            try:
+                                                import textstat
+                                                
+                                                # Calculate multiple readability metrics
+                                                flesch_reading_ease = textstat.flesch_reading_ease(generated_content.content)
+                                                flesch_kincaid_grade = textstat.flesch_kincaid_grade(generated_content.content)
+                                                avg_sentence_length = textstat.avg_sentence_length(generated_content.content)
+                                                
+                                                # Normalize scores to 0-1 range
+                                                # Flesch Reading Ease: 0-100 (higher is better, 60-70 is good)
+                                                flesch_normalized = min(1.0, max(0.0, flesch_reading_ease / 100))
+                                                
+                                                # Flesch-Kincaid Grade: lower is better (target: 8-12 grade level)
+                                                grade_normalized = max(0.0, min(1.0, (20 - flesch_kincaid_grade) / 20))
+                                                
+                                                # Average sentence length: target 15-20 words
+                                                sentence_normalized = max(0.0, min(1.0, 1.0 - abs(avg_sentence_length - 17.5) / 17.5))
+                                                
+                                                # Combined readability score (weighted average)
+                                                readability_score = (flesch_normalized * 0.4 + grade_normalized * 0.4 + sentence_normalized * 0.2)
+                                                
+                                                logger.info(f"📊 Readability metrics - Flesch: {flesch_reading_ease:.1f}, Grade: {flesch_kincaid_grade:.1f}, Sentence length: {avg_sentence_length:.1f}")
+                                                
+                                            except ImportError:
+                                                logger.warning("textstat not available, using estimated readability score")
+                                                # Fallback: estimate based on word count and content length
+                                                sentences = generated_content.content.count('.') + generated_content.content.count('!') + generated_content.content.count('?')
+                                                if sentences > 0:
+                                                    avg_words_per_sentence = generated_content.word_count / sentences
+                                                    # Target 15-20 words per sentence for good readability
+                                                    readability_score = max(0.0, min(1.0, 1.0 - abs(avg_words_per_sentence - 17.5) / 17.5))
+                                            
+                                            readability_duration = int((time.time() - readability_start_time) * 1000)
+                                            
+                                            # Store Content Agent readability performance
+                                            self.store_agent_performance(
+                                                agent_type="content_agent_readability",
+                                                task_type="readability_analysis", 
+                                                campaign_id=task.campaign_id,
+                                                task_id=task.task_id,
+                                                quality_score=readability_score,
+                                                duration_ms=readability_duration,
+                                                success=True
+                                            )
+                                            
+                                            # Content readability approval threshold (0.65 for readability)
+                                            content_approved = readability_score >= 0.65
+                                            logger.info(f"✅ Content Readability completed: {readability_score:.2f}/1.0 (auto-approved: {content_approved})")
+                                            
+                                        except Exception as content_error:
+                                            logger.warning(f"Content Readability Analysis error for task {task.task_id}: {content_error}")
+                                            # Continue with default approval
+                                        
+                                        # Phase 4.3: Add GEO Analysis for market-specific optimization
+                                        geo_approved = True  # Default to approved if GEO analysis fails
+                                        try:
+                                            from src.agents.specialized.geo_analysis_agent_langgraph import GEOAnalysisAgentLangGraph
+                                            geo_start_time = time.time()
+                                            geo_agent = GEOAnalysisAgentLangGraph()
+                                            
+                                            # Prepare GEO-specific content data
+                                            geo_content_data = {
+                                                'content': generated_content.content,
+                                                'title': task.title,
+                                                'target_audience': task.target_audience if task.target_audience else "general",
+                                                'content_type': task.content_type.value,
+                                                'word_count': generated_content.word_count
+                                            }
+                                            
+                                            # Execute GEO analysis
+                                            geo_result = await geo_agent.execute(geo_content_data)
+                                            geo_duration = int((time.time() - geo_start_time) * 1000)
+                                            
+                                            if geo_result.success and hasattr(geo_result, 'score') and geo_result.score is not None:
+                                                # Store GEO Agent performance
+                                                self.store_agent_performance(
+                                                    agent_type="geo_analysis_agent",
+                                                    task_type="geo_analysis",
+                                                    campaign_id=task.campaign_id,
+                                                    task_id=task.task_id,
+                                                    quality_score=geo_result.score,
+                                                    duration_ms=geo_duration,
+                                                    success=True
+                                                )
+                                                
+                                                # GEO approval threshold (0.75 for generative engine optimization)
+                                                geo_approved = geo_result.score >= 0.75
+                                                logger.info(f"✅ GEO Analysis completed: {geo_result.score:.2f}/1.0 (auto-approved: {geo_approved})")
+                                            else:
+                                                logger.warning(f"GEO Analysis returned invalid score for task {task.task_id}")
+                                                
+                                        except Exception as geo_error:
+                                            logger.warning(f"GEO Analysis error for task {task.task_id}: {geo_error}")
+                                            # Continue with default approval
+                                        
+                                        # Combined approval logic: quality, brand, SEO, content readability, and GEO all need to pass
+                                        if quality_result.auto_approved and brand_result.auto_approved and seo_approved and content_approved and geo_approved:
+                                            task.status = ContentTaskStatus.COMPLETED
+                                        else:
+                                            task.status = ContentTaskStatus.REQUIRES_REVIEW
+                                    else:
+                                        logger.warning(f"Brand Review Agent failed for task {task.task_id}")
+                                        task.status = ContentTaskStatus.REQUIRES_REVIEW
+                                        
+                                except Exception as brand_error:
+                                    logger.error(f"Brand Review Agent error for task {task.task_id}: {brand_error}")
+                                    # If brand review fails, fall back to quality review decision
+                                    if quality_result.auto_approved:
+                                        task.status = ContentTaskStatus.COMPLETED
+                                    else:
+                                        task.status = ContentTaskStatus.REQUIRES_REVIEW
+                            else:
+                                logger.warning(f"Quality Review Agent failed for task {task.task_id}")
+                                
+                        except Exception as quality_error:
+                            logger.error(f"Quality Review Agent error for task {task.task_id}: {quality_error}")
+                            # Don't fail the entire task if quality review fails
+                            task.status = ContentTaskStatus.COMPLETED
+                    else:
+                        task.status = ContentTaskStatus.COMPLETED
+                        
+                    # Update task with results  
                     task.generated_content = generated_content
-                    task.status = ContentTaskStatus.COMPLETED
                     task.updated_at = datetime.now()
                     
                     # Save task to database

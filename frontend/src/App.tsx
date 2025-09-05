@@ -152,11 +152,8 @@ const CampaignOrchestrationDashboard = lazyWithFallback(
 //   { loadingMessage: 'Loading integration testing...', name: 'IntegrationTesting' }
 // );
 
-// Content Review and Approval - Commented out for production
-// const ContentReviewApproval = lazyWithFallback(
-//   () => import('./pages/ContentReviewApproval'),
-//   { loadingMessage: 'Loading content review...', name: 'ContentReviewApproval' }
-// );
+// Content Review is now integrated directly into Campaign Details
+// No separate page needed - unified workflow experience
 
 // Layout wrapper for pages with sidebar
 function AppLayout({ children }: { children: React.ReactNode }) {
@@ -357,12 +354,7 @@ function App() {
           </SimpleAppLayout>
         } /> */}
         
-        {/* Content Review and Approval Routes - Commented out for production */}
-        {/* <Route path="/content-review" element={
-          <SimpleAppLayout>
-            <ContentReviewApproval />
-          </SimpleAppLayout>
-        } /> */}
+        {/* Content Review is now integrated into Campaign Details - no separate route needed */}
       </Routes>
       <Toaster 
         position="top-right"

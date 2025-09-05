@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "campaign_workflow": "./langgraph_workflows.py:campaign_workflow"
+  },
+  "env": ".env"
+}

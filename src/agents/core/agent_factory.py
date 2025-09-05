@@ -529,9 +529,6 @@ class BlogWorkflowAgentFactory(AgentFactory):
 def _initialize_default_agents():
     """Initialize registration of all specialized agents with LangGraph workflows."""
     try:
-        # TEMPORARILY DISABLED during Railway debugging - agents causing startup failure
-        logger.warning("⚠️ Agent registration temporarily disabled during Railway debugging")
-        return
         
         # Import only LangGraph-based agents (deleted non-LangGraph versions)
         

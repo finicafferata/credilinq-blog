@@ -119,8 +119,8 @@ class GEOAnalysisAgentWorkflow(LangGraphWorkflowBase):
     
     def __init__(
         self,
-        llm: Optional[ChatOpenAI] = None,
-        test_llm: Optional[ChatOpenAI] = None,
+        llm: Optional[Any] = None,  # Gemini LLM instance
+        test_llm: Optional[Any] = None,  # Test Gemini LLM instance
         checkpoint_strategy: CheckpointStrategy = CheckpointStrategy.DATABASE_PERSISTENT,
         analysis_depth: str = "comprehensive"
     ):

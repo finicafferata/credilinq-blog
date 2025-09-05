@@ -93,7 +93,7 @@ class AgentPerformanceTracker:
 
     def end_execution(self, execution_id: str, result: Any = None, error: Optional[str] = None,
                      input_tokens: Optional[int] = None, output_tokens: Optional[int] = None,
-                     cost_usd: Optional[float] = None) -> Optional[AgentExecutionMetrics]:
+                     cost_usd: Optional[float] = None, quality_score: Optional[float] = None) -> Optional[AgentExecutionMetrics]:
         """End tracking an agent execution."""
         if execution_id not in self.active_executions:
             logger.warning(f"No active execution found for ID: {execution_id}")
@@ -111,7 +111,7 @@ class AgentPerformanceTracker:
             metrics.error_message = error
         
         # Store in database asynchronously
-        self.executor.submit(self._store_performance_metrics, metrics)
+        self.executor.submit(self._store_performance_metrics, metrics, quality_score)
         
         # Remove from active executions
         del self.active_executions[execution_id]
@@ -119,17 +119,24 @@ class AgentPerformanceTracker:
         logger.debug(f"Ended tracking execution {execution_id}: {metrics.duration_ms:.2f}ms")
         return metrics
 
-    def _store_performance_metrics(self, metrics: AgentExecutionMetrics):
+    def _store_performance_metrics(self, metrics: AgentExecutionMetrics, quality_score: Optional[float] = None):
         """Store performance metrics in database."""
         try:
             from ..agents.core.database_service import AgentPerformanceMetrics as DBMetrics
+            
+            # Use real quality score if provided, otherwise use success-based fallback
+            real_quality_score = quality_score if quality_score is not None else (8.0 if metrics.success else 2.0)
+            
+            # Convert 0-1 scale to 0-10 scale if needed (Quality Review Agent uses 0-1)
+            if real_quality_score <= 1.0 and real_quality_score >= 0.0:
+                real_quality_score = real_quality_score * 10.0
             
             db_metrics = DBMetrics(
                 agent_type=metrics.agent_name,
                 task_type="execution",
                 execution_time_ms=int(metrics.duration_ms or 0),
                 success_rate=1.0 if metrics.success else 0.0,
-                quality_score=8.0 if metrics.success else 2.0,  # Default quality scores
+                quality_score=real_quality_score,  # Use real agent-calculated score
                 input_tokens=metrics.input_tokens,
                 output_tokens=metrics.output_tokens,
                 cost_usd=metrics.cost_usd,
@@ -354,8 +361,15 @@ def cached_agent_execution(
                 
                 execution_time_ms = (time.time() - start_time) * 1000
                 
+                # Extract quality score from result if it's a ReviewAgentResult
+                quality_score = None
+                if hasattr(result, 'automated_score'):
+                    quality_score = result.automated_score
+                elif isinstance(result, dict) and 'automated_score' in result:
+                    quality_score = result['automated_score']
+                
                 # End performance tracking
-                tracker.end_execution(execution_id, result)
+                tracker.end_execution(execution_id, result, quality_score=quality_score)
                 
                 # Cache the result
                 if enable_caching:
@@ -400,8 +414,15 @@ def cached_agent_execution(
                 result = func(*args, **kwargs)
                 execution_time_ms = (time.time() - start_time) * 1000
                 
+                # Extract quality score from result if it's a ReviewAgentResult
+                quality_score = None
+                if hasattr(result, 'automated_score'):
+                    quality_score = result.automated_score
+                elif isinstance(result, dict) and 'automated_score' in result:
+                    quality_score = result['automated_score']
+                
                 # End performance tracking
-                tracker.end_execution(execution_id, result)
+                tracker.end_execution(execution_id, result, quality_score=quality_score)
                 
                 # Cache the result
                 if enable_caching:
