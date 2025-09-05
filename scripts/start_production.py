@@ -42,13 +42,22 @@ def start_langgraph_service():
     """Start LangGraph API service"""
     global langgraph_process
     
+    # Check if LangGraph is disabled for this deployment
+    disable_langgraph = os.environ.get('DISABLE_LANGGRAPH', '').lower() == 'true'
+    is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
+    
+    # Disable LangGraph in Railway environment for now to avoid startup issues
+    if disable_langgraph or is_railway:
+        print("⚠️ LangGraph service disabled for this deployment environment")
+        return False
+    
     print("🚀 Starting LangGraph API service on port 8001...")
     
     # Use environment PORT + 1 for LangGraph, or default to 8001
     port = int(os.environ.get('PORT', 8000)) + 1
     
     cmd = [
-        'python', '-m', 'langgraph', 'up', 
+        'langgraph', 'up', 
         '--port', str(port),
         '--host', '0.0.0.0',
         '--config', 'langgraph.json'
@@ -89,19 +98,22 @@ def start_fastapi_service():
     port = int(os.environ.get('PORT', 8000))
     
     cmd = [
-        'python', '-m', 'uvicorn', 'src.main:app',
+        'uvicorn', 'src.main:app',
         '--host', '0.0.0.0',
         '--port', str(port),
         '--workers', '1',
-        '--timeout-keep-alive', '30'
+        '--timeout-keep-alive', '30',
+        '--access-log',
+        '--log-level', 'info'
     ]
     
     try:
         fastapi_process = subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=subprocess.STDOUT,
+            stderr=subprocess.STDOUT,
             text=True,
+            bufsize=1,
             cwd='/app'
         )
         
@@ -120,8 +132,9 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    # Start LangGraph service first
-    if not start_langgraph_service():
+    # Start LangGraph service first (may be disabled in some environments)
+    langgraph_started = start_langgraph_service()
+    if not langgraph_started:
         print("❌ Failed to start LangGraph service, starting FastAPI only")
     
     # Start FastAPI service
@@ -131,21 +144,40 @@ def main():
     
     print("✅ All services started successfully")
     print("📊 FastAPI: http://0.0.0.0:8000")
-    print("🎨 LangGraph API: http://0.0.0.0:8001")
+    if langgraph_started:
+        print("🎨 LangGraph API: http://0.0.0.0:8001")
+    else:
+        print("⚠️ LangGraph API: disabled")
     print("Press Ctrl+C to stop all services")
     
-    # Keep the main process alive
+    # Keep the main process alive and output logs
     try:
         while True:
+            # Check FastAPI process
             if fastapi_process and fastapi_process.poll() is not None:
                 print("❌ FastAPI process died, restarting...")
-                start_fastapi_service()
+                if not start_fastapi_service():
+                    print("❌ Failed to restart FastAPI, exiting...")
+                    sys.exit(1)
             
-            if langgraph_process and langgraph_process.poll() is not None:
+            # Check LangGraph process (only if it was started)
+            if langgraph_started and langgraph_process and langgraph_process.poll() is not None:
                 print("❌ LangGraph process died, restarting...")
                 start_langgraph_service()
+            
+            # Output logs from FastAPI process
+            if fastapi_process and fastapi_process.stdout:
+                try:
+                    # Non-blocking read
+                    import select
+                    if select.select([fastapi_process.stdout], [], [], 0.1)[0]:
+                        line = fastapi_process.stdout.readline()
+                        if line:
+                            print(line.rstrip())
+                except:
+                    pass  # Ignore errors in log reading
                 
-            time.sleep(5)
+            time.sleep(1)
             
     except KeyboardInterrupt:
         print("\n🔄 Keyboard interrupt received")
