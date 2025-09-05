@@ -108,17 +108,25 @@ def start_fastapi_service():
     ]
     
     try:
-        fastapi_process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.STDOUT,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            cwd='/app'
-        )
+        # For Railway, we should exec directly instead of using subprocess
+        is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
         
-        print(f"✅ FastAPI started on port {port}")
-        return True
+        if is_railway:
+            # In Railway, replace the current process with uvicorn
+            print(f"🚂 Railway environment detected - executing uvicorn directly")
+            print(f"📝 Command: {' '.join(cmd)}")
+            os.execvp('uvicorn', cmd)
+            # This line will never be reached if exec succeeds
+            return True
+        else:
+            # For local development, use subprocess
+            fastapi_process = subprocess.Popen(
+                cmd,
+                cwd='/app'
+            )
+            
+            print(f"✅ FastAPI started on port {port}")
+            return True
         
     except Exception as e:
         print(f"❌ Error starting FastAPI: {e}")

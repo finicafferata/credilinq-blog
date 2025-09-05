@@ -48,5 +48,5 @@ EXPOSE 8000 8001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8000}/health/railway || exit 1
 
-# Start both FastAPI and LangGraph services
-CMD ["python", "/app/scripts/start_production.py"]
+# Start using Railway-optimized script
+CMD ["python", "/app/scripts/start_railway.py"]
