@@ -18,13 +18,13 @@ pydantic>=2.7.4,<3.0.0
 pydantic-settings>=2.0.0
 email-validator>=2.0.0  # Required for Pydantic email validation in auth.py
 
-# Core AI capabilities - modern LangGraph and LangChain stack
+# Core AI capabilities - compatible versions for Railway
 google-generativeai>=0.5.2,<0.6.0  # Compatible with langchain-google-genai 1.0.6
-langchain-core>=0.3.75,<0.4.0
-langchain-community>=0.3.0,<0.4.0
-langchain-openai>=0.2.0,<0.3.0
-langchain-google-genai==1.0.6  # Compatible with google-generativeai <0.6.0
-langsmith>=0.4.0,<0.5.0
+langchain-core>=0.2.2,<0.3.0  # Compatible with langchain-google-genai 1.0.6
+langchain-community>=0.2.0,<0.3.0  # Compatible with older langchain-core
+langchain-openai>=0.1.0,<0.2.0  # Compatible with older langchain-core
+langchain-google-genai==1.0.6  # Compatible with google-generativeai <0.6.0 and langchain-core<0.3
+langsmith>=0.1.0,<0.2.0  # Compatible with older langchain versions
 
 # Modern LangGraph stack
 langgraph>=0.6.0,<0.7.0
