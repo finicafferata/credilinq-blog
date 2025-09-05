@@ -80,46 +80,103 @@ export const useCampaignWebSocket = (
 
   const sendMessage = useCallback((message: string) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(message);
+      try {
+        wsRef.current.send(message);
+        return true;
+      } catch (error) {
+        console.error('🔌 [WEBSOCKET] Failed to send message:', error);
+        return false;
+      }
     }
+    console.warn('🔌 [WEBSOCKET] Cannot send message: WebSocket not connected');
+    return false;
   }, []);
+
+  const sendPing = useCallback(() => {
+    const pingMessage = JSON.stringify({
+      type: 'ping',
+      timestamp: new Date().toISOString(),
+      campaign_id: campaignId
+    });
+    return sendMessage(pingMessage);
+  }, [sendMessage, campaignId]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
     setLastMessage(null);
     setProgress(0);
     setCurrentStatus('Waiting for campaign updates...');
+    setConnectionId(null);
+    setLastHeartbeat(null);
   }, []);
 
   const processMessage = useCallback((message: CampaignStatusMessage) => {
-    setLastMessage(message);
-    setMessages(prev => [...prev, message]);
-    
-    // Update progress and status based on message type
+    // Handle different message types appropriately
     switch (message.type) {
       case 'connection_established':
+        setConnectionId(message.connection_id || null);
         setCurrentStatus('Connected to campaign updates');
         setProgress(0);
+        setLastMessage(message);
+        setMessages(prev => [...prev, message]);
         break;
+        
+      case 'heartbeat':
+        setLastHeartbeat(new Date());
+        // Don't add heartbeat messages to the main message list to avoid clutter
+        break;
+        
+      case 'pong':
+        setLastHeartbeat(new Date());
+        console.log('🔌 [WEBSOCKET] Received pong response');
+        // Don't add pong messages to the main message list
+        break;
+        
+      case 'error':
+        console.error('🔌 [WEBSOCKET] Received error from server:', message.error);
+        setLastMessage(message);
+        setMessages(prev => [...prev, message]);
+        break;
+        
       case 'workflow_started':
         setCurrentStatus('Starting content generation workflow...');
         setProgress(message.progress || 0);
+        setLastMessage(message);
+        setMessages(prev => [...prev, message]);
         break;
+        
       case 'agents_starting':
         setCurrentStatus('AI agents analyzing and generating content...');
         setProgress(message.progress || 25);
+        setLastMessage(message);
+        setMessages(prev => [...prev, message]);
         break;
+        
       case 'workflow_completed':
         const success = message.results?.success || false;
         setCurrentStatus(success ? 'Content generation completed successfully' : 'Content generation failed');
         setProgress(message.progress || (success ? 75 : 0));
+        setLastMessage(message);
+        setMessages(prev => [...prev, message]);
         break;
+        
       case 'campaign_completed':
         setCurrentStatus('Campaign content generated and ready!');
         setProgress(100);
+        setLastMessage(message);
+        setMessages(prev => [...prev, message]);
         break;
+        
+      case 'echo':
+        // Echo messages are mainly for testing - add to messages but don't update status
+        setLastMessage(message);
+        setMessages(prev => [...prev, message]);
+        break;
+        
       default:
-        // Keep existing status for other message types
+        console.warn('🔌 [WEBSOCKET] Unknown message type:', message.type);
+        setLastMessage(message);
+        setMessages(prev => [...prev, message]);
         break;
     }
   }, []);
@@ -127,7 +184,14 @@ export const useCampaignWebSocket = (
   const connect = useCallback(() => {
     if (!campaignId || !enabled) return;
 
+    // Clean up any existing connection
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
     setConnectionState('connecting');
+    setCurrentStatus('Connecting to real-time updates...');
     
     try {
       const wsUrl = getWebSocketUrl(campaignId);
@@ -140,6 +204,14 @@ export const useCampaignWebSocket = (
         setIsConnected(true);
         setConnectionState('connected');
         reconnectAttempts.current = 0;
+        
+        // Start ping interval to keep connection alive
+        if (pingIntervalRef.current) {
+          clearInterval(pingIntervalRef.current);
+        }
+        pingIntervalRef.current = setInterval(() => {
+          sendPing();
+        }, pingInterval);
       };
       
       wsRef.current.onmessage = (event) => {
@@ -148,7 +220,16 @@ export const useCampaignWebSocket = (
           console.log(`📨 [WEBSOCKET] Received message:`, message);
           processMessage(message);
         } catch (error) {
-          console.error('🔌 [WEBSOCKET] Error parsing message:', error);
+          console.error('🔌 [WEBSOCKET] Error parsing message:', error, 'Raw data:', event.data);
+          // Create error message to display to user
+          const errorMessage: CampaignStatusMessage = {
+            type: 'error',
+            campaign_id: campaignId,
+            message: 'Failed to parse server message',
+            error: error instanceof Error ? error.message : 'Unknown parsing error',
+            timestamp: new Date().toISOString()
+          };
+          processMessage(errorMessage);
         }
       };
       
@@ -156,34 +237,54 @@ export const useCampaignWebSocket = (
         console.log(`🔌 [WEBSOCKET] Connection closed for campaign: ${campaignId}`, event.code, event.reason);
         setIsConnected(false);
         setConnectionState('disconnected');
+        setCurrentStatus('Connection lost. Attempting to reconnect...');
         
-        // Auto-reconnect logic
+        // Clear ping interval
+        if (pingIntervalRef.current) {
+          clearInterval(pingIntervalRef.current);
+          pingIntervalRef.current = null;
+        }
+        
+        // Auto-reconnect logic with improved backoff
         if (enabled && reconnectAttempts.current < maxReconnectAttempts) {
           reconnectAttempts.current++;
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000); // Exponential backoff, max 30s
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
           console.log(`🔌 [WEBSOCKET] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current}/${maxReconnectAttempts})`);
           
           reconnectTimeoutRef.current = setTimeout(() => {
-            connect();
+            if (enabled) { // Check if still enabled before reconnecting
+              connect();
+            }
           }, delay);
+        } else if (reconnectAttempts.current >= maxReconnectAttempts) {
+          setCurrentStatus('Connection failed. Please refresh the page.');
+          setConnectionState('error');
         }
       };
       
       wsRef.current.onerror = (error) => {
         console.error(`🔌 [WEBSOCKET] Error for campaign: ${campaignId}`, error);
         setConnectionState('error');
+        setCurrentStatus('WebSocket connection error occurred');
       };
       
     } catch (error) {
       console.error('🔌 [WEBSOCKET] Failed to create WebSocket connection:', error);
       setConnectionState('error');
+      setCurrentStatus('Failed to create WebSocket connection');
     }
-  }, [campaignId, enabled, getWebSocketUrl, processMessage]);
+  }, [campaignId, enabled, getWebSocketUrl, processMessage, sendPing]);
 
   const disconnect = useCallback(() => {
+    // Clean up all timers and connections
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
+    }
+    
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
     }
     
     if (wsRef.current) {
@@ -194,6 +295,7 @@ export const useCampaignWebSocket = (
     
     setIsConnected(false);
     setConnectionState('disconnected');
+    setCurrentStatus('Disconnected from campaign updates');
     reconnectAttempts.current = 0;
   }, [campaignId]);
 
@@ -222,7 +324,10 @@ export const useCampaignWebSocket = (
     connectionState,
     progress,
     currentStatus,
+    connectionId,
+    lastHeartbeat,
     sendMessage,
+    sendPing,
     clearMessages
   };
 };
