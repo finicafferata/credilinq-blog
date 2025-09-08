@@ -1,6 +1,9 @@
 """
 Final Approval Agent
 Performs final content approval assessment, aggregating all previous review stages.
+
+🚨 DEPRECATED: This agent is deprecated and will be removed in version 3.0.0.
+Use ContentGenerationWorkflowLangGraph workflow orchestration instead.
 """
 
 import asyncio
@@ -10,8 +13,16 @@ from typing import Dict, Any, List, Optional
 from src.agents.workflow.review_workflow_models import ReviewStage, ReviewAgentResult
 from src.agents.workflow.review_agent_base import ReviewAgentBase
 from src.core.llm_client import LLMClient
+from src.utils.deprecation import deprecated_agent
 
 
+@deprecated_agent(
+    replacement_class="ContentGenerationWorkflowLangGraph",
+    replacement_import="src.agents.workflow.content_generation_workflow_langgraph",
+    migration_guide_url="https://github.com/credilinq/agent-optimization-migration/blob/main/final-approval-migration.md",
+    removal_version="3.0.0",
+    removal_date="2025-12-01"
+)
 class FinalApprovalAgent(ReviewAgentBase):
     """
     Agent responsible for final content approval in the review workflow.

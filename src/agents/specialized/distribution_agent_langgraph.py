@@ -19,9 +19,7 @@ from ..core.langgraph_base import (
     CheckpointStrategy, LangGraphExecutionContext
 )
 from ..core.base_agent import AgentType, AgentResult, AgentExecutionContext
-from .distribution_agent import (
-    DistributionAgent, PlatformConfig, PublishedPost
-)
+# Removed broken import: from .distribution_agent import ...
 # from ...config.database import DatabaseConnection  # Temporarily disabled
 
 
@@ -31,6 +29,26 @@ class DistributionMode(str, Enum):
     SCHEDULED = "scheduled"
     BATCH = "batch"
     DRIP_CAMPAIGN = "drip_campaign"
+
+
+@dataclass
+class PlatformConfig:
+    """Platform configuration for content distribution."""
+    platform_name: str
+    api_endpoint: str
+    auth_token: str = ""
+    max_content_length: int = 1000
+    supported_formats: List[str] = field(default_factory=list)
+
+
+@dataclass
+class PublishedPost:
+    """Record of published content."""
+    platform: str
+    post_id: str
+    content: str
+    published_at: str
+    engagement_metrics: Dict[str, int] = field(default_factory=dict)
 
 
 class PlatformStatus(str, Enum):

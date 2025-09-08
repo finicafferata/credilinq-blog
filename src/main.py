@@ -10,7 +10,7 @@ import logging
 import asyncio
 
 from .config import settings, db_config, secure_db
-from .api.routes import blogs, campaigns, analytics, health, documents, api_analytics, content_repurposing, content_preview, settings as settings_router, review_workflow
+from .api.routes import blogs, campaigns, analytics, health, documents, api_analytics, content_repurposing, content_preview, settings as settings_router, review_workflow, workflow_metrics
 # Temporarily disabled due to missing ML dependencies on Railway
 # from .api.routes import competitor_intelligence
 # from .api.routes import content_deliverables  # Temporarily disabled - missing dependencies
@@ -18,7 +18,7 @@ from .api.routes import blogs, campaigns, analytics, health, documents, api_anal
 from .api.routes import comments as comments_router
 from .api.routes import suggestions as suggestions_router
 from .api.routes import db_debug as db_debug_router
-from .api.routes import workflow_fixed, images_debug, agents, auth
+from .api.routes import workflow_fixed, images_debug, agents, auth, workflow_orchestration
 # Temporarily disabled due to missing agent dependencies during migration
 # from .api.routes import content_workflows
 from .core.api_docs import configure_api_docs, custom_openapi_schema
@@ -352,6 +352,10 @@ app.include_router(images_debug.router, prefix="/api/v2", tags=["images-v2"])
 app.include_router(settings_router.router, prefix="/api/v2", tags=["settings-v2"])
 # workflow_fixed is the main workflow implementation
 app.include_router(workflow_fixed.router, prefix="/api/v2", tags=["workflow-fixed-v2"])
+# Master Planner Agent workflow orchestration
+app.include_router(workflow_orchestration.router, prefix="/api/v2", tags=["workflow-orchestration-v2"])
+# Workflow monitoring and metrics
+app.include_router(workflow_metrics.router, prefix="/api/v2", tags=["workflow-metrics-v2"])
 # Content generation workflows
 # app.include_router(content_workflows.router, prefix="/api/v2", tags=["content-workflows-v2"])
 app.include_router(agents.router, prefix="/api/v2", tags=["agents-v2"])
@@ -364,12 +368,12 @@ app.include_router(analytics.router, prefix="/api/v1", tags=["analytics-v1"], de
 
 # Default routes (no version prefix) - use v2
 app.include_router(blogs.router, prefix="/api", tags=["blogs"])
+app.include_router(documents.router, prefix="/api", tags=["documents"])  # Move before campaigns to avoid routing conflict
 app.include_router(campaigns.router, prefix="/api", tags=["campaigns"])
 app.include_router(comments_router.router, prefix="/api", tags=["comments"])
 app.include_router(suggestions_router.router, prefix="/api", tags=["suggestions"])
 app.include_router(db_debug_router.router, prefix="/api", tags=["debug"])
 app.include_router(analytics.router, prefix="/api", tags=["analytics"])
-app.include_router(documents.router, prefix="/api", tags=["documents"])
 app.include_router(webhooks_router, prefix="/api", tags=["webhooks"])
 app.include_router(api_analytics.router, prefix="/api", tags=["api-analytics"])
 app.include_router(content_repurposing.router, prefix="/api/content", tags=["content-repurposing"])
@@ -390,6 +394,9 @@ async def test_images_direct():
 app.include_router(images_debug.router, prefix="/api/images", tags=["images-debug"])
 # workflow_fixed handles all workflow functionality
 app.include_router(workflow_fixed.router, prefix="/api", tags=["workflow-fixed"])
+app.include_router(workflow_orchestration.router, prefix="/api", tags=["workflow-orchestration"])
+# Workflow monitoring and metrics
+app.include_router(workflow_metrics.router, prefix="/api", tags=["workflow-metrics"])
 
 # Health and system routes
 app.include_router(health.router, tags=["health"])

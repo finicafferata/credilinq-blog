@@ -8,6 +8,9 @@ This agent evaluates content across multiple quality dimensions including:
 - Audience alignment
 - Engagement potential
 - Technical accuracy
+
+🚨 DEPRECATED: This agent is deprecated and will be removed in version 3.0.0.
+Use EditorAgentLangGraph via AdapterFactory.create_editor_adapter() instead.
 """
 
 import re
@@ -17,6 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ..core.base_agent import BaseAgent, AgentResult, AgentMetadata, AgentType, AgentExecutionContext
+from src.utils.deprecation import deprecated_agent
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +33,13 @@ class QualityDimension:
     suggestions: List[str]
     weight: float = 1.0  # Weighting factor for overall score
 
+@deprecated_agent(
+    replacement_class="EditorAgentLangGraph", 
+    replacement_import="src.agents.adapters.langgraph_legacy_adapter.AdapterFactory",
+    migration_guide_url="https://github.com/credilinq/agent-optimization-migration/blob/main/content-quality-migration.md",
+    removal_version="3.0.0",
+    removal_date="2025-12-01"
+)
 class ContentQualityAgent(BaseAgent[Dict[str, Any]]):
     """
     Specialized agent for comprehensive content quality analysis.

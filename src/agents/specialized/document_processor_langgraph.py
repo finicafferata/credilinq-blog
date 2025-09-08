@@ -28,7 +28,7 @@ from ..core.langgraph_base import (
     CheckpointStrategy, LangGraphExecutionContext
 )
 from ..core.base_agent import AgentType, AgentResult, AgentExecutionContext
-from .document_processor import DocumentProcessorAgent
+# Removed broken import: from .document_processor import DocumentProcessorAgent
 # from ...config.database import DatabaseConnection  # Temporarily disabled
 
 

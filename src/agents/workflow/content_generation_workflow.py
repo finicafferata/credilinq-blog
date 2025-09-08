@@ -397,9 +397,9 @@ class ContentGenerationWorkflow:
                     # Run Quality Review Agent for enhanced scoring
                     if generated_content.quality_score > 0:  # Only if content was successfully generated
                         try:
-                            from src.agents.specialized.quality_review_agent import QualityReviewAgent
+                            from src.agents.adapters.langgraph_legacy_adapter import AdapterFactory
                             start_time = time.time()
-                            quality_agent = QualityReviewAgent()
+                            quality_agent = AdapterFactory.create_editor_adapter()
                             
                             # Prepare content data for quality review
                             content_data = {
@@ -433,9 +433,9 @@ class ContentGenerationWorkflow:
                                 
                                 # Run Brand Review Agent if quality review passed
                                 try:
-                                    from src.agents.specialized.brand_review_agent import BrandReviewAgent
+                                    from src.agents.adapters.langgraph_legacy_adapter import AdapterFactory
                                     brand_start_time = time.time()
-                                    brand_agent = BrandReviewAgent()
+                                    brand_agent = AdapterFactory.create_brand_review_adapter()
                                     
                                     # Execute brand review using same content data
                                     brand_result = await brand_agent.execute_safe(content_data)

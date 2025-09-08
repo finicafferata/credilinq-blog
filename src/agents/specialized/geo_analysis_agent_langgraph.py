@@ -111,7 +111,7 @@ class GEOState(TypedDict):
     warnings: List[str]
 
 
-class GEOAnalysisAgentWorkflow(LangGraphWorkflowBase):
+class GeoAnalysisAgentLangGraph(LangGraphWorkflowBase):
     """
     LangGraph-based GEOAnalysisAgent for Generative Engine Optimization.
     Optimizes content for AI-powered search engines and language models.
@@ -134,7 +134,7 @@ class GEOAnalysisAgentWorkflow(LangGraphWorkflowBase):
             analysis_depth: shallow, standard, comprehensive
         """
         super().__init__(
-            name="GEOAnalysisAgentWorkflow",
+            workflow_name="GEOAnalysisAgentWorkflow",
             checkpoint_strategy=checkpoint_strategy
         )
         
@@ -1356,6 +1356,53 @@ Provide a comprehensive answer and indicate if you would cite this source."""
                 errors=[str(e)],
                 metadata={"error_type": type(e).__name__}
             )
+    
+    def _create_initial_state(self, input_data: Dict[str, Any]) -> GEOState:
+        """Create initial workflow state from input."""
+        return GEOState(
+            content=input_data.get("content", ""),
+            content_type=input_data.get("content_type", "blog_post"),
+            title=input_data.get("title", ""),
+            analysis_phase="content_analysis",
+            content_metrics={},
+            trustworthiness_score=0.0,
+            parsability_score=0.0,
+            factual_density_score=0.0,
+            ai_citability_score=0.0,
+            geo_score=0.0,
+            optimization_recommendations=[],
+            eeat_analysis={},
+            ai_model_scores={},
+            errors=[],
+            completed_phases=[]
+        )
+    
+    def _create_workflow_graph(self):
+        """Create the LangGraph workflow structure."""
+        from src.agents.core.langgraph_compat import StateGraph
+        
+        workflow = StateGraph(GEOState)
+        
+        # Add workflow nodes
+        workflow.add_node("content_analysis", self.initialization_node)
+        workflow.add_node("trustworthiness_analysis", self.trustworthiness_analysis_node) 
+        workflow.add_node("parsability_analysis", self.parsability_analysis_node)
+        workflow.add_node("factual_density_analysis", self.factual_density_analysis_node)
+        workflow.add_node("ai_citability_analysis", self.ai_citability_analysis_node)
+        workflow.add_node("optimization_recommendations", self.optimization_recommendations_node)
+        workflow.add_node("final_scoring", self.final_scoring_node)
+        
+        # Define workflow edges
+        workflow.set_entry_point("content_analysis")
+        workflow.add_edge("content_analysis", "trustworthiness_analysis")
+        workflow.add_edge("trustworthiness_analysis", "parsability_analysis")
+        workflow.add_edge("parsability_analysis", "factual_density_analysis")
+        workflow.add_edge("factual_density_analysis", "ai_citability_analysis")
+        workflow.add_edge("ai_citability_analysis", "optimization_recommendations")
+        workflow.add_edge("optimization_recommendations", "final_scoring")
+        workflow.add_edge("final_scoring", END)
+        
+        return workflow
 
 
 # Adapter for backward compatibility

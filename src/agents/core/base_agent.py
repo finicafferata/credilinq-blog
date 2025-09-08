@@ -62,13 +62,15 @@ class AgentType(Enum):
     IMAGE_PROMPT = "image_prompt"
     VIDEO_PROMPT = "video_prompt"
     SEO = "seo"
+    GEO_ANALYSIS = "geo_analysis"
     SOCIAL_MEDIA = "social_media"
     DOCUMENT_PROCESSOR = "document_processor"
     SEARCH = "search"
-    WORKFLOW_ORCHESTRATOR = "workflow_orchestrator"
-    CONTENT_GENERATOR = "content_generator"
-    AI_CONTENT_GENERATOR = "ai_content_generator"
-    CONTENT_OPTIMIZER = "content_optimizer"
+    WORKFLOW_ORCHESTRATOR = "workflow_orchestrator"  # Re-added for orchestration components
+    # Removed redundant agent types:
+    # CONTENT_GENERATOR - handled by Writer
+    # AI_CONTENT_GENERATOR - handled by Writer  
+    # CONTENT_OPTIMIZER - handled by Editor + SEO
     CONTENT_AGENT = "content_agent"
     TASK_SCHEDULER = "task_scheduler"
     DISTRIBUTION_AGENT = "distribution_agent"
@@ -89,7 +91,25 @@ class AgentMetadata:
 
 @dataclass
 class AgentExecutionContext:
-    """Context for agent execution."""
+    """
+    Context for agent execution with standardized parameters.
+    
+    This class provides a standardized interface for passing execution context
+    to agents. All agents should use these parameters consistently.
+    
+    Supported Parameters:
+    - request_id: Unique identifier for this execution request
+    - user_id: User identifier (if applicable)
+    - session_id: Session identifier for related requests  
+    - parent_agent_id: Parent agent (for nested executions)
+    - workflow_id: Workflow identifier (for workflow executions)
+    - execution_started_at: When execution started
+    - execution_metadata: Additional metadata (use this for custom parameters)
+    
+    Deprecated/Unsupported Parameters:
+    - task_type: Use execution_metadata['task_type'] instead
+    - priority: Use execution_metadata['priority'] instead
+    """
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     user_id: Optional[str] = None
     session_id: Optional[str] = None
@@ -97,6 +117,47 @@ class AgentExecutionContext:
     workflow_id: Optional[str] = None
     execution_started_at: datetime = field(default_factory=datetime.utcnow)
     execution_metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def __post_init__(self):
+        """Validate parameters and provide helpful error messages."""
+        # Validate request_id format
+        if not self.request_id or not isinstance(self.request_id, str):
+            raise ValueError("request_id must be a non-empty string")
+        
+        # Validate metadata is a dict
+        if not isinstance(self.execution_metadata, dict):
+            raise ValueError("execution_metadata must be a dictionary")
+            
+        # Warn about common deprecated parameters
+        deprecated_params = ['task_type', 'priority', 'agent_role']
+        for param in deprecated_params:
+            if param in self.execution_metadata:
+                # Logger is available from module level import
+                import logging
+                logging.getLogger(__name__).debug(f"Parameter '{param}' should be in execution_metadata, not as direct parameter")
+    
+    def get_metadata(self, key: str, default: Any = None) -> Any:
+        """
+        Get metadata value with default fallback.
+        
+        Args:
+            key: Metadata key to retrieve
+            default: Default value if key not found
+            
+        Returns:
+            Metadata value or default
+        """
+        return self.execution_metadata.get(key, default)
+    
+    def set_metadata(self, key: str, value: Any) -> None:
+        """
+        Set metadata value.
+        
+        Args:
+            key: Metadata key
+            value: Value to set
+        """
+        self.execution_metadata[key] = value
 
 @dataclass
 class AgentDecisionReasoning:
@@ -292,7 +353,7 @@ class BaseAgent(ABC, Generic[T]):
         pass
     
     @abstractmethod
-    def execute(
+    async def execute(
         self, 
         input_data: AgentInput, 
         context: Optional[AgentExecutionContext] = None,
@@ -311,7 +372,7 @@ class BaseAgent(ABC, Generic[T]):
         """
         pass
     
-    def execute_safe(
+    async def execute_safe(
         self, 
         input_data: AgentInput, 
         context: Optional[AgentExecutionContext] = None,
@@ -379,7 +440,7 @@ class BaseAgent(ABC, Generic[T]):
                 self._validate_input(input_data)
                 
                 # Execute main logic
-                result = self.execute(input_data, context, **kwargs)
+                result = await self.execute(input_data, context, **kwargs)
                 
                 # Update metrics
                 execution_time = (time.time() - start_time) * 1000
@@ -399,6 +460,13 @@ class BaseAgent(ABC, Generic[T]):
                         # Track completion (non-blocking)
                         loop = asyncio.get_event_loop() if asyncio.get_event_loop().is_running() else None
                         if loop:
+                            # Extract quality score from result if available
+                            quality_score = None
+                            if hasattr(result, 'quality_assessment') and result.quality_assessment:
+                                quality_score = result.quality_assessment.get('overall_score', None)
+                            elif hasattr(result, 'metadata') and result.metadata:
+                                quality_score = result.metadata.get('quality_score', None)
+                            
                             asyncio.create_task(langgraph_tracker.track_execution_end(
                                 execution_id=performance_execution_id,
                                 status="success",
@@ -407,6 +475,13 @@ class BaseAgent(ABC, Generic[T]):
                                 cost=cost,
                                 retry_count=retries
                             ))
+                            
+                            # Store quality score in metadata for database logging
+                            if quality_score is not None:
+                                result.metadata['quality_score'] = quality_score
+                            
+                            # Force flush to ensure data is written immediately
+                            asyncio.create_task(langgraph_tracker._flush_queues(force=True))
                         
                         # Track decisions if present
                         if result.decisions:
@@ -1035,7 +1110,7 @@ class WorkflowAgent(BaseAgent[Dict[str, Any]]):
         return self.child_agents.copy()
     
     @abstractmethod
-    def execute_workflow(
+    async def execute_workflow(
         self, 
         input_data: Dict[str, Any], 
         context: Optional[AgentExecutionContext] = None
@@ -1043,14 +1118,14 @@ class WorkflowAgent(BaseAgent[Dict[str, Any]]):
         """Execute the workflow with child agents."""
         pass
     
-    def execute(
+    async def execute(
         self, 
         input_data: Dict[str, Any], 
         context: Optional[AgentExecutionContext] = None,
         **kwargs
     ) -> AgentResult:
         """Execute workflow."""
-        return self.execute_workflow(input_data, context)
+        return await self.execute_workflow(input_data, context)
 
 
 # Backward compatibility - keep the old BaseAgent interface

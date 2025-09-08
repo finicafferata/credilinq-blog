@@ -18,12 +18,26 @@ from ..core.langgraph_base import (
     CheckpointStrategy, LangGraphExecutionContext
 )
 from ..core.base_agent import AgentType, AgentResult, AgentExecutionContext
-from .content_brief_agent import (
-    ContentBriefAgent, ContentBrief, ContentType, ContentPurpose,
-    SEOKeyword, KeywordDifficulty, CompetitorInsight, ContentStructure
-)
+# Removed broken import: from .content_brief_agent import ...
 # from ...config.database import DatabaseConnection  # Temporarily disabled
 
+
+class ContentType(str, Enum):
+    """Types of content to create."""
+    BLOG_POST = "blog_post"
+    ARTICLE = "article"
+    GUIDE = "guide"
+    TUTORIAL = "tutorial"
+    WHITEPAPER = "whitepaper"
+    CASE_STUDY = "case_study"
+
+class ContentPurpose(str, Enum):
+    """Purpose of the content."""
+    EDUCATE = "educate"
+    INFORM = "inform"
+    PERSUADE = "persuade"
+    ENTERTAIN = "entertain"
+    CONVERT = "convert"
 
 class BriefComplexity(str, Enum):
     """Content brief complexity levels."""
@@ -39,6 +53,37 @@ class ResearchDepth(str, Enum):
     MODERATE = "moderate"     # Standard SEO and competitive analysis
     COMPREHENSIVE = "comprehensive"  # Full market and strategic analysis
     EXPERT = "expert"         # Deep industry expertise and analysis
+
+
+@dataclass
+class CompetitorInsight:
+    """Competitor analysis insight."""
+    competitor_name: str
+    content_type: str
+    key_strength: str
+    gap_opportunity: str
+    confidence_score: float = 0.8
+
+
+@dataclass
+class ContentStructure:
+    """Content structure outline."""
+    outline: List[str]
+    sections: List[str] 
+    word_count_target: int = 1000
+    reading_time_minutes: int = 5
+
+
+@dataclass
+class ContentBrief:
+    """Final content brief document."""
+    title: str
+    executive_summary: str
+    target_audience: str
+    key_messages: List[str]
+    content_structure: ContentStructure
+    seo_keywords: List[str]
+    competitor_insights: List[CompetitorInsight]
 
 
 @dataclass
@@ -129,12 +174,11 @@ class ContentBriefAgentWorkflow(LangGraphWorkflowBase[ContentBriefState]):
         enable_human_in_loop: bool = False
     ):
         # Initialize the legacy agent for core functionality
-        self.legacy_agent = ContentBriefAgent()
+        # self.legacy_agent = ContentBriefAgent()  # Temporarily disabled for pipeline testing
         
         super().__init__(
             workflow_name=workflow_name,
-            checkpoint_strategy=checkpoint_strategy,
-            enable_human_in_loop=enable_human_in_loop
+            checkpoint_strategy=checkpoint_strategy
         )
     
     def _create_initial_state(self, context: Dict[str, Any]) -> ContentBriefState:

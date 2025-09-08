@@ -24,7 +24,7 @@ from ..core.langgraph_base import (
     CheckpointStrategy, LangGraphExecutionContext
 )
 from ..core.base_agent import AgentType, AgentResult, AgentExecutionContext
-from .task_scheduler import TaskSchedulerAgent, PlatformSchedule, ScheduledPost
+# Removed broken import: from .task_scheduler import TaskSchedulerAgent, PlatformSchedule, ScheduledPost
 # from ...config.database import DatabaseConnection  # Temporarily disabled
 
 
@@ -42,8 +42,23 @@ class TaskStatus(Enum):
     SCHEDULED = "scheduled"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
+
+@dataclass
+class PlatformSchedule:
+    """Platform posting schedule configuration."""
+    platform: str
+    optimal_times: List[str]  # List of optimal posting times
+    frequency: str  # daily, weekly, etc.
+    content_types: List[str] = field(default_factory=list)
+
+@dataclass  
+class ScheduledPost:
+    """Scheduled social media post."""
+    content: str
+    platform: str
+    scheduled_time: str
+    status: str = "pending"
+    post_id: str = ""
 
 
 class SchedulingStrategy(Enum):

@@ -1,6 +1,9 @@
 """
 Brand Review Agent
 Performs brand consistency and alignment assessment for content.
+
+🚨 DEPRECATED: This agent is deprecated and will be removed in version 3.0.0.
+Use EditorAgentLangGraph via AdapterFactory.create_brand_review_adapter() instead.
 """
 
 import asyncio
@@ -11,8 +14,16 @@ from typing import Dict, Any, List, Optional
 from src.agents.workflow.review_workflow_models import ReviewStage, ReviewAgentResult
 from src.agents.workflow.review_agent_base import ReviewAgentBase
 from src.core.llm_client import LLMClient
+from src.utils.deprecation import deprecated_agent
 
 
+@deprecated_agent(
+    replacement_class="EditorAgentLangGraph",
+    replacement_import="src.agents.adapters.langgraph_legacy_adapter.AdapterFactory",
+    migration_guide_url="https://github.com/credilinq/agent-optimization-migration/blob/main/brand-review-migration.md",
+    removal_version="3.0.0",
+    removal_date="2025-12-01"
+)
 class BrandReviewAgent(ReviewAgentBase):
     """
     Agent responsible for brand consistency and alignment assessment in the review workflow.

@@ -1,6 +1,9 @@
 """
 Quality Review Agent
 Performs comprehensive content quality assessment including grammar, readability, structure, and factual accuracy.
+
+🚨 DEPRECATED: This agent is deprecated and will be removed in version 3.0.0.
+Use EditorAgentLangGraph via AdapterFactory.create_editor_adapter() instead.
 """
 
 import asyncio
@@ -11,8 +14,16 @@ from typing import Dict, Any, List, Optional
 from src.agents.workflow.review_workflow_models import ReviewStage, ReviewAgentResult
 from src.agents.workflow.review_agent_base import ReviewAgentBase
 from src.core.llm_client import LLMClient
+from src.utils.deprecation import deprecated_agent
 
 
+@deprecated_agent(
+    replacement_class="EditorAgentLangGraph",
+    replacement_import="src.agents.adapters.langgraph_legacy_adapter.AdapterFactory",
+    migration_guide_url="https://github.com/credilinq/agent-optimization-migration/blob/main/quality-review-migration.md",
+    removal_version="3.0.0",
+    removal_date="2025-12-01"
+)
 class QualityReviewAgent(ReviewAgentBase):
     """
     Agent responsible for content quality assessment in the review workflow.

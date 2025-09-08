@@ -155,7 +155,7 @@ class AIContentGeneratorWorkflow(LangGraphWorkflowBase[AIContentGeneratorState])
         enable_human_in_loop: bool = False
     ):
         # Initialize the legacy agent for core functionality
-        self.legacy_agent = AIContentGeneratorAgent()
+        # self.legacy_agent = AIContentGeneratorAgent()  # Removed circular reference
         
         super().__init__(
             workflow_name=workflow_name,

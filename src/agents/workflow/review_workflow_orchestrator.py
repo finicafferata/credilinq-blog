@@ -17,16 +17,13 @@ from .review_workflow_models import (
     ReviewCheckpoint, ReviewFeedback, ReviewAgentResult
 )
 from .review_agent_base import ReviewAgentBase
-from ..specialized.quality_review_agent import QualityReviewAgent
-from ..specialized.brand_review_agent import BrandReviewAgent
-from ..specialized.final_approval_agent import FinalApprovalAgent
-from ..specialized.content_quality_agent import ContentQualityAgent
-from ..specialized.editor_agent_langgraph import EditorAgentWorkflow
+# Legacy agents replaced with LangGraph adapters
+from ..adapters.langgraph_legacy_adapter import AdapterFactory
+from ..specialized.editor_agent_langgraph import EditorAgentLangGraph
 from ..specialized.seo_agent_langgraph import SEOAgentLangGraph
-# Temporarily using placeholder agents for incomplete implementations
-# from ..specialized.geo_analysis_agent_langgraph import GEOAnalysisAgentLangGraph  
-# from ..specialized.image_prompt_agent_langgraph import ImagePromptAgentLangGraph
-# from ..specialized.social_media_agent_langgraph import SocialMediaAgentLangGraph
+from ..specialized.geo_analysis_agent_langgraph import GeoAnalysisAgentLangGraph
+# Additional LangGraph agents for migration
+from ..specialized.social_media_agent_langgraph import SocialMediaAgentLangGraph
 from ...config.database import db_config
 
 logger = logging.getLogger(__name__)
@@ -41,17 +38,17 @@ class ReviewWorkflowOrchestrator:
         self.workflow_id = "content_review_workflow"
         self.checkpointer = checkpointer or MemorySaver()
         
-        # Initialize all specialized review agents
-        # Some agents are temporarily using simplified implementations
+        # Initialize all specialized review agents with LangGraph adapters
+        # Using modern LangGraph agents via adapters for backward compatibility
         self.review_agents = {
-            "content_quality": ContentQualityAgent(),
-            "editorial_review": EditorAgentWorkflow(),
-            "brand": BrandReviewAgent(),
+            "content_quality": AdapterFactory.create_editor_adapter(),  # ContentQualityAgent → EditorAgent
+            "editorial_review": EditorAgentLangGraph(),
+            "brand": AdapterFactory.create_brand_review_adapter(),  # BrandReviewAgent → EditorAgent w/ brand focus
             "seo_analysis": SEOAgentLangGraph(),
-            "geo_analysis": self._create_placeholder_agent("geo_analysis"),
+            "geo_analysis": GeoAnalysisAgentLangGraph(),
             "visual_review": self._create_placeholder_agent("visual_review"), 
-            "social_media_review": self._create_placeholder_agent("social_media_review"),
-            "final_approval": FinalApprovalAgent()
+            "social_media_review": SocialMediaAgentLangGraph(),
+            "final_approval": AdapterFactory.create_editor_adapter()  # FinalApprovalAgent → EditorAgent
         }
         
         # Build the LangGraph workflow
