@@ -143,6 +143,11 @@ def main():
     langgraph_started = start_langgraph_service()
     if not langgraph_started:
         print("❌ Failed to start LangGraph service, starting FastAPI only")
+        print("✅ Agents will still be available for pipeline execution")
+        
+        # Enable agents even without LangGraph service for optimized pipeline
+        os.environ['FORCE_ENABLE_AGENTS'] = 'true'
+        print("🔧 Force-enabled agents for optimized pipeline functionality")
     
     # Start FastAPI service
     if not start_fastapi_service():
