@@ -1670,7 +1670,8 @@ class OptimizedContentPipeline:
         word_count_target: int = 1500,
         tone: str = "professional",
         key_topics: Optional[List[str]] = None,
-        campaign_id: Optional[str] = None
+        campaign_id: Optional[str] = None,
+        company_context: str = "B2B financial services"
     ) -> Dict[str, Any]:
         """
         Execute the complete optimized content creation pipeline.
@@ -1688,7 +1689,8 @@ class OptimizedContentPipeline:
             'content_type': content_type,
             'word_count_target': word_count_target,
             'tone': tone,
-            'key_topics': key_topics or [topic]
+            'key_topics': key_topics or [topic],
+            'company_context': company_context
         }
         
         # Execute workflow
