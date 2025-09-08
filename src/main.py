@@ -10,7 +10,8 @@ import logging
 import asyncio
 
 from .config import settings, db_config, secure_db
-from .api.routes import blogs, campaigns, analytics, health, documents, api_analytics, content_repurposing, content_preview, settings as settings_router, review_workflow, workflow_metrics
+from .api.routes import blogs, analytics, health, documents, api_analytics, content_repurposing, content_preview, settings as settings_router, review_workflow, workflow_metrics
+from .api.routes import campaigns_main as campaigns
 # Temporarily disabled due to missing ML dependencies on Railway
 # from .api.routes import competitor_intelligence
 # from .api.routes import content_deliverables  # Temporarily disabled - missing dependencies
