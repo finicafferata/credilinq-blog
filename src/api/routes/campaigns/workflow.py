@@ -113,7 +113,7 @@ async def get_campaign_workflow_status(campaign_id: str):
                     ct.agent_type,
                     ct.created_at as task_created,
                     ct.updated_at as task_updated,
-                    ct.output_data
+                    ct.result
                 FROM campaigns c
                 LEFT JOIN campaign_tasks ct ON c.id = ct.campaign_id
                 WHERE c.id = %s
@@ -144,14 +144,14 @@ async def get_campaign_workflow_status(campaign_id: str):
         for row in results:
             if row[3]:  # if task_type exists
                 total_tasks += 1
-                task_type, status, agent_type, task_created, task_updated, output_data = row[3:9]
+                task_type, status, agent_type, task_created, task_updated, result_data = row[3:9]
                 
                 agent_info = {
                     "agent_type": agent_type or task_type,
                     "task_type": task_type,
                     "start_time": task_created.isoformat() if task_created else None,
                     "updated_time": task_updated.isoformat() if task_updated else None,
-                    "output_preview": str(output_data)[:200] + "..." if output_data else None
+                    "output_preview": str(result_data)[:200] + "..." if result_data else None
                 }
                 
                 if status == 'completed':

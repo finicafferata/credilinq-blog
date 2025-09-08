@@ -59,7 +59,7 @@ async def update_task_status(campaign_id: str, task_id: str, status_update: Task
             
             # Get updated task
             cur.execute("""
-                SELECT id, task_type, status, output_data, agent_type
+                SELECT id, task_type, status, result, agent_type
                 FROM campaign_tasks
                 WHERE id = %s
             """, (task_id,))
@@ -252,7 +252,7 @@ async def get_campaign_tasks(campaign_id: str):
                     task_type, 
                     agent_type, 
                     status, 
-                    output_data, 
+                    result, 
                     error,
                     created_at, 
                     updated_at,
@@ -267,7 +267,7 @@ async def get_campaign_tasks(campaign_id: str):
         # Process tasks
         tasks = []
         for row in task_rows:
-            task_id, task_type, agent_type, status, output_data, error, created_at, updated_at, metadata = row
+            task_id, task_type, agent_type, status, result, error, created_at, updated_at, metadata = row
             
             # Parse metadata
             task_metadata = {}
@@ -282,11 +282,11 @@ async def get_campaign_tasks(campaign_id: str):
             
             # Parse output data
             output_preview = None
-            if output_data:
-                if isinstance(output_data, str):
-                    output_preview = output_data[:200] + "..." if len(output_data) > 200 else output_data
-                elif isinstance(output_data, dict):
-                    output_preview = str(output_data)[:200] + "..." if len(str(output_data)) > 200 else str(output_data)
+            if result:
+                if isinstance(result, str):
+                    output_preview = result[:200] + "..." if len(result) > 200 else result
+                elif isinstance(result, dict):
+                    output_preview = str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
             
             tasks.append({
                 "id": str(task_id),
@@ -299,7 +299,7 @@ async def get_campaign_tasks(campaign_id: str):
                 "error": error,
                 "created_at": created_at.isoformat() if created_at else None,
                 "updated_at": updated_at.isoformat() if updated_at else None,
-                "has_output": output_data is not None
+                "has_output": result is not None
             })
         
         # Calculate summary statistics
@@ -348,7 +348,7 @@ async def get_task_detail(campaign_id: str, task_id: str):
                     ct.task_type,
                     ct.agent_type,
                     ct.status,
-                    ct.output_data,
+                    ct.result,
                     ct.error,
                     ct.created_at,
                     ct.updated_at,
@@ -363,7 +363,7 @@ async def get_task_detail(campaign_id: str, task_id: str):
             if not row:
                 raise HTTPException(status_code=404, detail="Task not found")
             
-            (task_id_db, task_type, agent_type, status, output_data, error, 
+            (task_id_db, task_type, agent_type, status, result, error, 
              created_at, updated_at, metadata, campaign_name) = row
         
         # Parse metadata
@@ -379,14 +379,14 @@ async def get_task_detail(campaign_id: str, task_id: str):
         
         # Parse output data
         parsed_output = None
-        if output_data:
-            if isinstance(output_data, str):
+        if result:
+            if isinstance(result, str):
                 try:
-                    parsed_output = json.loads(output_data)
+                    parsed_output = json.loads(result)
                 except json.JSONDecodeError:
-                    parsed_output = {"raw_output": output_data}
-            elif isinstance(output_data, dict):
-                parsed_output = output_data
+                    parsed_output = {"raw_output": result}
+            elif isinstance(result, dict):
+                parsed_output = result
         
         return {
             "task_id": str(task_id_db),
@@ -397,7 +397,7 @@ async def get_task_detail(campaign_id: str, task_id: str):
             "status": status,
             "description": task_metadata.get("description", task_type.replace("_", " ").title()),
             "priority": task_metadata.get("priority", 0),
-            "output_data": parsed_output,
+            "result": parsed_output,
             "error": error,
             "created_at": created_at.isoformat() if created_at else None,
             "updated_at": updated_at.isoformat() if updated_at else None,

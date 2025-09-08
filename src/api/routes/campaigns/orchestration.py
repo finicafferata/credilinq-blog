@@ -594,7 +594,7 @@ async def get_scheduled_content(campaign_id: str):
             
             # Get scheduled tasks with their content
             cur.execute("""
-                SELECT ct.id, ct.task_type, ct.output_data, ct.agent_type, ct.status, ct.updated_at,
+                SELECT ct.id, ct.task_type, ct.result, ct.status, ct.updated_at,
                        COALESCE(c.name, 'Unnamed Campaign') as campaign_name
                 FROM campaign_tasks ct
                 LEFT JOIN campaigns c ON ct.campaign_id = c.id
@@ -604,7 +604,7 @@ async def get_scheduled_content(campaign_id: str):
             
             scheduled_tasks = []
             for row in cur.fetchall():
-                task_id, task_type, content, agent_type, status, scheduled_at, campaign_name = row
+                task_id, task_type, content, status, scheduled_at, campaign_name = row
                 
                 # Parse content if it's JSON
                 content_text = ""
