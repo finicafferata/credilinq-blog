@@ -59,7 +59,6 @@ def start_langgraph_service():
     cmd = [
         'langgraph', 'up', 
         '--port', str(port),
-        '--host', '0.0.0.0',
         '--config', 'langgraph.json'
     ]
     
