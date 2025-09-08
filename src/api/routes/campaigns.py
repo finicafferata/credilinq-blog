@@ -2895,7 +2895,9 @@ async def rerun_campaign_agents(campaign_id: str, rerun_request: CampaignRerunRe
         if pipeline_type == "optimized_pipeline":
             # Use optimized content pipeline for 30% performance improvement
             try:
+                logger.info(f"🔄 Attempting to import optimized_content_pipeline...")
                 from src.agents.workflows.optimized_content_pipeline import optimized_content_pipeline
+                logger.info(f"✅ Successfully imported optimized_content_pipeline")
                 
                 logger.info(f"🚀 Starting optimized content pipeline for campaign rerun: {campaign_id}")
                 
@@ -3000,10 +3002,10 @@ async def rerun_campaign_agents(campaign_id: str, rerun_request: CampaignRerunRe
                             "optimization_enabled": True
                         })
             except ImportError as e:
-                logger.warning(f"Optimized content pipeline not available: {e}")
+                logger.error(f"❌ Failed to import optimized_content_pipeline: {e}", exc_info=True)
                 response_data.update({
                     "workflow_status": "fallback_to_advanced_orchestrator",
-                    "message": "Optimized pipeline unavailable, falling back to advanced orchestrator"
+                    "message": f"Optimized pipeline unavailable ({str(e)}), falling back to advanced orchestrator"
                 })
                 # Fall back to advanced orchestrator
                 pipeline_type = "advanced_orchestrator"
