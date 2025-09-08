@@ -543,3 +543,30 @@ async def get_monitoring_summary() -> Dict[str, Any]:
         'system_monitor_active': system_monitor.monitoring,
         'timestamp': time.time()
     }
+
+
+def get_performance_tracker():
+    """
+    Get the system performance tracker instance.
+    Returns an object with methods for accessing current metrics.
+    """
+    class PerformanceTrackerAPI:
+        """API wrapper for performance tracking functionality."""
+        
+        async def get_current_metrics(self) -> Dict[str, Any]:
+            """Get current system and application metrics."""
+            return await get_monitoring_summary()
+        
+        def get_metrics_collector(self):
+            """Get the global metrics collector instance."""
+            return metrics
+        
+        def get_system_monitor(self):
+            """Get the global system monitor instance."""
+            return system_monitor
+        
+        def get_alert_manager(self):
+            """Get the global alert manager instance."""
+            return alert_manager
+    
+    return PerformanceTrackerAPI()

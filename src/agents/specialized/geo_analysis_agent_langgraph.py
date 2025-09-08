@@ -1444,11 +1444,11 @@ class GEOAnalysisAgentLangGraph:
             )
             
             # Use same LLM for testing (in production might use different models)
-            self.workflow = GEOAnalysisAgentWorkflow(llm=llm, test_llm=llm)
+            self.workflow = GeoAnalysisAgentLangGraph(llm=llm, test_llm=llm)
             
         except Exception as e:
             # Fallback without LLM
-            self.workflow = GEOAnalysisAgentWorkflow(llm=None, test_llm=None)
+            self.workflow = GeoAnalysisAgentLangGraph(llm=None, test_llm=None)
     
     async def execute(
         self,
@@ -1485,3 +1485,7 @@ class GEOAnalysisAgentLangGraph:
                 error_message=str(e),
                 error_code="GEO_ANALYSIS_WORKFLOW_FAILED"
             )
+
+
+# Export alias for compatibility with agent factory
+GEOAnalysisAgentWorkflow = GeoAnalysisAgentLangGraph
