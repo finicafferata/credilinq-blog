@@ -2928,8 +2928,14 @@ async def rerun_campaign_agents(campaign_id: str, rerun_request: CampaignRerunRe
                         async def execute_optimized_pipeline():
                             try:
                                 logger.info(f"🎯 Executing optimized pipeline for campaign {campaign_id}")
+                                logger.info(f"🔧 Pipeline parameters: topic='{topic}', audience='{target_audience_final}', context='{company_context_final}'")
+                                
+                                # Test pipeline availability first
+                                if not hasattr(optimized_content_pipeline, 'execute_optimized_pipeline'):
+                                    raise AttributeError("execute_optimized_pipeline method not found on optimized_content_pipeline")
                                 
                                 # Execute the optimized pipeline
+                                logger.info("🚀 Calling optimized_content_pipeline.execute_optimized_pipeline...")
                                 pipeline_result = await optimized_content_pipeline.execute_optimized_pipeline(
                                     topic=topic,
                                     target_audience=target_audience_final,
@@ -2939,6 +2945,7 @@ async def rerun_campaign_agents(campaign_id: str, rerun_request: CampaignRerunRe
                                 )
                                 
                                 logger.info(f"✅ Optimized pipeline completed for campaign {campaign_id}")
+                                logger.info(f"📊 Pipeline result keys: {list(pipeline_result.keys()) if isinstance(pipeline_result, dict) else 'Not a dict'}")
                                 
                                 # Update campaign status
                                 with db_config.get_db_connection() as conn:
@@ -2964,9 +2971,20 @@ async def rerun_campaign_agents(campaign_id: str, rerun_request: CampaignRerunRe
                                     """, (campaign_id,))
                                     conn.commit()
                         
-                        # Start the pipeline execution in the background
+                        # Start the pipeline execution in the background with proper error handling
                         # Note: In production, you'd use a proper task queue like Celery
-                        asyncio.create_task(execute_optimized_pipeline())
+                        async def safe_pipeline_execution():
+                            try:
+                                logger.info(f"🎯 Starting background pipeline execution for campaign {campaign_id}")
+                                result = await execute_optimized_pipeline()
+                                logger.info(f"✅ Background pipeline execution completed successfully for campaign {campaign_id}")
+                                return result
+                            except Exception as e:
+                                logger.error(f"🚨 Background pipeline execution failed for campaign {campaign_id}: {e}", exc_info=True)
+                                raise
+                        
+                        # Create and start the background task
+                        asyncio.create_task(safe_pipeline_execution())
                         
                         # Start optimized pipeline execution (background task)
                         response_data.update({
