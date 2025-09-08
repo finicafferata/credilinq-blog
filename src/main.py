@@ -147,6 +147,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         enhanced_logger.warning(f"⚠️ AI environment setup warning: {e}")
     
+    # Test optimized pipeline import during startup
+    try:
+        enhanced_logger.info("🧪 Testing optimized_content_pipeline import at startup...")
+        from .agents.workflows.optimized_content_pipeline import optimized_content_pipeline
+        enhanced_logger.info("✅ Successfully imported optimized_content_pipeline at startup")
+        enhanced_logger.info(f"🔧 Pipeline instance type: {type(optimized_content_pipeline)}")
+    except ImportError as e:
+        enhanced_logger.error(f"❌ Failed to import optimized_content_pipeline at startup: {e}")
+    except Exception as e:
+        enhanced_logger.error(f"❌ Unexpected error importing optimized_content_pipeline: {e}")
+    
     enhanced_logger.info("🚀 CrediLinq AI Content Platform startup completed")
     
     yield

@@ -2895,7 +2895,13 @@ async def rerun_campaign_agents(campaign_id: str, rerun_request: CampaignRerunRe
         }
         
         # Execute pipeline based on selection
+        logger.info(f"🚀 PIPELINE EXECUTION: Selected pipeline type: {pipeline_type}")
+        import sys
+        sys.stdout.flush()  # Force flush logs to Railway
+        
         if pipeline_type == "optimized_pipeline":
+            logger.info(f"🎯 ENTERING OPTIMIZED PIPELINE BRANCH")
+            sys.stdout.flush()  # Force flush logs to Railway
             # Use optimized content pipeline for 30% performance improvement
             try:
                 logger.info(f"🔄 Attempting to import optimized_content_pipeline...")
