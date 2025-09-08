@@ -1,0 +1,15 @@
+{
+  "checkpoint_id": "integration_test_workflow_20250907_201046_7f1d3048",
+  "workflow_id": "integration_test_workflow",
+  "workflow_type": "test_integration",
+  "checkpoint_type": "manual",
+  "phase_name": "integration_test_phase",
+  "agent_name": null,
+  "created_at": "2025-09-07T20:10:46.120914",
+  "expires_at": "2025-09-14T20:10:46.120914",
+  "status": "recovered",
+  "description": "Integration test checkpoint",
+  "recovery_instructions": "Resume workflow from integration_test_phase phase",
+  "file_size_bytes": 118,
+  "compression_used": true
+}

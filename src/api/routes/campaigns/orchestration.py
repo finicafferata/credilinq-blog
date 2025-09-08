@@ -4,6 +4,7 @@ Handles advanced campaign orchestration, dashboard, and agent coordination.
 """
 
 import logging
+import json
 from datetime import datetime
 from typing import Dict, Any, List
 from fastapi import APIRouter, HTTPException, Query
@@ -581,6 +582,65 @@ async def execute_all_campaign_tasks(campaign_id: str):
     except Exception as e:
         logger.error(f"Error executing all campaign tasks: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to execute all campaign tasks: {str(e)}")
+
+@router.get("/campaigns/{campaign_id}/scheduled-content", response_model=List[Dict[str, Any]])
+async def get_scheduled_content(campaign_id: str):
+    """
+    Get all scheduled content for a campaign with calendar view
+    """
+    try:
+        with db_config.get_db_connection() as conn:
+            cur = conn.cursor()
+            
+            # Get scheduled tasks with their content
+            cur.execute("""
+                SELECT ct.id, ct.task_type, ct.output_data, ct.agent_type, ct.status, ct.updated_at,
+                       COALESCE(c.name, 'Unnamed Campaign') as campaign_name
+                FROM campaign_tasks ct
+                LEFT JOIN campaigns c ON ct.campaign_id = c.id
+                WHERE ct.campaign_id = %s AND ct.status IN ('approved', 'completed')
+                ORDER BY ct.updated_at ASC
+            """, (campaign_id,))
+            
+            scheduled_tasks = []
+            for row in cur.fetchall():
+                task_id, task_type, content, agent_type, status, scheduled_at, campaign_name = row
+                
+                # Parse content if it's JSON
+                content_text = ""
+                if content:
+                    if isinstance(content, dict):
+                        content_text = content.get('content', '') or content.get('text', '') or str(content)
+                    else:
+                        content_text = str(content)
+                
+                # Determine platform based on task type
+                platform = 'linkedin'  # default
+                if 'twitter' in task_type.lower():
+                    platform = 'twitter'
+                elif 'email' in task_type.lower():
+                    platform = 'email'
+                elif 'blog' in task_type.lower():
+                    platform = 'blog'
+                
+                scheduled_tasks.append({
+                    "id": str(task_id),
+                    "campaign_name": campaign_name,
+                    "task_type": task_type,
+                    "platform": platform,
+                    "content_type": task_type,
+                    "content_preview": content_text[:150] + "..." if content_text and len(content_text) > 150 else content_text,
+                    "scheduled_at": scheduled_at.isoformat() if scheduled_at else None,
+                    "status": status,
+                    "word_count": len(content_text.split()) if content_text else 0,
+                    "optimal_score": 85  # Mock score for now
+                })
+            
+            return scheduled_tasks
+            
+    except Exception as e:
+        logger.error(f"Error getting scheduled content: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get scheduled content: {str(e)}")
 
 @router.get("/campaigns/{campaign_id}/review-queue", response_model=List[Dict[str, Any]])
 async def get_review_queue(campaign_id: str):
