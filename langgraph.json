@@ -1,7 +1,33 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "campaign_workflow": "./langgraph_workflows.py:campaign_workflow"
+    "campaign_workflow": "./langgraph_workflows.py:campaign_workflow",
+    "blog_workflow": "./src/agents/workflows/blog_workflow_enhanced.py:blog_workflow",
+    "content_optimization_workflow": "./src/agents/workflows/content_optimization_workflow.py:content_optimization_workflow",
+    "research_workflow": "./src/agents/workflows/research_workflow.py:research_workflow",
+    "seo_agent": "./individual_agent_workflows.py:seo_agent",
+    "content_agent": "./individual_agent_workflows.py:content_agent",
+    "brand_agent": "./individual_agent_workflows.py:brand_agent",
+    "editor_agent": "./individual_agent_workflows.py:editor_agent",
+    "planner_agent": "./individual_agent_workflows.py:planner_agent",
+    "researcher_agent": "./individual_agent_workflows.py:researcher_agent",
+    "writer_agent": "./individual_agent_workflows.py:writer_agent"
   },
-  "env": ".env"
+  "env": ".env",
+  "debug": true,
+  "monitoring": {
+    "enable_metrics": true,
+    "metrics_endpoint": "/workflow-metrics",
+    "trace_level": "detailed",
+    "checkpoint_strategy": "persistent",
+    "recovery_enabled": true
+  },
+  "performance": {
+    "max_parallel_agents": 5,
+    "timeout_seconds": 300,
+    "retry_policy": {
+      "max_retries": 3,
+      "backoff_multiplier": 2
+    }
+  }
 }

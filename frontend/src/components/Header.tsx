@@ -15,11 +15,16 @@ export function Header() {
 
   // Menu items configuration
   const menuItems: MenuItem[] = [
-    // {
-    //   path: '/dashboard',
-    //   label: 'Orchestration',
-    //   icon: '🎛️'
-    // },
+    {
+      path: '/dashboard',
+      label: 'Orchestration',
+      icon: '🎛️'
+    },
+    {
+      path: '/master-planner',
+      label: 'Master Planner',
+      icon: '⚙️'
+    },
     // {
     //   path: '/analytics',
     //   label: 'Analytics',

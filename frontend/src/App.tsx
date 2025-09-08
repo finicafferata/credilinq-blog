@@ -122,6 +122,11 @@ const CampaignOrchestrationDashboard = lazyWithFallback(
   { loadingMessage: 'Loading orchestration dashboard...', name: 'CampaignOrchestrationDashboard' }
 );
 
+const MasterPlannerDashboard = lazyWithFallback(
+  () => import('./pages/MasterPlannerDashboard'),
+  { loadingMessage: 'Loading master planner dashboard...', name: 'MasterPlannerDashboard' }
+);
+
 // Agent Management - Commented out for production
 // const AgentManagement = lazyWithFallback(
 //   () => import('./pages/AgentManagement'),
@@ -204,6 +209,11 @@ function App() {
         <Route path="/orchestration" element={
           <SimpleAppLayout>
             <CampaignOrchestrationDashboard />
+          </SimpleAppLayout>
+        } />
+        <Route path="/master-planner" element={
+          <SimpleAppLayout>
+            <MasterPlannerDashboard />
           </SimpleAppLayout>
         } />
         <Route path="/new" element={

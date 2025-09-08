@@ -71,7 +71,7 @@ async def upload_documents(
             with db_config.get_db_connection() as conn:
                 cur = conn.cursor()
                 cur.execute("""
-                    INSERT INTO "Document" (id, title, "storagePath", "uploadedAt")
+                    INSERT INTO documents (id, title, storage_path, uploaded_at)
                     VALUES (%s, %s, %s, %s)
                 """, (doc_id, file.filename, temp_file_path, created_at))
                 conn.commit()
@@ -110,11 +110,11 @@ def list_documents(limit: int = 50, offset: int = 0):
             
             # Get documents with pagination
             cur.execute("""
-                SELECT id, title as filename, "storagePath", 'text/plain' as mime_type, 
+                SELECT id, title as filename, storage_path, mime_type, 
                        title as description, 'completed' as status, 
-                       "uploadedAt" as created_at, "uploadedAt" as updated_at
-                FROM "Document"
-                ORDER BY "uploadedAt" DESC
+                       uploaded_at as created_at, uploaded_at as updated_at
+                FROM documents
+                ORDER BY uploaded_at DESC
                 LIMIT %s OFFSET %s
             """, (limit, offset))
             
@@ -140,7 +140,7 @@ def list_documents(limit: int = 50, offset: int = 0):
                     'id': row[0],
                     'filename': row[1],
                     'file_size': file_size,
-                    'mime_type': mime_type,
+                    'mime_type': row[3] or mime_type,  # Use stored mime_type or detected one
                     'description': row[4],
                     'status': row[5],
                     'created_at': row[6].isoformat() if row[6] else None,
@@ -148,7 +148,7 @@ def list_documents(limit: int = 50, offset: int = 0):
                 })
             
             # Get total count
-            cur.execute('SELECT COUNT(*) FROM "Document"')
+            cur.execute('SELECT COUNT(*) FROM documents')
             total_count = cur.fetchone()[0]
         
         return DocumentListResponse(
@@ -176,8 +176,8 @@ def get_document(doc_id: str):
             cur = conn.cursor()
             
             cur.execute("""
-                SELECT id, title, "storagePath", "uploadedAt"
-                FROM "Document"
+                SELECT id, title, storage_path, uploaded_at
+                FROM documents
                 WHERE id = %s
             """, (doc_id,))
             
@@ -215,7 +215,7 @@ def get_document(doc_id: str):
             
             # Get processing chunks info if available
             cur.execute("""
-                SELECT COUNT(*) FROM "DocumentChunk" WHERE "documentId" = %s
+                SELECT COUNT(*) FROM document_chunks WHERE document_id = %s
             """, (doc_id,))
             
             chunks_count = cur.fetchone()[0]
@@ -245,7 +245,7 @@ def delete_document(doc_id: str):
             cur = conn.cursor()
             
             cur.execute("""
-                SELECT id, title FROM "Document" WHERE id = %s
+                SELECT id, title FROM documents WHERE id = %s
             """, (doc_id,))
             
             row = cur.fetchone()
@@ -255,10 +255,10 @@ def delete_document(doc_id: str):
             document = {'id': row[0], 'filename': row[1]}
             
             # Delete chunks first (foreign key constraint)
-            cur.execute('DELETE FROM "DocumentChunk" WHERE "documentId" = %s', (doc_id,))
+            cur.execute('DELETE FROM document_chunks WHERE document_id = %s', (doc_id,))
             
             # Delete document
-            cur.execute('DELETE FROM "Document" WHERE id = %s', (doc_id,))
+            cur.execute('DELETE FROM documents WHERE id = %s', (doc_id,))
             
             conn.commit()
         
@@ -465,7 +465,7 @@ async def bulk_upload_from_directory(
                 with db_config.get_db_connection() as conn:
                     cur = conn.cursor()
                     cur.execute("""
-                        INSERT INTO "Document" (id, title, "storagePath", "uploadedAt")
+                        INSERT INTO documents (id, title, storage_path, uploaded_at)
                         VALUES (%s, %s, %s, %s)
                     """, (doc_id, file_path.name, str(file_path), created_at))
                     conn.commit()

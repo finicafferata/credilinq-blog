@@ -148,7 +148,7 @@ def _sync_company_profile_to_kb(profile: CompanyProfile):
             cur = conn.cursor()
             # Insert into existing documents table
             cur.execute(
-                'INSERT INTO documents (id, title, "storagePath", "uploadedAt") VALUES (%s, %s, %s, %s)',
+                'INSERT INTO documents (id, title, storage_path, uploaded_at) VALUES (%s, %s, %s, %s)',
                 (doc_id, title, file_path, created_at)
             )
             conn.commit()
@@ -157,9 +157,9 @@ def _sync_company_profile_to_kb(profile: CompanyProfile):
         pass
 
     # Process synchronously here to guarantee immediate availability
-    from ...agents.specialized.document_processor import DocumentProcessorAgent
-    processor = DocumentProcessorAgent()
     try:
+        from ...agents.specialized.document_processor import DocumentProcessorAgent
+        processor = DocumentProcessorAgent()
         processor.execute_safe({
             "document_id": doc_id,
             "file_path": file_path
