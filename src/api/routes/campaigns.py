@@ -35,7 +35,7 @@ router = APIRouter(tags=["campaigns"])
 
 # Pipeline selection request model for rerun agents
 class CampaignRerunRequest(BaseModel):
-    pipeline: str = "advanced_orchestrator"  # "advanced_orchestrator", "optimized_pipeline", "autonomous_workflow"
+    pipeline: str = "optimized_pipeline"  # "advanced_orchestrator", "optimized_pipeline", "autonomous_workflow"
     rerun_all: bool = True
     preserve_approved: bool = False
     include_optimization: bool = True
@@ -2832,7 +2832,10 @@ async def rerun_campaign_agents(campaign_id: str, rerun_request: CampaignRerunRe
         
         # Convert Pydantic model to dict for legacy compatibility
         rerun_dict = rerun_request.model_dump() if hasattr(rerun_request, 'model_dump') else rerun_request.__dict__
-        pipeline_type = rerun_dict.get("pipeline", "advanced_orchestrator")
+        logger.info(f"📋 Received rerun_dict: {rerun_dict}")
+        
+        # Try both possible parameter names for pipeline type
+        pipeline_type = rerun_dict.get("pipeline", rerun_dict.get("pipeline_type", "advanced_orchestrator"))
         
         logger.info(f"🔄 Rerunning agents for campaign: {campaign_id} using {pipeline_type} pipeline")
         
