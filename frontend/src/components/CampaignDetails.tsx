@@ -69,6 +69,10 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
     action: 'approve' as 'approve' | 'reject' | 'request_revision'
   });
 
+  // Pipeline selection state
+  const [showPipelineModal, setShowPipelineModal] = useState(false);
+  const [selectedPipeline, setSelectedPipeline] = useState('advanced_orchestrator');
+
   // Helper functions to intelligently extract campaign information from multiple sources
   const getCampaignStrategy = () => {
     // Try metadata first, then strategy object, then infer from name/tasks
@@ -213,32 +217,27 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
     }
   };
 
-  // Rerun agents on all campaign content
-  const handleRerunAgents = async () => {
+  // Show pipeline selection modal
+  const handleRerunAgents = () => {
+    setShowPipelineModal(true);
+  };
+
+  // Execute rerun with selected pipeline
+  const executeRerunAgents = async () => {
     try {
       setExecutingAll(true);
-      
-      // Show confirmation dialog
-      const confirmed = window.confirm(
-        campaignTasks.length === 0 ?
-          'This will run all AI agents to generate campaign content with the latest AI improvements and optimizations. Are you sure you want to continue?' :
-          'This will rerun all AI agents on your campaign content with the latest improvements and optimizations. Existing content will be regenerated. Are you sure you want to continue?'
-      );
-      
-      if (!confirmed) {
-        setExecutingAll(false);
-        return;
-      }
+      setShowPipelineModal(false);
 
       console.log('Rerunning agents for campaign:', campaign.id);
       
       // Call the campaign orchestration API to rerun the full workflow
-      const response = await fetch(`/api/v2/campaigns/${campaign.id}/rerun-agents`, {
+      const response = await fetch(`/api/v2/campaigns/orchestration/campaigns/${campaign.id}/rerun-agents`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          pipeline: selectedPipeline,
           rerun_all: true,
           include_optimization: true,
           preserve_approved: false // Set to true if you want to preserve already approved content
@@ -2092,6 +2091,125 @@ export function CampaignDetails({ campaign, onClose, fullPage = false }: Campaig
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pipeline Selection Modal */}
+      {showPipelineModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">Select AI Pipeline</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Choose the workflow for regenerating campaign content
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <div className="space-y-4">
+                {/* Pipeline Options */}
+                <div className="space-y-3">
+                  <label className="flex items-start space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="pipeline"
+                      value="optimized_pipeline"
+                      checked={selectedPipeline === 'optimized_pipeline'}
+                      onChange={(e) => setSelectedPipeline(e.target.value)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium text-gray-900">Optimized Pipeline</span>
+                        <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full font-medium">
+                          30% Faster
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Phase-based execution with parallel processing for maximum performance.
+                        Best for speed and efficiency.
+                      </p>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="pipeline"
+                      value="advanced_orchestrator"
+                      checked={selectedPipeline === 'advanced_orchestrator'}
+                      onChange={(e) => setSelectedPipeline(e.target.value)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium text-gray-900">Advanced Orchestrator</span>
+                        <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full font-medium">
+                          Smart Recovery
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Intelligent adaptive workflow with failure recovery and dynamic re-sequencing.
+                        Best for reliability and complex campaigns.
+                      </p>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="pipeline"
+                      value="autonomous_workflow"
+                      checked={selectedPipeline === 'autonomous_workflow'}
+                      onChange={(e) => setSelectedPipeline(e.target.value)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium text-gray-900">Autonomous Workflow</span>
+                        <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full font-medium">
+                          Legacy
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Traditional workflow orchestrator for compatibility.
+                        Reliable but with limited optimization features.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Warning Message */}
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <span className="font-medium">⚠️ Warning:</span> This will regenerate all campaign content. 
+                    Existing content will be overwritten unless marked as approved.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t bg-gray-50">
+              <button
+                onClick={() => setShowPipelineModal(false)}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeRerunAgents}
+                disabled={executingAll}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {executingAll ? 'Starting...' : 'Run Selected Pipeline'}
+              </button>
             </div>
           </div>
         </div>
