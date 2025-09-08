@@ -212,8 +212,7 @@ class OptimizedContentPipeline:
         
         # Recovery systems configuration
         self.enable_recovery_systems = enable_recovery_systems and RECOVERY_SYSTEMS_AVAILABLE
-        if self.enable_recovery_systems:
-            self._register_agents_for_monitoring()
+        self._monitoring_registered = False
         
         # Build the optimized workflow
         self.workflow = self._build_optimized_workflow()
@@ -299,6 +298,11 @@ class OptimizedContentPipeline:
     async def initialize_pipeline(self, state: OptimizedContentPipelineState) -> OptimizedContentPipelineState:
         """Initialize the optimized content pipeline."""
         logger.info("🚀 Initializing Optimized Content Creation Pipeline")
+        
+        # Register agents for monitoring (one-time setup)
+        if self.enable_recovery_systems and not self._monitoring_registered:
+            await self._register_agents_for_monitoring()
+            self._monitoring_registered = True
         
         # Initialize workflow metadata
         state['workflow_id'] = state.get('workflow_id', f"optimized-pipeline-{datetime.now().strftime('%Y%m%d-%H%M%S')}")
