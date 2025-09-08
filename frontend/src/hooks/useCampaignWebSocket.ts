@@ -71,11 +71,22 @@ export const useCampaignWebSocket = (
   const pingInterval = 30000; // 30 seconds
 
   const getWebSocketUrl = useCallback((campaignId: string) => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname;
-    const port = window.location.hostname === 'localhost' ? '8000' : window.location.port;
-    const portSuffix = port ? `:${port}` : '';
-    return `${protocol}//${host}${portSuffix}/api/v2/campaigns/ws/campaign/${campaignId}/status`;
+    // Get the API base URL from environment or current location
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    
+    if (apiBaseUrl) {
+      // Use the configured API base URL (Railway backend)
+      const url = new URL(apiBaseUrl);
+      const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${protocol}//${url.host}/api/v2/campaigns/ws/campaign/${campaignId}/status`;
+    } else {
+      // Fallback to current location (for localhost development)
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.hostname;
+      const port = window.location.hostname === 'localhost' ? '8000' : window.location.port;
+      const portSuffix = port ? `:${port}` : '';
+      return `${protocol}//${host}${portSuffix}/api/v2/campaigns/ws/campaign/${campaignId}/status`;
+    }
   }, []);
 
   const sendMessage = useCallback((message: string) => {

@@ -46,8 +46,8 @@ def start_langgraph_service():
     disable_langgraph = os.environ.get('DISABLE_LANGGRAPH', '').lower() == 'true'
     is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
     
-    # Disable LangGraph in Railway environment for now to avoid startup issues
-    if disable_langgraph or is_railway:
+    # Only disable LangGraph if explicitly set to true, regardless of Railway environment
+    if disable_langgraph:
         print("⚠️ LangGraph service disabled for this deployment environment")
         return False
     
